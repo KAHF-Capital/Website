@@ -120,8 +120,8 @@ export default function Home() {
             {strategies.map((strategy, index) => (
               <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                    <strategy.icon className="h-6 w-6 text-gray-700" />
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                    <strategy.icon className="h-6 w-6 text-green-600" />
                   </div>
                   <h4 className="text-lg font-semibold text-gray-900 mb-3">{strategy.name}</h4>
                   <p className="text-gray-600 text-base leading-relaxed">{strategy.description}</p>
@@ -132,7 +132,7 @@ export default function Home() {
           
           <div className="text-center">
             <Link to="/learning">
-              <button className="border border-gray-300 text-gray-900 hover:bg-gray-50 px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
+              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
                 <BookOpen className="mr-2 h-5 w-5 inline" />
                 Learn More
               </button>
