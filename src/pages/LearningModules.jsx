@@ -345,11 +345,18 @@ export default function LearningModules() {
               <p className="text-gray-700 text-base mb-4 leading-relaxed">
                 Get our comprehensive 50-page e-book. Covers everything from placing your first trade to advanced dark pool data analysis, position management, and execution.
               </p>
-              <a href="https://buy.stripe.com/cNi28tdb74N6d8L6lz0oM00" target="_blank" rel="noopener noreferrer" className="block">
-                <button className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation">
-                  Get the E-book
-                </button>
-              </a>
+              <div className="space-y-3">
+                <a href="https://buy.stripe.com/cNi28tdb74N6d8L6lz0oM00" target="_blank" rel="noopener noreferrer" className="block">
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation">
+                    Get the E-book
+                  </button>
+                </a>
+                <a href="https://drive.google.com/file/d/14qD4ymEE-ERRixn0HxtEEcWrkuPWaUZd/view?usp=sharing" target="_blank" rel="noopener noreferrer" className="block">
+                  <button className="w-full bg-gray-600 hover:bg-gray-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation">
+                    See Preview
+                  </button>
+                </a>
+              </div>
             </div>
           </div>
         </div>
