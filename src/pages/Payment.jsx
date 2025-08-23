@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Loader2, Smartphone, Eye } from 'lucide-react';
-import EbookPreview from '../components/EbookPreview';
+import { ArrowLeft, CheckCircle, Loader2, Smartphone } from 'lucide-react';
 
 export default function Payment() {
     const [email, setEmail] = useState('');
@@ -10,10 +9,7 @@ export default function Payment() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState('');
-    const [showPreview, setShowPreview] = useState(false);
-    
-    // Debug logging
-    console.log('Payment component rendered, showPreview:', showPreview);
+
 
     const handlePayment = async (e) => {
         e.preventDefault();
@@ -109,20 +105,6 @@ export default function Payment() {
                         <div className="text-center mt-4">
                             <span className="text-3xl font-bold text-gray-900">$19.99</span>
                         </div>
-                        <div className="mt-4 text-center">
-                            <button
-                                onClick={() => {
-                                    console.log('Preview button clicked, setting showPreview to true');
-                                    setShowPreview(true);
-                                }}
-                                className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-medium transition-colors shadow-lg"
-                                style={{ border: '2px solid #2563eb' }}
-                            >
-                                <Eye className="h-5 w-5 mr-2" />
-                                View Preview
-                            </button>
-                            <p className="text-xs text-gray-500 mt-2">Click to preview the e-book content</p>
-                        </div>
                     </div>
                     <div className="p-6 space-y-6">
                         <div className="space-y-4">
@@ -202,12 +184,6 @@ export default function Payment() {
                     </div>
                 </div>
             </div>
-            
-            {/* E-book Preview Modal */}
-            <EbookPreview 
-                isOpen={showPreview} 
-                onClose={() => setShowPreview(false)} 
-            />
         </div>
     );
 }
