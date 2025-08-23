@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Loader2, Smartphone } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, Smartphone, Eye } from 'lucide-react';
+import EbookPreview from '../components/EbookPreview';
 
 export default function Payment() {
     const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export default function Payment() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
 
     const handlePayment = async (e) => {
         e.preventDefault();
@@ -104,6 +106,15 @@ export default function Payment() {
                         <div className="text-center mt-4">
                             <span className="text-3xl font-bold text-gray-900">$19.99</span>
                         </div>
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setShowPreview(true)}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Preview
+                            </button>
+                        </div>
                     </div>
                     <div className="p-6 space-y-6">
                         <div className="space-y-4">
@@ -183,6 +194,12 @@ export default function Payment() {
                     </div>
                 </div>
             </div>
+            
+            {/* E-book Preview Modal */}
+            <EbookPreview 
+                isOpen={showPreview} 
+                onClose={() => setShowPreview(false)} 
+            />
         </div>
     );
 }
