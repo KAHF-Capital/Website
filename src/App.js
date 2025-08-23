@@ -2,6 +2,7 @@ import React from 'react';
 import Home from './pages/Home';
 import LearningModules from './pages/LearningModules';
 import Payment from './pages/Payment.jsx';
+import Confirmation from './pages/Confirmation.jsx';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/learning" element={<LearningModules />} />
         <Route path="/payment" element={<Payment />} />
+        <Route path="/confirmation" element={<Confirmation />} />
       </Routes>
     </Router>
   );
