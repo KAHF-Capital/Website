@@ -58,8 +58,22 @@ export default function Payment() {
                 <div className="w-full max-w-md text-center bg-white rounded-lg shadow-lg p-6">
                     <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold mb-2">Purchase Successful!</h2>
-                    <p className="text-base text-gray-600 mb-4">Your e-book has been sent to {email}.</p>
-                    <p className="text-gray-600 text-base mb-6">Please check your inbox (and spam folder) to download it.</p>
+                    <p className="text-base text-gray-600 mb-4">Thank you for your purchase!</p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <h3 className="text-lg font-semibold text-green-800 mb-2">Your E-Book is Ready</h3>
+                        <p className="text-green-700 text-sm mb-4">"Mastering Volatility Trading: Institutional Strategies Unveiled"</p>
+                        <a 
+                            href="https://drive.google.com/file/d/1b6daQAjsQqd6rhrZTvJ3h-w7sjtVxWoG/view?usp=sharing" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block"
+                        >
+                            <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg text-base font-medium touch-manipulation mb-4">
+                                Download Your E-Book
+                            </button>
+                        </a>
+                        <p className="text-green-600 text-xs">A copy has also been sent to {email}</p>
+                    </div>
                     <Link to="/" className="w-full inline-block">
                         <button className="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 px-4 rounded-lg text-base font-medium touch-manipulation">
                             Back to Home
