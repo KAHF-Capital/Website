@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-book Preview Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .preview-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .preview-button:hover {
+            background: #1d4ed8;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.75);
+            z-index: 9999;
+        }
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #666;
+        }
+        .page-content {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>E-book Preview Test</h1>
+        <p>This is a simple test to verify the preview functionality works.</p>
+        
+        <button class="preview-button" onclick="openPreview()">
+            👁️ View Preview
+        </button>
+        
+        <div id="previewModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closePreview()">&times;</span>
+                <h2>E-book Preview</h2>
+                <div class="page-content">
+                    <h3>Page 1: FOREWORD</h3>
+                    <p>In the following pages, you will find a step-by-step guide on how to use institutional-level strategies to maximize your trading profits. From A to Z. Zero to hero. Truly a definitive guide designed for the retail investor.</p>
+                </div>
+                <div class="page-content">
+                    <h3>Page 2: MASTERING VOLATILITY TRADING</h3>
+                    <p><strong>Institutional Strategies Unveiled</strong></p>
+                    <p>2025 Edition</p>
+                    <p>KAHF Capital</p>
+                </div>
+                <div class="page-content">
+                    <h3>Page 3: Introduction</h3>
+                    <p>Though you might be asking how we know these strategies work, or why we're selling a $20 e-book instead of deploying the strategy ourselves. The answer is simple: We know because we do this. Every single day.</p>
+                </div>
+                <p><em>This is a test preview. The actual React component should work similarly.</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openPreview() {
+            console.log('Opening preview modal');
+            document.getElementById('previewModal').style.display = 'block';
+        }
+        
+        function closePreview() {
+            console.log('Closing preview modal');
+            document.getElementById('previewModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('previewModal');
+            if (event.target === modal) {
+                closePreview();
+            }
+        }
+    </script>
+</body>
+</html>

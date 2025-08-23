@@ -5,6 +5,9 @@ const EbookPreview = ({ isOpen, onClose }) => {
     const [currentPage, setCurrentPage] = useState(0);
     const [zoom, setZoom] = useState(1);
 
+    // Debug logging
+    console.log('EbookPreview rendered, isOpen:', isOpen);
+
     const pages = [
         {
             id: 3,
@@ -218,10 +221,15 @@ const EbookPreview = ({ isOpen, onClose }) => {
         );
     };
 
-    if (!isOpen) return null;
+    if (!isOpen) {
+        console.log('EbookPreview: Modal is closed, returning null');
+        return null;
+    }
+    
+    console.log('EbookPreview: Modal is open, rendering content');
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999] p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
             <div className="bg-white rounded-lg w-full max-w-6xl h-full max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200">
