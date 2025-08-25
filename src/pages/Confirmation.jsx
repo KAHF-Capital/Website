@@ -109,7 +109,7 @@ export default function Confirmation() {
               </div>
               <div>
                 <p className="text-gray-700 font-medium">Review the learning modules on our website</p>
-                <p className="text-gray-600 text-sm">Practice with the interactive examples</p>
+                <p className="text-gray-600 text-sm">Study the strategy summaries and overviews</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">

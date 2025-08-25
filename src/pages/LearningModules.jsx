@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
 import Footer from './Footer';
 
 export default function LearningModules() {
@@ -14,7 +14,6 @@ export default function LearningModules() {
       name: "Long Straddle",
       icon: TrendingUp,
       difficulty: "Intermediate",
-      duration: "30 min",
       description: "Profit from high volatility movements in either direction",
       overview: "The long straddle involves buying both a call and put option at the same strike price and expiration date. This strategy profits from significant price movements in either direction.",
       whenToUse: [
@@ -44,7 +43,6 @@ export default function LearningModules() {
       name: "Short Straddle",
       icon: Target,
       difficulty: "Advanced",
-      duration: "35 min",
       description: "Capitalize on low volatility and time decay",
       overview: "The short straddle involves selling both a call and put at the same strike price. This strategy profits from low volatility and time decay when the stock stays within a specific range.",
       whenToUse: [
@@ -74,7 +72,6 @@ export default function LearningModules() {
       name: "Iron Condor",
       icon: BarChart3,
       difficulty: "Intermediate",
-      duration: "40 min",
       description: "Generate income in sideways markets with defined risk",
       overview: "The iron condor combines a bull put spread and bear call spread to create a defined-risk, income-generating strategy that profits from low volatility and time decay.",
       whenToUse: [
@@ -104,7 +101,6 @@ export default function LearningModules() {
       name: "Reverse Iron Condor",
       icon: Shield,
       difficulty: "Advanced",
-      duration: "45 min",
       description: "Benefit from breakout moves with limited risk",
       overview: "The reverse iron condor is designed to profit from significant price movements while limiting risk. It's essentially the opposite of a traditional iron condor.",
       whenToUse: [
@@ -290,8 +286,7 @@ export default function LearningModules() {
                     </span>
                   </div>
                   <p className="text-gray-600 text-xs flex items-center justify-center">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {strategy.duration}
+                    {/* Removed Clock icon and duration text */}
                   </p>
                 </div>
               </div>
