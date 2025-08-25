@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Download, BookOpen, Shield, TrendingUp } from 'lucide-react';
+import Footer from './Footer';
 
 export default function Confirmation() {
   return (
@@ -140,6 +141,7 @@ export default function Confirmation() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

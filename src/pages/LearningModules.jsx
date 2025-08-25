@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle, Clock } from 'lucide-react';
+import Footer from './Footer';
 
 export default function LearningModules() {
   const [activeStrategy, setActiveStrategy] = useState("long-straddle");
@@ -358,6 +359,7 @@ export default function LearningModules() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

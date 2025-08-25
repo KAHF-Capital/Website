@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Smartphone } from 'lucide-react';
+import Footer from './Footer';
 
 export default function Payment() {
     const [email, setEmail] = useState('');
@@ -98,6 +99,7 @@ export default function Payment() {
                     </div>
                 </div>
             </div>
+            <Footer />
         </div>
     );
 }

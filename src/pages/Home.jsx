@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, BarChart3, Target, Shield, ArrowRight, BookOpen, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Footer from './Footer';
 
 export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -142,21 +143,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <img 
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
-              alt="KAHF Capital Logo" 
-              className="h-8 w-auto"
-            />
-            <span className="text-gray-900 font-semibold text-base">KAHF Capital</span>
-          </div>
-          <p className="text-gray-600 text-base">
-            Educational content for options volatility trading
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
