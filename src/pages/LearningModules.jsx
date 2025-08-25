@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle, Clock } from 'lucide-react';
 
 export default function LearningModules() {
   const [activeStrategy, setActiveStrategy] = useState("long-straddle");
   const [activeTab, setActiveTab] = useState("overview");
+  const navigate = useNavigate();
 
   const strategies = {
     "long-straddle": {
@@ -346,16 +347,12 @@ export default function LearningModules() {
                 Get our comprehensive 50-page e-book. Covers everything from placing your first trade to advanced dark pool data analysis, position management, and execution.
               </p>
               <div className="space-y-3">
-                <a href="https://buy.stripe.com/cNi28tdb74N6d8L6lz0oM00" target="_blank" rel="noopener noreferrer" className="block">
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation">
-                    Get the E-book
-                  </button>
-                </a>
-                <a href="https://drive.google.com/file/d/14qD4ymEE-ERRixn0HxtEEcWrkuPWaUZd/view?usp=sharing" target="_blank" rel="noopener noreferrer" className="block">
-                  <button className="w-full bg-gray-600 hover:bg-gray-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation">
-                    See Preview
-                  </button>
-                </a>
+                <button 
+                  onClick={() => navigate('/confirmation')}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation"
+                >
+                  Get the E-book
+                </button>
               </div>
             </div>
           </div>
