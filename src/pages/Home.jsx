@@ -55,6 +55,9 @@ export default function Home() {
               <Link to="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Learning Modules
               </Link>
+              <Link to="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Scanner
+              </Link>
             </nav>
             <div className="sm:hidden">
               <button className="p-2 text-gray-900 hover:text-green-600 touch-manipulation" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -78,6 +81,9 @@ export default function Home() {
                 </Link>
                 <Link to="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Learning Modules
+                </Link>
+                <Link to="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Scanner
                 </Link>
               </nav>
             </motion.div>
