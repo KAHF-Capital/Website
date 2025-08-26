@@ -4,6 +4,7 @@ import LearningModules from './pages/LearningModules';
 import Scanner from './pages/Scanner';
 import Payment from './pages/Payment.jsx';
 import Confirmation from './pages/Confirmation.jsx';
+import PortfolioIQ from './pages/PortfolioIQ';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/scanner" element={<Scanner />} />
         <Route path="/payment" element={<Payment />} />
         <Route path="/confirmation" element={<Confirmation />} />
+        <Route path="/portfolioiq" element={<PortfolioIQ />} />
       </Routes>
     </Router>
   );

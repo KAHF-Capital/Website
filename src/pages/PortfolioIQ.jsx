@@ -4,12 +4,12 @@ import { TrendingUp, PieChart, BarChart3, Plus, Home, LogOut, User as UserIcon, 
 import { motion } from 'framer-motion';
 
 // Import PortfolioIQ components
-import PortfolioIQLayout from '../components/portfolioiq/Layout';
-import Portfolio from '../components/portfolioiq/Portfolio';
-import Analytics from '../components/portfolioiq/Analytics';
-import AddStock from '../components/portfolioiq/AddStock';
-import Auth from '../components/portfolioiq/Auth';
-import CompleteProfile from '../components/portfolioiq/CompleteProfile';
+import PortfolioIQLayout from './PortfolioIQ/Layout';
+import Portfolio from './PortfolioIQ/Portfolio';
+import Analytics from './PortfolioIQ/Analytics';
+import AddStock from './PortfolioIQ/AddStock';
+import Auth from './PortfolioIQ/Auth';
+import CompleteProfile from './PortfolioIQ/CompleteProfile';
 
 export default function PortfolioIQPage() {
   const [currentView, setCurrentView] = useState('portfolio');
