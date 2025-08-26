@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Search, TrendingUp, Zap, Filter } from "lucide-react";
+import { Search, TrendingUp, Zap, Filter, Settings } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,6 +12,7 @@ import {
 } from "../components/ui/select";
 
 import OpportunityCard from "../components/trading/OpportunityCard";
+import ApiKeyInput from "../components/ApiKeyInput";
 
 export default function Scanner() {
   const [opportunities, setOpportunities] = useState([]);
@@ -20,6 +21,8 @@ export default function Scanner() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("profit");
   const [minProfit, setMinProfit] = useState("");
+  const [isApiInitialized, setIsApiInitialized] = useState(false);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   // Mock data for opportunities
   const mockOpportunities = [
@@ -92,12 +95,40 @@ export default function Scanner() {
   ];
 
   useEffect(() => {
-    // Simulate loading delay
-    setTimeout(() => {
-      setOpportunities(mockOpportunities);
+    // Check if API is initialized
+    const storedApiKey = localStorage.getItem('polygon_api_key');
+    if (storedApiKey) {
+      setIsApiInitialized(true);
+      fetchOpportunities();
+    } else {
       setIsLoading(false);
-    }, 1000);
+    }
   }, []);
+
+  const fetchOpportunities = async () => {
+    try {
+      const response = await fetch('/api/opportunities');
+      if (response.ok) {
+        const data = await response.json();
+        setOpportunities(data);
+      } else {
+        // Fallback to mock data if API fails
+        setOpportunities(mockOpportunities);
+      }
+    } catch (error) {
+      console.error('Error fetching opportunities:', error);
+      // Fallback to mock data
+      setOpportunities(mockOpportunities);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApiKeySet = (apiKey) => {
+    setIsApiInitialized(true);
+    setShowApiKeyInput(false);
+    fetchOpportunities();
+  };
 
   useEffect(() => {
     let filtered = opportunities;
@@ -146,8 +177,16 @@ export default function Scanner() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Scanning for opportunities...</p>
+          <p className="mt-4 text-gray-600">Loading scanner...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!isApiInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <ApiKeyInput onApiKeySet={handleApiKeySet} />
       </div>
     );
   }
@@ -171,6 +210,15 @@ export default function Scanner() {
                 <TrendingUp className="h-4 w-4" />
                 <span>{filteredOpportunities.length} Opportunities</span>
               </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowApiKeyInput(true)}
+                className="flex items-center space-x-1"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -244,6 +292,27 @@ export default function Scanner() {
           </div>
         )}
       </div>
+
+      {/* API Key Input Modal */}
+      {showApiKeyInput && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <ApiKeyInput 
+              onApiKeySet={handleApiKeySet} 
+              isInitialized={isApiInitialized}
+            />
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowApiKeyInput(false)}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

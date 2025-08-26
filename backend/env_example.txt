@@ -1,0 +1,16 @@
+# Polygon.io API Configuration
+POLYGON_API_KEY=your_polygon_api_key_here
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/dark_pool_analytics
+
+# Redis Configuration (for caching and Celery)
+REDIS_URL=redis://localhost:6379
+
+# Application Settings
+DEBUG=True
+LOG_LEVEL=INFO
+
+# WebSocket Configuration
+WEBSOCKET_URL=wss://socket.polygon.io/stocks
+REST_API_URL=https://api.polygon.io
