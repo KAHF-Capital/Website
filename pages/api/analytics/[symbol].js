@@ -11,9 +11,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Symbol is required' });
     }
 
-    // If no API key, return mock data
+    // Check if API key is configured
     if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE') {
-      return res.status(200).json(getMockAnalytics(symbol));
+      return res.status(400).json({ 
+        error: 'Polygon.io API key not configured. Please add your API key to .env.local' 
+      });
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -48,8 +50,10 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error getting stock analytics:', error);
-    // Fallback to mock data
-    return res.status(200).json(getMockAnalytics(req.query.symbol));
+    return res.status(500).json({ 
+      error: 'Failed to fetch stock analytics',
+      details: error.message 
+    });
   }
 }
 
@@ -127,37 +131,5 @@ function analyzeDarkPoolActivity(symbol, currentTrades, historicalTrades) {
       threshold_met: activityRatio >= 3.0,
       volume_threshold_met: currentTotalVolume > 100000
     }
-  };
-}
-
-function getMockAnalytics(symbol) {
-  return {
-    symbol: symbol.toUpperCase(),
-    current_activity: {
-      volume: Math.floor(Math.random() * 2000000) + 500000,
-      trades: Math.floor(Math.random() * 100) + 20,
-      avg_price: Math.floor(Math.random() * 200) + 50,
-      activity_ratio: (Math.random() * 5) + 1
-    },
-    historical_activity: {
-      volume: Math.floor(Math.random() * 5000000) + 1000000,
-      trades: Math.floor(Math.random() * 500) + 100,
-      avg_price: Math.floor(Math.random() * 200) + 50
-    },
-    volatility: {
-      implied: (Math.random() * 0.5) + 0.1,
-      historical: (Math.random() * 0.5) + 0.1,
-      spread: (Math.random() * 0.2) - 0.1
-    },
-    is_opportunity: Math.random() > 0.5,
-    opportunity_score: Math.floor(Math.random() * 100) + 50,
-    last_updated: new Date().toISOString(),
-    recent_trades: Array.from({ length: 10 }, (_, i) => ({
-      price: Math.floor(Math.random() * 200) + 50,
-      size: Math.floor(Math.random() * 10000) + 1000,
-      timestamp: new Date(Date.now() - i * 60000).toISOString(),
-      conditions: [],
-      is_dark_pool: Math.random() > 0.7
-    }))
   };
 }

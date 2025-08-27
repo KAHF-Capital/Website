@@ -128,12 +128,12 @@ export default function Confirmation() {
         <div className="text-center mt-8">
           <p className="text-gray-600 mb-4">Need help or have questions?</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/learning">
+            <Link href="/learning">
               <button className="bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg py-3 px-6 touch-manipulation">
                 Return to Learning Modules
               </button>
             </Link>
-            <Link to="/">
+            <Link href="/">
               <button className="bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg py-3 px-6 touch-manipulation">
                 Back to Home
               </button>

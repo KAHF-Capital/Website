@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Search, TrendingUp, Zap, Filter, Settings } from "lucide-react";
+import { Search, TrendingUp, Zap, Filter, Settings, AlertTriangle, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,81 +18,12 @@ export default function Scanner() {
   const [opportunities, setOpportunities] = useState([]);
   const [filteredOpportunities, setFilteredOpportunities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("profit");
   const [minProfit, setMinProfit] = useState("");
   const [isApiInitialized, setIsApiInitialized] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-
-  // Mock data for opportunities
-  const mockOpportunities = [
-    {
-      id: 1,
-      symbol: "AAPL",
-      strategy_type: "Long Volatility Play",
-      vol_spread: 4.2,
-      implied_vol: 0.28,
-      realized_vol: 0.235,
-      expected_profit: 1250,
-      confidence: 87,
-      risk_level: "medium"
-    },
-    {
-      id: 2,
-      symbol: "TSLA", 
-      strategy_type: "Vol Crush Trade",
-      vol_spread: -6.8,
-      implied_vol: 0.65,
-      realized_vol: 0.72,
-      expected_profit: 2100,
-      confidence: 92,
-      risk_level: "high"
-    },
-    {
-      id: 3,
-      symbol: "SPY",
-      strategy_type: "Calendar Spread",
-      vol_spread: 2.1,
-      implied_vol: 0.18,
-      realized_vol: 0.16,
-      expected_profit: 850,
-      confidence: 78,
-      risk_level: "low"
-    },
-    {
-      id: 4,
-      symbol: "NVDA",
-      strategy_type: "Long Straddle",
-      vol_spread: 5.3,
-      implied_vol: 0.42,
-      realized_vol: 0.365,
-      expected_profit: 1680,
-      confidence: 85,
-      risk_level: "medium"
-    },
-    {
-      id: 5,
-      symbol: "QQQ",
-      strategy_type: "Iron Condor",
-      vol_spread: -3.2,
-      implied_vol: 0.22,
-      realized_vol: 0.255,
-      expected_profit: 920,
-      confidence: 81,
-      risk_level: "low"
-    },
-    {
-      id: 6,
-      symbol: "AMZN",
-      strategy_type: "Volatility Spread",
-      vol_spread: 3.7,
-      implied_vol: 0.35,
-      realized_vol: 0.315,
-      expected_profit: 1425,
-      confidence: 89,
-      risk_level: "medium"
-    }
-  ];
 
   useEffect(() => {
     // Check if API is initialized
@@ -102,23 +33,28 @@ export default function Scanner() {
       fetchOpportunities();
     } else {
       setIsLoading(false);
+      setError('API key not configured. Please add your Polygon.io API key to get started.');
     }
   }, []);
 
   const fetchOpportunities = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
       const response = await fetch('/api/opportunities');
+      const data = await response.json();
+      
       if (response.ok) {
-        const data = await response.json();
         setOpportunities(data);
       } else {
-        // Fallback to mock data if API fails
-        setOpportunities(mockOpportunities);
+        setError(data.error || 'Failed to fetch opportunities');
+        setOpportunities([]);
       }
     } catch (error) {
       console.error('Error fetching opportunities:', error);
-      // Fallback to mock data
-      setOpportunities(mockOpportunities);
+      setError('Network error. Please check your connection and try again.');
+      setOpportunities([]);
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +63,7 @@ export default function Scanner() {
   const handleApiKeySet = (apiKey) => {
     setIsApiInitialized(true);
     setShowApiKeyInput(false);
+    setError(null);
     fetchOpportunities();
   };
 
@@ -224,6 +161,30 @@ export default function Scanner() {
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-400 mr-3" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-red-800">Error Loading Data</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchOpportunities}
+                className="flex items-center space-x-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Retry</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
@@ -276,19 +237,31 @@ export default function Scanner() {
         </div>
 
         {/* Opportunities Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredOpportunities.map((opportunity) => (
-            <OpportunityCard key={opportunity.id} opportunity={opportunity} />
-          ))}
-        </div>
+        {!error && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredOpportunities.map((opportunity) => (
+              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            ))}
+          </div>
+        )}
 
-        {filteredOpportunities.length === 0 && (
+        {!error && filteredOpportunities.length === 0 && opportunities.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Search className="h-12 w-12 mx-auto" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities found</h3>
-            <p className="text-gray-600">Try adjusting your filters to see more results.</p>
+            <p className="text-gray-600">No trading opportunities are currently available. Check back later for new opportunities.</p>
+          </div>
+        )}
+
+        {!error && filteredOpportunities.length === 0 && opportunities.length > 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Search className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities match your filters</h3>
+            <p className="text-gray-600">Try adjusting your search criteria to see more results.</p>
           </div>
         )}
       </div>
