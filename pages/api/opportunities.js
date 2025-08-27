@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
         // Get options chain for current month expiration
         const optionsResponse = await fetch(
-          `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expiration_date.gte=${currentDate}&limit=1000&apiKey=${apiKey}`
+          `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expired=false&limit=1000&apiKey=${apiKey}`
         );
         
         let atmOptions = null;
@@ -61,8 +61,8 @@ export default async function handler(req, res) {
             atmOptions = findATMStraddleOptions(optionsData.results, currentPrice);
             if (atmOptions) {
               // Get options prices and calculate IV
-              callPrice = await getOptionPrice(atmOptions.call.contract_id, apiKey);
-              putPrice = await getOptionPrice(atmOptions.put.contract_id, apiKey);
+              callPrice = await getOptionPrice(atmOptions.call.ticker, apiKey);
+              putPrice = await getOptionPrice(atmOptions.put.ticker, apiKey);
               
               if (callPrice && putPrice) {
                 straddleCost = callPrice + putPrice;
@@ -187,56 +187,84 @@ export default async function handler(req, res) {
 
 function findATMStraddleOptions(options, currentPrice) {
   try {
+    if (!Array.isArray(options) || options.length === 0) {
+      console.log('No options data available');
+      return null;
+    }
+
+    // Filter for active options (not expired) and valid contract types
+    const validOptions = options.filter(option => 
+      option && 
+      option.contract_type && 
+      (option.contract_type === 'call' || option.contract_type === 'put') &&
+      option.expiration_date &&
+      option.strike_price &&
+      option.ticker
+    );
+
+    if (validOptions.length === 0) {
+      console.log('No valid options found');
+      return null;
+    }
+
     // Group options by expiration date
     const optionsByExpiry = {};
-    options.forEach(option => {
+    validOptions.forEach(option => {
       if (!optionsByExpiry[option.expiration_date]) {
         optionsByExpiry[option.expiration_date] = [];
       }
       optionsByExpiry[option.expiration_date].push(option);
     });
 
-    // Find the nearest expiration date
-    const expirationDates = Object.keys(optionsByExpiry).sort();
-    if (expirationDates.length === 0) return null;
+    // Find the nearest expiration date (filter out past dates)
+    const today = new Date().toISOString().split('T')[0];
+    const futureExpirations = Object.keys(optionsByExpiry)
+      .filter(date => date >= today)
+      .sort();
 
-    const nearestExpiry = expirationDates[0];
+    if (futureExpirations.length === 0) {
+      console.log('No future expiration dates found');
+      return null;
+    }
+
+    const nearestExpiry = futureExpirations[0];
     const nearestOptions = optionsByExpiry[nearestExpiry];
 
-    // Find ATM call and put
-    let atmCall = null;
-    let atmPut = null;
+    // Find ATM strike (closest to current price)
+    let atmStrike = null;
     let minDiff = Infinity;
 
     nearestOptions.forEach(option => {
       const diff = Math.abs(option.strike_price - currentPrice);
       if (diff < minDiff) {
         minDiff = diff;
-        if (option.contract_type === 'call') {
-          atmCall = option;
-        } else if (option.contract_type === 'put') {
-          atmPut = option;
-        }
+        atmStrike = option.strike_price;
       }
     });
 
-    // Find the matching put/call for the ATM strike
-    const atmStrike = atmCall ? atmCall.strike_price : atmPut ? atmPut.strike_price : null;
-    if (!atmStrike) return null;
-
-    if (!atmCall) {
-      atmCall = nearestOptions.find(opt => opt.contract_type === 'call' && opt.strike_price === atmStrike);
-    }
-    if (!atmPut) {
-      atmPut = nearestOptions.find(opt => opt.contract_type === 'put' && opt.strike_price === atmStrike);
+    if (!atmStrike) {
+      console.log('Could not determine ATM strike');
+      return null;
     }
 
-    if (!atmCall || !atmPut) return null;
+    // Find call and put for the ATM strike
+    const atmCall = nearestOptions.find(opt => 
+      opt.contract_type === 'call' && opt.strike_price === atmStrike
+    );
+    const atmPut = nearestOptions.find(opt => 
+      opt.contract_type === 'put' && opt.strike_price === atmStrike
+    );
+
+    if (!atmCall || !atmPut) {
+      console.log('Could not find both call and put for ATM strike');
+      return null;
+    }
 
     // Calculate days to expiry
     const expiryDate = new Date(nearestExpiry);
-    const today = new Date();
-    const daysToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+
+    console.log(`Found ATM straddle for ${atmCall.underlying_ticker}: Call ${atmCall.ticker}, Put ${atmPut.ticker}, Strike $${atmStrike}, Expiry ${nearestExpiry} (${daysToExpiry} days)`);
 
     return {
       call: atmCall,
@@ -251,20 +279,28 @@ function findATMStraddleOptions(options, currentPrice) {
   }
 }
 
-async function getOptionPrice(contractId, apiKey) {
+async function getOptionPrice(contractTicker, apiKey) {
   try {
     const response = await fetch(
-      `https://api.polygon.io/v2/aggs/ticker/O:${contractId}/prev?adjusted=true&apiKey=${apiKey}`
+      `https://api.polygon.io/v2/aggs/ticker/${contractTicker}/prev?adjusted=true&apiKey=${apiKey}`
     );
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`Failed to get price for ${contractTicker}: ${response.status}`);
+      return null;
+    }
     
     const data = await response.json();
-    if (!data.results || !data.results[0]) return null;
+    if (!data.results || !data.results[0]) {
+      console.log(`No price data for ${contractTicker}`);
+      return null;
+    }
     
-    return data.results[0].c; // Close price
+    const price = data.results[0].c; // Close price
+    console.log(`Got price for ${contractTicker}: $${price}`);
+    return price;
   } catch (error) {
-    console.error('Error getting option price:', error);
+    console.error(`Error getting option price for ${contractTicker}:`, error);
     return null;
   }
 }
