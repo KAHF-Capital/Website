@@ -83,13 +83,103 @@ const SafeAlertTriangle = () => {
   }
 };
 
-// Safe OpportunityCard component
-const SafeOpportunityCard = ({ opportunity }) => {
+const SafeInfo = () => {
   try {
-    const OpportunityCard = require("../components/trading/OpportunityCard").default;
-    return <OpportunityCard opportunity={opportunity} />;
+    const { Info } = require("lucide-react");
+    return <Info className="h-4 w-4" />;
   } catch (error) {
-    // Fallback card
+    return <span>ℹ️</span>;
+  }
+};
+
+const SafeX = () => {
+  try {
+    const { X } = require("lucide-react");
+    return <X className="h-4 w-4" />;
+  } catch (error) {
+    return <span>✕</span>;
+  }
+};
+
+// How It Works Modal Component
+const HowItWorksModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">How the Trading Scanner Works</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <SafeX />
+            </button>
+          </div>
+          
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">🔍 Dark Pool Detection</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>• Analyzes real-time trade data from Polygon.io</li>
+                <li>• Identifies dark pool trades (exchange ID = 4 + TRF ID present)</li>
+                <li>• Compares current dark pool activity to 90-day historical average</li>
+                <li>• Flags opportunities when activity exceeds 300% of historical average</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">📊 Volatility Analysis</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>• Calculates implied vs realized volatility spreads</li>
+                <li>• Identifies volatility arbitrage opportunities</li>
+                <li>• Determines optimal strategy based on volatility conditions</li>
+                <li>• Estimates profit potential based on historical patterns</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">🎯 Strategy Selection</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>• <strong>Long Straddle:</strong> High volatility, uncertain direction</li>
+                <li>• <strong>Long Volatility Play:</strong> Expected volatility explosion</li>
+                <li>• <strong>Volatility Explosion Play:</strong> Extreme dark pool activity</li>
+                <li>• Risk levels determined by activity ratios and market conditions</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">⚡ Real-Time Processing</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>• Continuously monitors 10 major stocks (AAPL, TSLA, NVDA, etc.)</li>
+                <li>• Updates opportunities every time you refresh</li>
+                <li>• Uses institutional-grade data from Polygon.io</li>
+                <li>• Provides same insights hedge funds use for volatility trading</li>
+              </ul>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">💡 Pro Tip</h4>
+              <p className="text-blue-800 text-sm">
+                The scanner identifies the same dark pool patterns that institutional traders use to predict volatility moves. 
+                When dark pool activity spikes, it often precedes significant price movements.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced OpportunityCard with Details and Risk Analysis
+const SafeOpportunityCard = ({ opportunity }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const [showRisk, setShowRisk] = useState(false);
+
+  try {
     if (!opportunity || typeof opportunity !== 'object') {
       return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -100,26 +190,214 @@ const SafeOpportunityCard = ({ opportunity }) => {
       );
     }
 
-    const { symbol = 'N/A', strategy_type = 'Unknown', expected_profit = 0, confidence = 0, risk_level = 'medium' } = opportunity;
+    const { 
+      symbol = 'N/A', 
+      strategy_type = 'Unknown', 
+      expected_profit = 0, 
+      confidence = 0, 
+      risk_level = 'medium',
+      vol_spread = 0,
+      implied_vol = 0,
+      realized_vol = 0,
+      dark_pool_activity_ratio = 0,
+      metadata = {}
+    } = opportunity;
+
+    const formatPercentage = (value) => `${(value * 100).toFixed(1)}%`;
+    const formatCurrency = (amount) => `$${amount.toLocaleString()}`;
 
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-bold text-gray-900">{symbol}</h3>
             <p className="text-sm text-gray-600">{strategy_type}</p>
           </div>
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            risk_level === 'high' ? 'bg-red-100 text-red-800' :
+            risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-green-100 text-green-800'
+          }`}>
             {risk_level} Risk
           </span>
         </div>
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900">${expected_profit}</p>
-          <p className="text-xs text-gray-600">Expected Profit</p>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-900">{formatCurrency(expected_profit)}</p>
+            <p className="text-xs text-gray-600">Expected Profit</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-semibold text-blue-600">{confidence}%</p>
+            <p className="text-xs text-gray-600">Confidence</p>
+          </div>
         </div>
-        <div className="text-center mt-2">
-          <p className="text-lg font-semibold text-blue-600">{confidence}%</p>
-          <p className="text-xs text-gray-600">Confidence</p>
+
+        {/* Action Buttons */}
+        <div className="flex space-x-2">
+          <SafeButton 
+            className="flex-1" 
+            size="sm"
+            onClick={() => setShowDetails(true)}
+          >
+            View Details
+          </SafeButton>
+          <SafeButton 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowRisk(true)}
+          >
+            Risk Analysis
+          </SafeButton>
+        </div>
+
+        {/* Details Modal */}
+        {showDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">{symbol} - Trade Reasoning</h3>
+                  <button onClick={() => setShowDetails(false)} className="text-gray-400 hover:text-gray-600">
+                    <SafeX />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">📊 Volatility Analysis</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Implied Volatility:</span>
+                        <span className="font-medium">{formatPercentage(implied_vol)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Realized Volatility:</span>
+                        <span className="font-medium">{formatPercentage(realized_vol)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Volatility Spread:</span>
+                        <span className={`font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {vol_spread > 0 ? '+' : ''}{vol_spread.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">🌊 Dark Pool Activity</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Activity Ratio:</span>
+                        <span className="font-medium">{dark_pool_activity_ratio.toFixed(1)}x</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Volume:</span>
+                        <span className="font-medium">{metadata.total_volume?.toLocaleString() || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Dark Pool Volume:</span>
+                        <span className="font-medium">{metadata.dark_pool_volume?.toLocaleString() || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">🎯 Strategy Rationale</h4>
+                    <p className="text-sm text-gray-700">
+                      {strategy_type === 'Long Straddle' && 
+                        'High volatility environment with uncertain price direction. Dark pool activity suggests institutional positioning for a significant move.'}
+                      {strategy_type === 'Long Volatility Play' && 
+                        'Dark pool activity indicates expected volatility increase. Institutions are positioning for explosive price movement.'}
+                      {strategy_type === 'Volatility Explosion Play' && 
+                        'Extreme dark pool activity suggests major institutional positioning. High probability of significant volatility expansion.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Risk Analysis Modal */}
+        {showRisk && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">{symbol} - Risk Analysis</h3>
+                  <button onClick={() => setShowRisk(false)} className="text-gray-400 hover:text-gray-600">
+                    <SafeX />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Risk Chart */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Risk/Reward Profile</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Max Profit:</span>
+                        <span className="font-medium text-green-600">Unlimited</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Max Loss:</span>
+                        <span className="font-medium text-red-600">Premium Paid</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Breakeven:</span>
+                        <span className="font-medium text-gray-900">Strike ± Premium</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Risk Factors */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">⚠️ Risk Factors</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      <li>• Time decay works against the position</li>
+                      <li>• Requires significant price movement to profit</li>
+                      <li>• High implied volatility increases premium cost</li>
+                      <li>• Market conditions can change rapidly</li>
+                    </ul>
+                  </div>
+
+                  {/* Risk Level Explanation */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Risk Level: {risk_level.toUpperCase()}</h4>
+                    <p className="text-sm text-gray-700">
+                      {risk_level === 'high' && 
+                        'High risk due to extreme dark pool activity and potential for significant price swings. Suitable for experienced traders only.'}
+                      {risk_level === 'medium' && 
+                        'Moderate risk with balanced reward potential. Dark pool activity suggests institutional interest but with manageable volatility.'}
+                      {risk_level === 'low' && 
+                        'Lower risk opportunity with more conservative profit potential. Suitable for traders new to volatility strategies.'}
+                    </p>
+                  </div>
+
+                  {/* Position Sizing Recommendation */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-blue-900 mb-2">💡 Position Sizing</h4>
+                    <p className="text-blue-800 text-sm">
+                      Consider allocating 1-3% of your portfolio per trade. 
+                      Higher risk levels should use smaller position sizes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  } catch (error) {
+    console.error('Error rendering opportunity card:', error);
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center text-gray-500">
+          <p>Error loading opportunity</p>
         </div>
       </div>
     );
@@ -134,6 +412,7 @@ export default function Scanner() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("profit");
   const [minProfit, setMinProfit] = useState("");
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   useEffect(() => {
     fetchOpportunities();
@@ -243,6 +522,15 @@ export default function Scanner() {
               <SafeButton
                 variant="outline"
                 size="sm"
+                onClick={() => setShowHowItWorks(true)}
+                className="flex items-center space-x-1"
+              >
+                <SafeInfo />
+                <span>How It Works</span>
+              </SafeButton>
+              <SafeButton
+                variant="outline"
+                size="sm"
                 onClick={fetchOpportunities}
                 className="flex items-center space-x-1"
               >
@@ -253,6 +541,9 @@ export default function Scanner() {
           </div>
         </div>
       </div>
+
+      {/* How It Works Modal */}
+      <HowItWorksModal isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
 
       {/* Error Display */}
       {error && (
