@@ -52,6 +52,8 @@ export default async function handler(req, res) {
         if (todayDarkPool && historicalDarkPool) {
           const activityRatio = todayDarkPool.darkPoolVolume / historicalDarkPool.avgDailyDarkPoolVolume;
           
+          console.log(`${symbol} comparison: Today DP=${todayDarkPool.darkPoolVolume.toLocaleString()}, 90-day avg=${historicalDarkPool.avgDailyDarkPoolVolume.toLocaleString()}, ratio=${activityRatio.toFixed(2)}x`);
+          
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
@@ -64,6 +66,7 @@ export default async function handler(req, res) {
             status: activityRatio >= 2.0 ? 'high_activity' : 'normal_activity'
           });
         } else {
+          console.log(`${symbol}: Missing data - today: ${!!todayDarkPool}, historical: ${!!historicalDarkPool}`);
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
@@ -125,10 +128,16 @@ async function getDarkPoolData(symbol, date, apiKey) {
       `https://api.polygon.io/v3/trades/${symbol}?date=${date}&limit=1000&apiKey=${apiKey}`
     );
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`Failed to get trades for ${symbol} on ${date}: ${response.status}`);
+      return null;
+    }
     
     const data = await response.json();
-    if (!data.results || !Array.isArray(data.results)) return null;
+    if (!data.results || !Array.isArray(data.results)) {
+      console.log(`No trade data for ${symbol} on ${date}`);
+      return null;
+    }
 
     // Filter dark pool trades (exchange = 4 AND trf_id present)
     const darkPoolTrades = data.results.filter(trade => 
@@ -140,6 +149,8 @@ async function getDarkPoolData(symbol, date, apiKey) {
     const totalVolume = data.results.reduce((sum, trade) => sum + (trade.size || 0), 0);
     const darkPoolVolume = darkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
 
+    console.log(`${symbol} today: Total trades=${data.results.length}, Dark pool trades=${darkPoolTrades.length}, Total volume=${totalVolume.toLocaleString()}, Dark pool volume=${darkPoolVolume.toLocaleString()}`);
+
     return {
       totalVolume,
       darkPoolVolume,
@@ -147,24 +158,26 @@ async function getDarkPoolData(symbol, date, apiKey) {
       totalTrades: data.results.length
     };
   } catch (error) {
-    console.error('Error getting dark pool data:', error);
+    console.error(`Error getting dark pool data for ${symbol}:`, error);
     return null;
   }
 }
 
 async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
   try {
-    // Get 90 days of historical data (sampling every 3 days to avoid rate limits)
+    // Get 90 days of historical data (sampling every 5 days to avoid rate limits but get more data points)
     const startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const endDate = new Date(currentDate);
     
     let totalDarkPoolVolume = 0;
     let totalVolume = 0;
     let daysWithData = 0;
+    let sampleDays = 0;
 
-    // Sample every 3 days to get a good representation
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 3)) {
+    // Sample every 5 days to get ~18 data points over 90 days
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 5)) {
       const dateStr = d.toISOString().split('T')[0];
+      sampleDays++;
       
       try {
         const response = await fetch(
@@ -200,6 +213,8 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
       }
     }
 
+    console.log(`Historical analysis for ${symbol}: ${daysWithData} days with data out of ${sampleDays} sampled days`);
+
     if (daysWithData === 0) {
       return {
         avgDailyDarkPoolVolume: 0,
@@ -207,9 +222,15 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
       };
     }
 
+    // Calculate average daily volumes
+    const avgDailyDarkPoolVolume = totalDarkPoolVolume / daysWithData;
+    const avgDailyTotalVolume = totalVolume / daysWithData;
+
+    console.log(`${symbol} 90-day averages: Dark Pool ${avgDailyDarkPoolVolume.toLocaleString()}, Total ${avgDailyTotalVolume.toLocaleString()}`);
+
     return {
-      avgDailyDarkPoolVolume: totalDarkPoolVolume / daysWithData,
-      avgDailyTotalVolume: totalVolume / daysWithData
+      avgDailyDarkPoolVolume: avgDailyDarkPoolVolume,
+      avgDailyTotalVolume: avgDailyTotalVolume
     };
   } catch (error) {
     console.error(`Error getting historical dark pool data for ${symbol}:`, error);

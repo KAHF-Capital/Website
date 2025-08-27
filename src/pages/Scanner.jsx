@@ -165,7 +165,12 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Dark Pool</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">90-Day Avg</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Ratio</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dark Pool %</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dark Pool %
+                      <div className="text-xs font-normal text-gray-400 mt-1">
+                        (Dark Pool Volume ÷ Total Volume) × 100
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
