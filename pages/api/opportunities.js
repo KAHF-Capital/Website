@@ -60,15 +60,25 @@ export default async function handler(req, res) {
             // Find ATM straddle options (closest to current price)
             atmOptions = findATMStraddleOptions(optionsData.results, currentPrice);
             if (atmOptions) {
-              // Use estimated options prices based on current stock price and volatility
-              // This is a simplified approach since real-time options data may not be available
-              const estimatedCallPrice = Math.max(0, currentPrice - atmOptions.strike) + (currentPrice * 0.1); // Rough estimate
-              const estimatedPutPrice = Math.max(0, atmOptions.strike - currentPrice) + (currentPrice * 0.1); // Rough estimate
+              // Get previous day's close prices for options using Polygon.io API
+              const callPriceData = await getOptionPrice(atmOptions.call.ticker, apiKey);
+              const putPriceData = await getOptionPrice(atmOptions.put.ticker, apiKey);
               
-              callPrice = estimatedCallPrice;
-              putPrice = estimatedPutPrice;
-              straddleCost = callPrice + putPrice;
-              impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
+              if (callPriceData && putPriceData) {
+                callPrice = callPriceData;
+                putPrice = putPriceData;
+                straddleCost = callPrice + putPrice;
+                impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
+              } else {
+                // Fallback to estimated prices if API fails
+                const estimatedCallPrice = Math.max(0, currentPrice - atmOptions.strike) + (currentPrice * 0.1);
+                const estimatedPutPrice = Math.max(0, atmOptions.strike - currentPrice) + (currentPrice * 0.1);
+                
+                callPrice = estimatedCallPrice;
+                putPrice = estimatedPutPrice;
+                straddleCost = callPrice + putPrice;
+                impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
+              }
             }
           }
         }
@@ -81,23 +91,26 @@ export default async function handler(req, res) {
           impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
         }
 
-        // Get historical price data for realized volatility calculation
+        // Get historical price data for realized volatility calculation (90 days for better accuracy)
         const historicalResponse = await fetch(
-          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}/${currentDate}?adjusted=true&sort=asc&limit=30&apiKey=${apiKey}`
+          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}/${currentDate}?adjusted=true&sort=asc&limit=90&apiKey=${apiKey}`
         );
         
-        if (!historicalResponse.ok) {
-          continue;
-        }
-        
-        const historicalData = await historicalResponse.json();
-        if (!historicalData.results || !Array.isArray(historicalData.results)) {
-          continue;
-        }
-
-        // Calculate realized volatility
-        if (!realizedVol && historicalData.results) {
-          realizedVol = calculateRealizedVolatility(historicalData.results);
+        if (historicalResponse.ok) {
+          const historicalData = await historicalResponse.json();
+          if (historicalData.results && Array.isArray(historicalData.results) && historicalData.results.length > 20) {
+            // Calculate realized volatility from real historical data
+            realizedVol = calculateRealizedVolatility(historicalData.results);
+            console.log(`Calculated realized volatility for ${symbol}: ${(realizedVol * 100).toFixed(1)}%`);
+          } else {
+            // Fallback to estimated volatility based on stock characteristics
+            realizedVol = estimateVolatility(currentPrice, symbol);
+            console.log(`Using estimated volatility for ${symbol}: ${(realizedVol * 100).toFixed(1)}%`);
+          }
+        } else {
+          // Fallback to estimated volatility
+          realizedVol = estimateVolatility(currentPrice, symbol);
+          console.log(`Using estimated volatility for ${symbol}: ${(realizedVol * 100).toFixed(1)}%`);
         }
 
                 // Get dark pool data for today
@@ -282,6 +295,7 @@ function findATMStraddleOptions(options, currentPrice) {
 
 async function getOptionPrice(contractTicker, apiKey) {
   try {
+    // Use Polygon.io's previous day bar endpoint for options
     const response = await fetch(
       `https://api.polygon.io/v2/aggs/ticker/${contractTicker}/prev?adjusted=true&apiKey=${apiKey}`
     );
@@ -297,8 +311,8 @@ async function getOptionPrice(contractTicker, apiKey) {
       return null;
     }
     
-    const price = data.results[0].c; // Close price
-    console.log(`Got price for ${contractTicker}: $${price}`);
+    const price = data.results[0].c; // Close price from previous day
+    console.log(`Got previous day close for ${contractTicker}: $${price}`);
     return price;
   } catch (error) {
     console.error(`Error getting option price for ${contractTicker}:`, error);
@@ -337,6 +351,40 @@ function calculateRealizedVolatility(priceData) {
   } catch (error) {
     console.error('Error calculating realized volatility:', error);
     return 0.3; // Default 30%
+  }
+}
+
+function estimateVolatility(currentPrice, symbol) {
+  try {
+    // Estimate volatility based on stock characteristics and price
+    // Higher-priced stocks tend to have lower volatility
+    // Tech stocks tend to have higher volatility
+    
+    let baseVolatility = 0.25; // 25% base volatility
+    
+    // Adjust based on price level
+    if (currentPrice > 200) {
+      baseVolatility *= 0.8; // Lower volatility for high-priced stocks
+    } else if (currentPrice < 50) {
+      baseVolatility *= 1.2; // Higher volatility for low-priced stocks
+    }
+    
+    // Adjust based on known high-volatility stocks
+    const highVolStocks = ['TSLA', 'NVDA', 'AMD', 'PLTR', 'SMCI'];
+    if (highVolStocks.includes(symbol)) {
+      baseVolatility *= 1.3;
+    }
+    
+    // Adjust based on known low-volatility stocks
+    const lowVolStocks = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'GOOGL'];
+    if (lowVolStocks.includes(symbol)) {
+      baseVolatility *= 0.8;
+    }
+    
+    return Math.min(Math.max(baseVolatility, 0.15), 0.6); // Cap between 15% and 60%
+  } catch (error) {
+    console.error('Error estimating volatility:', error);
+    return 0.25; // Default 25%
   }
 }
 
