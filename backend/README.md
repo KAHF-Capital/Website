@@ -62,7 +62,8 @@ Copy `env_example.txt` to `.env` and configure:
 
 ```env
 # Polygon.io API Configuration
-POLYGON_API_KEY=your_polygon_api_key_here
+# TODO: Replace YOUR_POLYGON_API_KEY_HERE with your actual Polygon.io API key
+POLYGON_API_KEY=YOUR_POLYGON_API_KEY_HERE
 
 # Database Configuration
 DATABASE_URL=postgresql://username:password@localhost:5432/dark_pool_analytics

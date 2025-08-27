@@ -5,7 +5,8 @@ load_dotenv()
 
 class Config:
     # Polygon.io API Configuration
-    POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+    # TODO: Replace with your actual Polygon.io API key
+    POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", "YOUR_POLYGON_API_KEY_HERE")
     WEBSOCKET_URL = os.getenv("WEBSOCKET_URL", "wss://socket.polygon.io/stocks")
     REST_API_URL = os.getenv("REST_API_URL", "https://api.polygon.io")
     
