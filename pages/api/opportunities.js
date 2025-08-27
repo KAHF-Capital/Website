@@ -15,8 +15,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // List of stocks to analyze for opportunities
-    const symbols = ['AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD'];
+    // List of stocks to analyze for opportunities (expanded list)
+    const symbols = [
+      'AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD',
+      'NFLX', 'CRM', 'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO',
+      'TXN', 'MU', 'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR'
+    ];
     const opportunities = [];
 
     // Analyze each symbol for dark pool opportunities
@@ -112,10 +116,14 @@ function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
     // Calculate historical dark pool activity (90-day average)
     const historicalDarkPoolVolume = historicalDarkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
     const historicalTotalVolume = historicalTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
-    const historicalDarkPoolRatio = historicalTotalVolume > 0 ? historicalDarkPoolVolume / historicalTotalVolume : 0;
+    
+    // Calculate 90-day average daily dark pool volume
+    const avgDailyDarkPoolVolume = historicalDarkPoolVolume / 90;
+    const avgDailyTotalVolume = historicalTotalVolume / 90;
+    const historicalDarkPoolRatio = avgDailyTotalVolume > 0 ? avgDailyDarkPoolVolume / avgDailyTotalVolume : 0;
 
-    // Calculate activity ratio (current vs historical)
-    const activityRatio = historicalDarkPoolRatio > 0 ? currentDarkPoolRatio / historicalDarkPoolRatio : 0;
+    // Calculate activity ratio (today's dark pool volume vs 90-day average daily dark pool volume)
+    const activityRatio = avgDailyDarkPoolVolume > 0 ? currentDarkPoolVolume / avgDailyDarkPoolVolume : 0;
 
     // Check if this meets our opportunity criteria
     // 1. Dark pool activity > 300% of historical average
@@ -141,7 +149,7 @@ function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
         id: Date.now() + Math.random(),
         symbol: symbol,
         strategy_type: strategyType,
-        vol_spread: (activityRatio - 1) * 100, // Convert to percentage
+        vol_spread: ((0.25 + (activityRatio - 1) * 0.1) - (0.20 + (activityRatio - 1) * 0.05)) * 100, // Implied - Realized as percentage
         implied_vol: 0.25 + (activityRatio - 1) * 0.1, // Mock implied volatility
         realized_vol: 0.20 + (activityRatio - 1) * 0.05, // Mock realized volatility
         expected_profit: expectedProfit,
@@ -155,8 +163,10 @@ function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
           activity_ratio: activityRatio,
           total_volume: currentTotalVolume,
           total_trades: currentTrades.length,
-          dark_pool_volume: currentDarkPoolVolume,
+          today_dark_pool_volume: currentDarkPoolVolume,
           dark_pool_trades: currentDarkPoolTrades.length,
+          avg_dark_pool_volume: Math.round(avgDailyDarkPoolVolume),
+          avg_total_volume: Math.round(avgDailyTotalVolume),
           historical_avg_ratio: historicalDarkPoolRatio
         }
       };

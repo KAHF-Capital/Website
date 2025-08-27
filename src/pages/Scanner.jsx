@@ -107,10 +107,10 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">How the Trading Scanner Works</h2>
+            <h2 className="text-2xl font-bold text-gray-900">How It Works</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -119,52 +119,37 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
             </button>
           </div>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">🔍 Dark Pool Detection</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li>• Analyzes real-time trade data from Polygon.io</li>
-                <li>• Identifies dark pool trades (exchange ID = 4 + TRF ID present)</li>
-                <li>• Compares current dark pool activity to 90-day historical average</li>
-                <li>• Flags opportunities when activity exceeds 300% of historical average</li>
-              </ul>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">🔍 Dark Pool Detection</h3>
+              <p className="text-gray-700 text-sm">
+                Monitors dark pool trades (exchange ID = 4) and compares today's activity to the 90-day average. 
+                When activity spikes above 300% of normal, it signals institutional positioning.
+              </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">📊 Volatility Analysis</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li>• Calculates implied vs realized volatility spreads</li>
-                <li>• Identifies volatility arbitrage opportunities</li>
-                <li>• Determines optimal strategy based on volatility conditions</li>
-                <li>• Estimates profit potential based on historical patterns</li>
-              </ul>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">📊 Volatility Analysis</h3>
+              <p className="text-gray-700 text-sm">
+                Calculates the difference between implied volatility (what options are pricing in) and realized volatility (actual price movement). 
+                Large spreads indicate potential opportunities.
+              </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">🎯 Strategy Selection</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li>• <strong>Long Straddle:</strong> High volatility, uncertain direction</li>
-                <li>• <strong>Long Volatility Play:</strong> Expected volatility explosion</li>
-                <li>• <strong>Volatility Explosion Play:</strong> Extreme dark pool activity</li>
-                <li>• Risk levels determined by activity ratios and market conditions</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">⚡ Real-Time Processing</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li>• Continuously monitors 10 major stocks (AAPL, TSLA, NVDA, etc.)</li>
-                <li>• Updates opportunities every time you refresh</li>
-                <li>• Uses institutional-grade data from Polygon.io</li>
-                <li>• Provides same insights hedge funds use for volatility trading</li>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">🎯 Strategy Types</h3>
+              <ul className="text-gray-700 text-sm space-y-1">
+                <li>• <strong>Long Straddle:</strong> Bet on big move, direction unknown</li>
+                <li>• <strong>Long Volatility:</strong> Bet on volatility increase</li>
+                <li>• <strong>Volatility Explosion:</strong> Extreme dark pool activity</li>
               </ul>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">💡 Pro Tip</h4>
+              <h4 className="font-semibold text-blue-900 mb-2">💡 Key Insight</h4>
               <p className="text-blue-800 text-sm">
-                The scanner identifies the same dark pool patterns that institutional traders use to predict volatility moves. 
-                When dark pool activity spikes, it often precedes significant price movements.
+                When dark pool activity spikes, institutions are positioning for major moves. 
+                This scanner catches the same signals hedge funds use.
               </p>
             </div>
           </div>
@@ -277,32 +262,38 @@ const SafeOpportunityCard = ({ opportunity }) => {
                         <span>Realized Volatility:</span>
                         <span className="font-medium">{formatPercentage(realized_vol)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Volatility Spread:</span>
-                        <span className={`font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {vol_spread > 0 ? '+' : ''}{vol_spread.toFixed(1)}%
-                        </span>
-                      </div>
+                                             <div className="flex justify-between">
+                         <span>Volatility Spread:</span>
+                         <span className={`font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           {vol_spread > 0 ? '+' : ''}{((implied_vol - realized_vol) * 100).toFixed(1)}%
+                         </span>
+                       </div>
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">🌊 Dark Pool Activity</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Activity Ratio:</span>
-                        <span className="font-medium">{dark_pool_activity_ratio.toFixed(1)}x</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Volume:</span>
-                        <span className="font-medium">{metadata.total_volume?.toLocaleString() || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Dark Pool Volume:</span>
-                        <span className="font-medium">{metadata.dark_pool_volume?.toLocaleString() || 'N/A'}</span>
-                      </div>
-                    </div>
-                  </div>
+                                     <div>
+                     <h4 className="font-semibold text-gray-900 mb-2">🌊 Dark Pool Activity</h4>
+                     <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span>Today's Dark Pool Volume:</span>
+                         <span className="font-medium">{metadata.today_dark_pool_volume?.toLocaleString() || 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>90-Day Average Dark Pool:</span>
+                         <span className="font-medium">{metadata.avg_dark_pool_volume?.toLocaleString() || 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Activity Ratio (Today vs Avg):</span>
+                         <span className={`font-medium ${dark_pool_activity_ratio > 3 ? 'text-red-600' : dark_pool_activity_ratio > 2 ? 'text-orange-600' : 'text-green-600'}`}>
+                           {dark_pool_activity_ratio.toFixed(1)}x
+                         </span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Total Volume Today:</span>
+                         <span className="font-medium">{metadata.total_volume?.toLocaleString() || 'N/A'}</span>
+                       </div>
+                     </div>
+                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">🎯 Strategy Rationale</h4>
@@ -511,7 +502,7 @@ export default function Scanner() {
               <p className="mt-1 text-gray-600">Discover high-probability trading opportunities</p>
             </div>
             <div className="flex items-center space-x-3">
-              <SafeBadge variant="outline" className="flex items-center space-x-1">
+              <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
                 <SafeZap />
                 <span>Live Data</span>
               </SafeBadge>
