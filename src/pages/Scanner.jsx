@@ -101,6 +101,144 @@ const SafeX = () => {
   }
 };
 
+// All Data Modal Component
+const AllDataModal = ({ isOpen, onClose, data }) => {
+  if (!isOpen || !data) return null;
+
+  const formatCurrency = (amount) => `$${amount?.toLocaleString() || 'N/A'}`;
+  const formatPercentage = (value) => `${((value || 0) * 100).toFixed(1)}%`;
+  const formatNumber = (num) => num?.toLocaleString() || 'N/A';
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Complete Market Analysis</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <SafeX />
+            </button>
+          </div>
+          
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-semibold text-blue-900">Total Analyzed</h3>
+                <p className="text-2xl font-bold text-blue-800">{data.length}</p>
+                <p className="text-sm text-blue-700">Stocks</p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h3 className="font-semibold text-green-900">Opportunities</h3>
+                <p className="text-2xl font-bold text-green-800">
+                  {data.filter(item => item.status === 'opportunity').length}
+                </p>
+                <p className="text-sm text-green-700">IV &lt; HV</p>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h3 className="font-semibold text-yellow-900">Overpriced</h3>
+                <p className="text-2xl font-bold text-yellow-800">
+                  {data.filter(item => item.status === 'overpriced').length}
+                </p>
+                <p className="text-sm text-yellow-700">IV ≥ HV</p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 className="font-semibold text-red-900">No Data</h3>
+                <p className="text-2xl font-bold text-red-800">
+                  {data.filter(item => item.status === 'no_data').length}
+                </p>
+                <p className="text-sm text-red-700">Unavailable</p>
+              </div>
+            </div>
+
+            {/* Detailed Analysis Table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IV</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HV</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dark Pool %</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Options</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {data.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.symbol}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          item.status === 'opportunity' ? 'bg-green-100 text-green-800' :
+                          item.status === 'overpriced' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {item.status === 'opportunity' ? 'Opportunity' :
+                           item.status === 'overpriced' ? 'Overpriced' : 'No Data'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.current_price)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatPercentage(item.implied_vol)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatPercentage(item.realized_vol)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {item.dark_pool_ratio ? formatPercentage(item.dark_pool_ratio) : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {item.options_analyzed ? (
+                          <div className="text-xs">
+                            <div>Call: {formatCurrency(item.call_price)}</div>
+                            <div>Put: {formatCurrency(item.put_price)}</div>
+                            <div>Strike: {formatCurrency(item.strike_price)}</div>
+                            <div>Expiry: {item.days_to_expiry}d</div>
+                          </div>
+                        ) : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
+                        {item.reason || 'No specific reason provided'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Legend */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">Analysis Legend</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
+                    Opportunity
+                  </span>
+                  <span className="text-gray-700">IV &lt; HV - Straddle opportunity available</span>
+                </div>
+                <div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mr-2">
+                    Overpriced
+                  </span>
+                  <span className="text-gray-700">IV ≥ HV - Volatility is overpriced</span>
+                </div>
+                <div>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-2">
+                    No Data
+                  </span>
+                  <span className="text-gray-700">Insufficient options or price data</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // How It Works Modal Component
 const HowItWorksModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -336,9 +474,11 @@ export default function Scanner() {
   const [sortBy, setSortBy] = useState("profit");
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [showAllData, setShowAllData] = useState(false);
+  const [allAnalysisData, setAllAnalysisData] = useState([]);
 
   useEffect(() => {
-    fetchOpportunities();
+      fetchOpportunities();
   }, []);
 
   const handleSymbolSearch = async () => {
@@ -377,6 +517,29 @@ export default function Scanner() {
     }
   };
 
+  const fetchAllAnalysisData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/opportunities?all_data=true');
+      const data = await response.json();
+      
+      if (response.ok && data.analysis_data) {
+        setAllAnalysisData(data.analysis_data);
+        setShowAllData(true);
+      } else {
+        const errorMessage = data?.error || 'Unable to load analysis data';
+        setError(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error fetching analysis data:', error);
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     try {
       let filtered = Array.isArray(opportunities) ? opportunities : [];
@@ -387,19 +550,19 @@ export default function Scanner() {
       filtered.sort((a, b) => {
         if (!a || !b) return 0;
         
-        switch (sortBy) {
-          case "profit":
+      switch (sortBy) {
+        case "profit":
             return (b.expected_profit || 0) - (a.expected_profit || 0);
-          case "confidence":
+        case "confidence":
             return (b.confidence || 0) - (a.confidence || 0);
-          case "vol_spread":
+        case "vol_spread":
             return Math.abs(b.vol_spread || 0) - Math.abs(a.vol_spread || 0);
-          default:
-            return 0;
-        }
-      });
+        default:
+          return 0;
+      }
+    });
 
-      setFilteredOpportunities(filtered);
+    setFilteredOpportunities(filtered);
     } catch (error) {
       console.error('Error filtering opportunities:', error);
       setFilteredOpportunities([]);
@@ -462,6 +625,13 @@ export default function Scanner() {
       {/* How It Works Modal */}
       <HowItWorksModal isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
 
+      {/* All Data Modal */}
+      <AllDataModal 
+        isOpen={showAllData} 
+        onClose={() => setShowAllData(false)} 
+        data={allAnalysisData} 
+      />
+
       {/* Error Display */}
       {error && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -523,17 +693,14 @@ export default function Scanner() {
               )}
             </SafeButton>
 
-            {/* Clear and Refresh */}
+            {/* Show All Data */}
             <SafeButton
               variant="outline"
-              onClick={() => {
-                setSearchTerm("");
-                fetchOpportunities();
-              }}
+              onClick={fetchAllAnalysisData}
               className="flex items-center space-x-2"
             >
-              <SafeRefreshCw />
-              <span>Show All</span>
+              <SafeTrendingUp />
+              <span>Show All Data</span>
             </SafeButton>
           </div>
         </div>
@@ -552,11 +719,11 @@ export default function Scanner() {
 
         {/* Opportunities Grid */}
         {!error && Array.isArray(filteredOpportunities) && filteredOpportunities.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredOpportunities.map((opportunity, index) => (
               <SafeOpportunityCard key={opportunity?.id || index} opportunity={opportunity} />
-            ))}
-          </div>
+          ))}
+        </div>
         )}
 
         {!error && (!Array.isArray(filteredOpportunities) || filteredOpportunities.length === 0) && (!Array.isArray(opportunities) || opportunities.length === 0) && (
@@ -583,7 +750,7 @@ export default function Scanner() {
             <p className="text-gray-600">Try searching for a different symbol or check back later.</p>
           </div>
         )}
-      </div>
+        </div>
     </div>
   );
 }

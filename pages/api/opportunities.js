@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { limit = 50, symbol } = req.query;
+    const { limit = 50, symbol, all_data } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
 
     // Check if API key is properly configured
@@ -22,6 +22,7 @@ export default async function handler(req, res) {
       'TXN', 'MU', 'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR'
     ];
     const opportunities = [];
+    const analysisData = [];
 
     // Analyze each symbol for straddle opportunities
     for (const symbol of symbols) {
@@ -99,6 +100,26 @@ export default async function handler(req, res) {
         // Get dark pool data for today
         const darkPoolData = await getDarkPoolData(symbol, currentDate, apiKey);
 
+                // Create analysis data entry
+        const analysisEntry = {
+          symbol: symbol,
+          current_price: currentPrice,
+          implied_vol: impliedVol,
+          realized_vol: realizedVol,
+          dark_pool_ratio: darkPoolData ? (darkPoolData.darkPoolVolume / darkPoolData.totalVolume) : null,
+          options_analyzed: true,
+          call_price: callPrice,
+          put_price: putPrice,
+          strike_price: atmOptions.strike,
+          days_to_expiry: atmOptions.daysToExpiry,
+          status: impliedVol < realizedVol ? 'opportunity' : 'overpriced',
+          reason: impliedVol < realizedVol ? 
+            'IV < HV - Volatility is underpriced, straddle opportunity available' :
+            'IV ≥ HV - Volatility is overpriced, no straddle opportunity'
+        };
+        
+        analysisData.push(analysisEntry);
+
         // Only suggest straddle if IV < HV (volatility is underpriced)
         if (impliedVol < realizedVol) {
           const opportunity = createStraddleOpportunity(
@@ -118,8 +139,34 @@ export default async function handler(req, res) {
 
       } catch (error) {
         console.error(`Error analyzing ${symbol}:`, error);
+        
+        // Add analysis entry for failed analysis
+        analysisData.push({
+          symbol: symbol,
+          current_price: null,
+          implied_vol: null,
+          realized_vol: null,
+          dark_pool_ratio: null,
+          options_analyzed: false,
+          call_price: null,
+          put_price: null,
+          strike_price: null,
+          days_to_expiry: null,
+          status: 'no_data',
+          reason: 'Failed to analyze - insufficient data or API error'
+        });
+        
         continue;
       }
+    }
+
+    // Return all analysis data if requested
+    if (all_data === 'true') {
+      return res.status(200).json({
+        analysis_data: analysisData,
+        opportunities: opportunities.length,
+        total_analyzed: analysisData.length
+      });
     }
 
     // Sort by probability of success and apply limit
@@ -312,7 +359,7 @@ function createStraddleOpportunity(symbol, currentPrice, straddleCost, impliedVo
     
     // Calculate expected profit based on vol spread and probability
     const expectedProfit = Math.floor(straddleCost * (volSpread / 100) * 10);
-    
+
     return {
       id: Date.now() + Math.random(),
       symbol: symbol,
@@ -337,6 +384,6 @@ function createStraddleOpportunity(symbol, currentPrice, straddleCost, impliedVo
     };
   } catch (error) {
     console.error('Error creating straddle opportunity:', error);
-    return null;
-  }
+  return null;
+}
 }
