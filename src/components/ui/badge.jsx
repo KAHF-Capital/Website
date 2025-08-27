@@ -22,3 +22,4 @@ const Badge = React.forwardRef(({ className = '', variant = 'default', children,
 Badge.displayName = 'Badge';
 
 export { Badge };
+

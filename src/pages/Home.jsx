@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { TrendingUp, BarChart3, Target, Shield, ArrowRight, BookOpen, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
@@ -49,13 +49,13 @@ export default function Home() {
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
-              <Link to="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+              <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Home
               </Link>
-              <Link to="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+              <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Learning Modules
               </Link>
-              <Link to="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+              <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Scanner
               </Link>
             </nav>
@@ -76,13 +76,13 @@ export default function Home() {
               className="sm:hidden overflow-hidden"
             >
               <nav className="flex flex-col items-center space-y-1 p-3 border-t border-gray-200">
-                <Link to="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Home
                 </Link>
-                <Link to="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Learning Modules
-                </Link>
-                <Link to="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+              </Link>
+                <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Scanner
                 </Link>
               </nav>
@@ -103,7 +103,7 @@ export default function Home() {
             now available to individual traders for the first time.
           </p>
           <div className="flex flex-col gap-4 justify-center">
-            <Link to="/learning" className="w-full">
+            <Link href="/learning" className="w-full">
               <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
                 View Learning Modules
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
@@ -138,7 +138,7 @@ export default function Home() {
           </div>
           
           <div className="text-center">
-            <Link to="/learning">
+            <Link href="/learning">
               <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
                 <BookOpen className="mr-2 h-5 w-5 inline" />
                 Learn More

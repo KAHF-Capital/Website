@@ -121,3 +121,4 @@ const OpportunityCard = ({ opportunity }) => {
 };
 
 export default OpportunityCard;
+
