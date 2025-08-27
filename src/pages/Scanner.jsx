@@ -34,12 +34,14 @@ export default function Scanner() {
       const response = await fetch('/api/opportunities');
       const data = await response.json();
       
-      if (response.ok) {
+      if (response.ok && Array.isArray(data)) {
         // Ensure data is an array and filter out any invalid entries
-        const validOpportunities = Array.isArray(data) ? data.filter(opp => opp && typeof opp === 'object') : [];
+        const validOpportunities = data.filter(opp => opp && typeof opp === 'object');
         setOpportunities(validOpportunities);
       } else {
-        setError(data.error || 'Unable to load trading opportunities');
+        // Handle API errors gracefully
+        const errorMessage = data?.error || 'Unable to load trading opportunities';
+        setError(errorMessage);
         setOpportunities([]);
       }
     } catch (error) {
@@ -52,38 +54,52 @@ export default function Scanner() {
   };
 
   useEffect(() => {
-    let filtered = opportunities || [];
+    try {
+      let filtered = Array.isArray(opportunities) ? opportunities : [];
 
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(opp => 
-        opp && opp.symbol && opp.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp && opp.strategy_type && opp.strategy_type.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filter by minimum profit
-    if (minProfit) {
-      filtered = filtered.filter(opp => opp && opp.expected_profit >= parseInt(minProfit));
-    }
-
-    // Sort opportunities
-    filtered.sort((a, b) => {
-      if (!a || !b) return 0;
-      
-      switch (sortBy) {
-        case "profit":
-          return (b.expected_profit || 0) - (a.expected_profit || 0);
-        case "confidence":
-          return (b.confidence || 0) - (a.confidence || 0);
-        case "vol_spread":
-          return Math.abs(b.vol_spread || 0) - Math.abs(a.vol_spread || 0);
-        default:
-          return 0;
+      // Filter by search term
+      if (searchTerm && searchTerm.trim()) {
+        filtered = filtered.filter(opp => 
+          opp && 
+          opp.symbol && 
+          typeof opp.symbol === 'string' &&
+          opp.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          opp && 
+          opp.strategy_type && 
+          typeof opp.strategy_type === 'string' &&
+          opp.strategy_type.toLowerCase().includes(searchTerm.toLowerCase())
+        );
       }
-    });
 
-    setFilteredOpportunities(filtered);
+      // Filter by minimum profit
+      if (minProfit && minProfit.trim()) {
+        const minProfitNum = parseInt(minProfit);
+        if (!isNaN(minProfitNum)) {
+          filtered = filtered.filter(opp => opp && typeof opp.expected_profit === 'number' && opp.expected_profit >= minProfitNum);
+        }
+      }
+
+      // Sort opportunities
+      filtered.sort((a, b) => {
+        if (!a || !b) return 0;
+        
+        switch (sortBy) {
+          case "profit":
+            return (b.expected_profit || 0) - (a.expected_profit || 0);
+          case "confidence":
+            return (b.confidence || 0) - (a.confidence || 0);
+          case "vol_spread":
+            return Math.abs(b.vol_spread || 0) - Math.abs(a.vol_spread || 0);
+          default:
+            return 0;
+        }
+      });
+
+      setFilteredOpportunities(filtered);
+    } catch (error) {
+      console.error('Error filtering opportunities:', error);
+      setFilteredOpportunities([]);
+    }
   }, [opportunities, searchTerm, sortBy, minProfit]);
 
   if (isLoading) {
@@ -114,7 +130,7 @@ export default function Scanner() {
               </Badge>
               <Badge variant="outline" className="flex items-center space-x-1">
                 <TrendingUp className="h-4 w-4" />
-                <span>{filteredOpportunities.length} Opportunities</span>
+                <span>{Array.isArray(filteredOpportunities) ? filteredOpportunities.length : 0} Opportunities</span>
               </Badge>
               <Button
                 variant="outline"
@@ -163,14 +179,14 @@ export default function Scanner() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search symbols..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm || ''}
+                onChange={(e) => setSearchTerm(e.target.value || '')}
                 className="pl-10"
               />
             </div>
 
             {/* Sort By */}
-            <Select value={sortBy} onValueChange={setSortBy}>
+            <Select value={sortBy || 'profit'} onValueChange={(value) => setSortBy(value || 'profit')}>
               <SelectTrigger>
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -184,8 +200,8 @@ export default function Scanner() {
             {/* Min Profit Filter */}
             <Input
               placeholder="Min profit ($)"
-              value={minProfit}
-              onChange={(e) => setMinProfit(e.target.value)}
+              value={minProfit || ''}
+              onChange={(e) => setMinProfit(e.target.value || '')}
               type="number"
             />
 
@@ -206,7 +222,7 @@ export default function Scanner() {
         </div>
 
         {/* Opportunities Grid */}
-        {!error && (
+        {!error && Array.isArray(filteredOpportunities) && filteredOpportunities.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredOpportunities.map((opportunity, index) => (
               <OpportunityCard key={opportunity?.id || index} opportunity={opportunity} />
@@ -214,7 +230,7 @@ export default function Scanner() {
           </div>
         )}
 
-        {!error && filteredOpportunities.length === 0 && opportunities.length === 0 && (
+        {!error && (!Array.isArray(filteredOpportunities) || filteredOpportunities.length === 0) && (!Array.isArray(opportunities) || opportunities.length === 0) && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Search className="h-12 w-12 mx-auto" />
@@ -224,7 +240,7 @@ export default function Scanner() {
           </div>
         )}
 
-        {!error && filteredOpportunities.length === 0 && opportunities.length > 0 && (
+        {!error && Array.isArray(filteredOpportunities) && filteredOpportunities.length === 0 && Array.isArray(opportunities) && opportunities.length > 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <Search className="h-12 w-12 mx-auto" />
