@@ -545,7 +545,7 @@ export default function Scanner() {
               Straddle Opportunities for {searchTerm.toUpperCase()}
             </h2>
             <p className="text-gray-600 mt-1">
-              Found {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? 's' : ''} where IV < HV
+              Found {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? 's' : ''} where IV &lt; HV
             </p>
           </div>
         )}
