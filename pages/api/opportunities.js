@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { limit = 50 } = req.query;
+    const { limit = 50, symbol } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
 
     // Check if API key is properly configured
@@ -15,8 +15,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // List of stocks to analyze for opportunities
-    const symbols = [
+    // Use provided symbol or default list
+    const symbols = symbol ? [symbol.toUpperCase()] : [
       'AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD',
       'NFLX', 'CRM', 'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO',
       'TXN', 'MU', 'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR'
