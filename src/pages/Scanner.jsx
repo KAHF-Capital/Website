@@ -121,11 +121,11 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
           
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">🔍 Dark Pool Detection</h3>
-              <p className="text-gray-700 text-sm">
-                Monitors dark pool trades (exchange ID = 4) and compares today's activity to the 90-day average. 
-                When activity spikes above 300% of normal, it signals institutional positioning.
-              </p>
+                             <h3 className="text-lg font-semibold text-gray-900 mb-2">🔍 Dark Pool Detection</h3>
+               <p className="text-gray-700 text-sm">
+                 Monitors dark pool trades and compares today's activity to the 90-day average. 
+                 When activity spikes above 200% of normal, it signals institutional positioning.
+               </p>
             </div>
 
             <div>
@@ -137,12 +137,11 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">🎯 Strategy Types</h3>
-              <ul className="text-gray-700 text-sm space-y-1">
-                <li>• <strong>Long Straddle:</strong> Bet on big move, direction unknown</li>
-                <li>• <strong>Long Volatility:</strong> Bet on volatility increase</li>
-                <li>• <strong>Volatility Explosion:</strong> Extreme dark pool activity</li>
-              </ul>
+                             <h3 className="text-lg font-semibold text-gray-900 mb-2">🎯 Strategy</h3>
+               <p className="text-gray-700 text-sm">
+                 <strong>Long Straddle:</strong> Buy both call and put options at the same strike price. 
+                 Profits when the stock makes a big move in either direction.
+               </p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -295,17 +294,13 @@ const SafeOpportunityCard = ({ opportunity }) => {
                      </div>
                    </div>
 
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">🎯 Strategy Rationale</h4>
-                    <p className="text-sm text-gray-700">
-                      {strategy_type === 'Long Straddle' && 
-                        'High volatility environment with uncertain price direction. Dark pool activity suggests institutional positioning for a significant move.'}
-                      {strategy_type === 'Long Volatility Play' && 
-                        'Dark pool activity indicates expected volatility increase. Institutions are positioning for explosive price movement.'}
-                      {strategy_type === 'Volatility Explosion Play' && 
-                        'Extreme dark pool activity suggests major institutional positioning. High probability of significant volatility expansion.'}
-                    </p>
-                  </div>
+                                     <div>
+                     <h4 className="font-semibold text-gray-900 mb-2">🎯 Strategy Rationale</h4>
+                     <p className="text-sm text-gray-700">
+                       High volatility environment with uncertain price direction. Dark pool activity suggests institutional positioning for a significant move. 
+                       Long straddle strategy profits when the stock makes a big move in either direction.
+                     </p>
+                   </div>
                 </div>
               </div>
             </div>

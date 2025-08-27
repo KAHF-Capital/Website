@@ -123,22 +123,19 @@ function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
     const historicalDarkPoolRatio = avgDailyTotalVolume > 0 ? avgDailyDarkPoolVolume / avgDailyTotalVolume : 0;
 
     // Calculate activity ratio (today's dark pool volume vs 90-day average daily dark pool volume)
-    const activityRatio = avgDailyDarkPoolVolume > 0 ? currentDarkPoolVolume / avgDailyDarkPoolVolume : 0;
+    // Cap the ratio to prevent unrealistic values (max 10x)
+    const rawActivityRatio = avgDailyDarkPoolVolume > 0 ? currentDarkPoolVolume / avgDailyDarkPoolVolume : 0;
+    const activityRatio = Math.min(rawActivityRatio, 10); // Cap at 10x to prevent unrealistic ratios
 
     // Check if this meets our opportunity criteria
-    // 1. Dark pool activity > 300% of historical average
+    // 1. Dark pool activity > 200% of historical average (more realistic)
     // 2. Sufficient volume for analysis
-    if (activityRatio >= 3.0 && currentTotalVolume > 100000) {
+    if (activityRatio >= 2.0 && currentTotalVolume > 100000) {
       // Calculate opportunity score based on activity ratio and volume
       const opportunityScore = Math.min(100, Math.floor(activityRatio * 20 + (currentTotalVolume / 1000000) * 10));
       
-      // Determine strategy type based on activity level
-      let strategyType = "Long Straddle";
-      if (activityRatio >= 5.0) {
-        strategyType = "Volatility Explosion Play";
-      } else if (activityRatio >= 4.0) {
-        strategyType = "Long Volatility Play";
-      }
+      // Strategy is always Long Straddle
+      const strategyType = "Long Straddle";
 
       // Calculate expected profit based on activity ratio and volume
       const baseProfit = 1000;
@@ -154,7 +151,7 @@ function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
         realized_vol: 0.20 + (activityRatio - 1) * 0.05, // Mock realized volatility
         expected_profit: expectedProfit,
         confidence: Math.min(95, Math.floor(opportunityScore)),
-        risk_level: activityRatio >= 5.0 ? "high" : activityRatio >= 3.5 ? "medium" : "low",
+        risk_level: activityRatio >= 5.0 ? "high" : activityRatio >= 3.0 ? "medium" : "low",
         dark_pool_activity_ratio: activityRatio,
         opportunity_score: opportunityScore,
         created_at: new Date().toISOString(),
