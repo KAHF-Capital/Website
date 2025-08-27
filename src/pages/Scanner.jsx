@@ -1,17 +1,130 @@
 import React, { useState, useEffect } from "react";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Search, TrendingUp, Zap, Filter, RefreshCw, AlertTriangle } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 
-import OpportunityCard from "../components/trading/OpportunityCard";
+// Safe component imports with fallbacks
+const SafeBadge = ({ children, variant = 'default', className = '', ...props }) => {
+  try {
+    const { Badge } = require("../components/ui/badge");
+    return <Badge variant={variant} className={className} {...props}>{children}</Badge>;
+  } catch (error) {
+    return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`} {...props}>{children}</span>;
+  }
+};
+
+const SafeButton = ({ children, variant = 'default', size = 'default', className = '', ...props }) => {
+  try {
+    const { Button } = require("../components/ui/button");
+    return <Button variant={variant} size={size} className={className} {...props}>{children}</Button>;
+  } catch (error) {
+    return <button className={`inline-flex items-center justify-center rounded-md text-sm font-medium ${className}`} {...props}>{children}</button>;
+  }
+};
+
+const SafeInput = ({ className = '', type = 'text', ...props }) => {
+  try {
+    const { Input } = require("../components/ui/input");
+    return <Input className={className} type={type} {...props} />;
+  } catch (error) {
+    return <input className={`flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ${className}`} type={type} {...props} />;
+  }
+};
+
+// Safe icon imports
+const SafeSearch = () => {
+  try {
+    const { Search } = require("lucide-react");
+    return <Search className="h-4 w-4" />;
+  } catch (error) {
+    return <span>🔍</span>;
+  }
+};
+
+const SafeTrendingUp = () => {
+  try {
+    const { TrendingUp } = require("lucide-react");
+    return <TrendingUp className="h-4 w-4" />;
+  } catch (error) {
+    return <span>📈</span>;
+  }
+};
+
+const SafeZap = () => {
+  try {
+    const { Zap } = require("lucide-react");
+    return <Zap className="h-4 w-4" />;
+  } catch (error) {
+    return <span>⚡</span>;
+  }
+};
+
+const SafeFilter = () => {
+  try {
+    const { Filter } = require("lucide-react");
+    return <Filter className="h-4 w-4" />;
+  } catch (error) {
+    return <span>🔧</span>;
+  }
+};
+
+const SafeRefreshCw = () => {
+  try {
+    const { RefreshCw } = require("lucide-react");
+    return <RefreshCw className="h-4 w-4" />;
+  } catch (error) {
+    return <span>🔄</span>;
+  }
+};
+
+const SafeAlertTriangle = () => {
+  try {
+    const { AlertTriangle } = require("lucide-react");
+    return <AlertTriangle className="h-4 w-4" />;
+  } catch (error) {
+    return <span>⚠️</span>;
+  }
+};
+
+// Safe OpportunityCard component
+const SafeOpportunityCard = ({ opportunity }) => {
+  try {
+    const OpportunityCard = require("../components/trading/OpportunityCard").default;
+    return <OpportunityCard opportunity={opportunity} />;
+  } catch (error) {
+    // Fallback card
+    if (!opportunity || typeof opportunity !== 'object') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="text-center text-gray-500">
+            <p>Invalid opportunity data</p>
+          </div>
+        </div>
+      );
+    }
+
+    const { symbol = 'N/A', strategy_type = 'Unknown', expected_profit = 0, confidence = 0, risk_level = 'medium' } = opportunity;
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">{symbol}</h3>
+            <p className="text-sm text-gray-600">{strategy_type}</p>
+          </div>
+          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800">
+            {risk_level} Risk
+          </span>
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-semibold text-gray-900">${expected_profit}</p>
+          <p className="text-xs text-gray-600">Expected Profit</p>
+        </div>
+        <div className="text-center mt-2">
+          <p className="text-lg font-semibold text-blue-600">{confidence}%</p>
+          <p className="text-xs text-gray-600">Confidence</p>
+        </div>
+      </div>
+    );
+  }
+};
 
 export default function Scanner() {
   const [opportunities, setOpportunities] = useState([]);
@@ -27,19 +140,17 @@ export default function Scanner() {
   }, []);
 
   const fetchOpportunities = async () => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await fetch('/api/opportunities');
       const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
-        // Ensure data is an array and filter out any invalid entries
         const validOpportunities = data.filter(opp => opp && typeof opp === 'object');
         setOpportunities(validOpportunities);
       } else {
-        // Handle API errors gracefully
         const errorMessage = data?.error || 'Unable to load trading opportunities';
         setError(errorMessage);
         setOpportunities([]);
@@ -57,7 +168,6 @@ export default function Scanner() {
     try {
       let filtered = Array.isArray(opportunities) ? opportunities : [];
 
-      // Filter by search term
       if (searchTerm && searchTerm.trim()) {
         filtered = filtered.filter(opp => 
           opp && 
@@ -71,7 +181,6 @@ export default function Scanner() {
         );
       }
 
-      // Filter by minimum profit
       if (minProfit && minProfit.trim()) {
         const minProfitNum = parseInt(minProfit);
         if (!isNaN(minProfitNum)) {
@@ -79,7 +188,6 @@ export default function Scanner() {
         }
       }
 
-      // Sort opportunities
       filtered.sort((a, b) => {
         if (!a || !b) return 0;
         
@@ -124,23 +232,23 @@ export default function Scanner() {
               <p className="mt-1 text-gray-600">Discover high-probability trading opportunities</p>
             </div>
             <div className="flex items-center space-x-3">
-              <Badge variant="outline" className="flex items-center space-x-1">
-                <Zap className="h-4 w-4" />
+              <SafeBadge variant="outline" className="flex items-center space-x-1">
+                <SafeZap />
                 <span>Live Data</span>
-              </Badge>
-              <Badge variant="outline" className="flex items-center space-x-1">
-                <TrendingUp className="h-4 w-4" />
+              </SafeBadge>
+              <SafeBadge variant="outline" className="flex items-center space-x-1">
+                <SafeTrendingUp />
                 <span>{Array.isArray(filteredOpportunities) ? filteredOpportunities.length : 0} Opportunities</span>
-              </Badge>
-              <Button
+              </SafeBadge>
+              <SafeButton
                 variant="outline"
                 size="sm"
                 onClick={fetchOpportunities}
                 className="flex items-center space-x-1"
               >
-                <RefreshCw className="h-4 w-4" />
+                <SafeRefreshCw />
                 <span>Refresh</span>
-              </Button>
+              </SafeButton>
             </div>
           </div>
         </div>
@@ -151,20 +259,20 @@ export default function Scanner() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-red-400 mr-3" />
-              <div className="flex-1">
+              <SafeAlertTriangle />
+              <div className="flex-1 ml-3">
                 <h3 className="text-sm font-medium text-red-800">Service Temporarily Unavailable</h3>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
-              <Button
+              <SafeButton
                 variant="outline"
                 size="sm"
                 onClick={fetchOpportunities}
                 className="flex items-center space-x-1"
               >
-                <RefreshCw className="h-4 w-4" />
+                <SafeRefreshCw />
                 <span>Retry</span>
-              </Button>
+              </SafeButton>
             </div>
           </div>
         </div>
@@ -176,8 +284,10 @@ export default function Scanner() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <SafeSearch />
+              </div>
+              <SafeInput
                 placeholder="Search symbols..."
                 value={searchTerm || ''}
                 onChange={(e) => setSearchTerm(e.target.value || '')}
@@ -185,20 +295,8 @@ export default function Scanner() {
               />
             </div>
 
-            {/* Sort By */}
-            <Select value={sortBy || 'profit'} onValueChange={(value) => setSortBy(value || 'profit')}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="profit">Expected Profit</SelectItem>
-                <SelectItem value="confidence">Confidence</SelectItem>
-                <SelectItem value="vol_spread">Volatility Spread</SelectItem>
-              </SelectContent>
-            </Select>
-
             {/* Min Profit Filter */}
-            <Input
+            <SafeInput
               placeholder="Min profit ($)"
               value={minProfit || ''}
               onChange={(e) => setMinProfit(e.target.value || '')}
@@ -206,7 +304,7 @@ export default function Scanner() {
             />
 
             {/* Clear Filters */}
-            <Button
+            <SafeButton
               variant="outline"
               onClick={() => {
                 setSearchTerm("");
@@ -215,9 +313,9 @@ export default function Scanner() {
               }}
               className="flex items-center space-x-2"
             >
-              <Filter className="h-4 w-4" />
+              <SafeFilter />
               <span>Clear Filters</span>
-            </Button>
+            </SafeButton>
           </div>
         </div>
 
@@ -225,7 +323,7 @@ export default function Scanner() {
         {!error && Array.isArray(filteredOpportunities) && filteredOpportunities.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredOpportunities.map((opportunity, index) => (
-              <OpportunityCard key={opportunity?.id || index} opportunity={opportunity} />
+              <SafeOpportunityCard key={opportunity?.id || index} opportunity={opportunity} />
             ))}
           </div>
         )}
@@ -233,7 +331,7 @@ export default function Scanner() {
         {!error && (!Array.isArray(filteredOpportunities) || filteredOpportunities.length === 0) && (!Array.isArray(opportunities) || opportunities.length === 0) && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
-              <Search className="h-12 w-12 mx-auto" />
+              <SafeSearch />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities found</h3>
             <p className="text-gray-600">No trading opportunities are currently available. Check back later for new opportunities.</p>
@@ -243,7 +341,7 @@ export default function Scanner() {
         {!error && Array.isArray(filteredOpportunities) && filteredOpportunities.length === 0 && Array.isArray(opportunities) && opportunities.length > 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
-              <Search className="h-12 w-12 mx-auto" />
+              <SafeSearch />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities match your filters</h3>
             <p className="text-gray-600">Try adjusting your search criteria to see more results.</p>
