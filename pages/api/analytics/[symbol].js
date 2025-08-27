@@ -11,10 +11,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Symbol is required' });
     }
 
-    // Check if API key is configured
+    // Check if API key is properly configured
     if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE') {
-      return res.status(400).json({ 
-        error: 'Polygon.io API key not configured. Please add your API key to .env.local' 
+      return res.status(503).json({ 
+        error: 'Analytics service is currently unavailable. Please try again later.',
+        details: 'Service temporarily unavailable'
       });
     }
 
@@ -51,8 +52,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error getting stock analytics:', error);
     return res.status(500).json({ 
-      error: 'Failed to fetch stock analytics',
-      details: error.message 
+      error: 'Unable to fetch stock analytics at this time. Please try again later.',
+      details: 'Service temporarily unavailable'
     });
   }
 }

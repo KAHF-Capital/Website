@@ -7,9 +7,11 @@ export default async function handler(req, res) {
     const { symbol = 'AAPL', days = 90 } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
 
+    // Check if API key is properly configured
     if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE') {
-      return res.status(400).json({ 
-        error: 'Polygon.io API key not configured. Please add your API key to .env.local' 
+      return res.status(503).json({ 
+        error: 'Historical data service is currently unavailable. Please try again later.',
+        details: 'Service temporarily unavailable'
       });
     }
 
@@ -105,8 +107,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error fetching historical trades:', error);
     return res.status(500).json({ 
-      error: 'Failed to fetch historical trades',
-      details: error.message 
+      error: 'Unable to fetch historical data at this time. Please try again later.',
+      details: 'Service temporarily unavailable'
     });
   }
 }

@@ -9,29 +9,24 @@ A Next.js application for volatility trading education and dark pool analytics u
 - **Learning Modules**: Educational content for volatility trading strategies
 - **Real-time Data**: Integration with Polygon.io REST API and WebSocket for live market data
 
-## 🍭 **How to Add Your API Key (Step-by-Step)**
+## 🚀 **Setup Instructions**
 
 ### **Step 1: Get Your Polygon.io API Key**
 1. Go to [polygon.io](https://polygon.io) and sign up for an account
 2. Once you're logged in, find your API key in your account settings
 3. Copy it (it looks like a long string of letters and numbers)
 
-### **Step 2: Add It to Your Project**
-1. Open your Website folder on your computer
-2. Look for a file called `env.example`
-3. Copy this file and rename the copy to `.env.local`
-4. Open `.env.local` with any text editor (like Notepad)
-5. Find this line: `POLYGON_API_KEY=YOUR_POLYGON_API_KEY_HERE`
-6. Replace `YOUR_POLYGON_API_KEY_HERE` with your actual API key
-7. Save the file
+### **Step 2: Configure Environment Variables**
+1. Copy `env.example` to `.env.local`
+2. Replace `your_polygon_api_key_here` with your actual API key
+3. Save the file
 
 **Example:**
 ```
-Before: POLYGON_API_KEY=YOUR_POLYGON_API_KEY_HERE
-After:  POLYGON_API_KEY=abc123def456ghi789
+POLYGON_API_KEY=abc123def456ghi789
 ```
 
-### **Step 3: Deploy to Vercel**
+### **Step 3: Deploy to Production**
 1. Go to your Vercel dashboard
 2. Find your project
 3. Go to Settings → Environment Variables
@@ -39,6 +34,8 @@ After:  POLYGON_API_KEY=abc123def456ghi789
    - Name: `POLYGON_API_KEY`
    - Value: Your actual API key
 5. Save and redeploy!
+
+**Note:** The scanner works out of the box once the API key is configured. No user input required!
 
 ## Setup
 
@@ -71,7 +68,6 @@ npm run build
 - `GET /api/trades?symbol=AAPL` - Get real trades and identify dark pool activity
 - `GET /api/historical-trades?symbol=AAPL&days=90` - Get historical trades for comparison
 - `GET /api/opportunities` - Get trading opportunities based on dark pool analysis
-- `POST /api/initialize` - Initialize Polygon.io API connection
 - `GET /api/analytics/[symbol]` - Get detailed stock analytics
 - `GET /api/health` - Health check
 - `GET /api/config` - Get configuration

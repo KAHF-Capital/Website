@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Search, TrendingUp, Zap, Filter, Settings, AlertTriangle, RefreshCw } from "lucide-react";
+import { Search, TrendingUp, Zap, Filter, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,6 @@ import {
 } from "../components/ui/select";
 
 import OpportunityCard from "../components/trading/OpportunityCard";
-import ApiKeyInput from "../components/ApiKeyInput";
 
 export default function Scanner() {
   const [opportunities, setOpportunities] = useState([]);
@@ -22,19 +21,9 @@ export default function Scanner() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("profit");
   const [minProfit, setMinProfit] = useState("");
-  const [isApiInitialized, setIsApiInitialized] = useState(false);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   useEffect(() => {
-    // Check if API is initialized
-    const storedApiKey = localStorage.getItem('polygon_api_key');
-    if (storedApiKey) {
-      setIsApiInitialized(true);
-      fetchOpportunities();
-    } else {
-      setIsLoading(false);
-      setError('API key not configured. Please add your Polygon.io API key to get started.');
-    }
+    fetchOpportunities();
   }, []);
 
   const fetchOpportunities = async () => {
@@ -48,7 +37,7 @@ export default function Scanner() {
       if (response.ok) {
         setOpportunities(data);
       } else {
-        setError(data.error || 'Failed to fetch opportunities');
+        setError(data.error || 'Unable to load trading opportunities');
         setOpportunities([]);
       }
     } catch (error) {
@@ -58,13 +47,6 @@ export default function Scanner() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleApiKeySet = (apiKey) => {
-    setIsApiInitialized(true);
-    setShowApiKeyInput(false);
-    setError(null);
-    fetchOpportunities();
   };
 
   useEffect(() => {
@@ -120,14 +102,6 @@ export default function Scanner() {
     );
   }
 
-  if (!isApiInitialized) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <ApiKeyInput onApiKeySet={handleApiKeySet} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -150,11 +124,11 @@ export default function Scanner() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowApiKeyInput(true)}
+                onClick={fetchOpportunities}
                 className="flex items-center space-x-1"
               >
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
+                <RefreshCw className="h-4 w-4" />
+                <span>Refresh</span>
               </Button>
             </div>
           </div>
@@ -168,7 +142,7 @@ export default function Scanner() {
             <div className="flex items-center">
               <AlertTriangle className="h-5 w-5 text-red-400 mr-3" />
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-red-800">Error Loading Data</h3>
+                <h3 className="text-sm font-medium text-red-800">Service Temporarily Unavailable</h3>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
               <Button
@@ -265,27 +239,6 @@ export default function Scanner() {
           </div>
         )}
       </div>
-
-      {/* API Key Input Modal */}
-      {showApiKeyInput && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <ApiKeyInput 
-              onApiKeySet={handleApiKeySet} 
-              isInitialized={isApiInitialized}
-            />
-            <div className="mt-4 text-center">
-              <Button
-                variant="outline"
-                onClick={() => setShowApiKeyInput(false)}
-                className="w-full"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
