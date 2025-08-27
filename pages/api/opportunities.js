@@ -32,53 +32,53 @@ export default async function handler(req, res) {
           `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${apiKey}`
         );
         
-        if (!stockResponse.ok) {
-          console.error(`Failed to fetch stock price for ${symbol}: ${stockResponse.status}`);
-          continue;
-        }
+        let currentPrice = null;
+        let currentDate = new Date().toISOString().split('T')[0];
         
-        const stockData = await stockResponse.json();
-        if (!stockData.results || !stockData.results[0]) {
-          console.error(`No valid stock data for ${symbol}`);
-          continue;
+        if (stockResponse.ok) {
+          const stockData = await stockResponse.json();
+          if (stockData.results && stockData.results[0]) {
+            currentPrice = stockData.results[0].c; // Close price
+          }
         }
-
-        const currentPrice = stockData.results[0].c; // Close price
-        const currentDate = new Date().toISOString().split('T')[0];
 
         // Get options chain for current month expiration
         const optionsResponse = await fetch(
           `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expiration_date.gte=${currentDate}&limit=1000&apiKey=${apiKey}`
         );
         
-        if (!optionsResponse.ok) {
-          console.error(`Failed to fetch options for ${symbol}: ${optionsResponse.status}`);
-          continue;
-        }
+        let atmOptions = null;
+        let callPrice = null;
+        let putPrice = null;
+        let impliedVol = null;
+        let realizedVol = null;
+        let straddleCost = null;
         
-        const optionsData = await optionsResponse.json();
-        if (!optionsData.results || !Array.isArray(optionsData.results)) {
-          console.error(`No valid options data for ${symbol}`);
-          continue;
+        if (optionsResponse.ok) {
+          const optionsData = await optionsResponse.json();
+          if (optionsData.results && Array.isArray(optionsData.results)) {
+            // Find ATM straddle options (closest to current price)
+            atmOptions = findATMStraddleOptions(optionsData.results, currentPrice);
+            if (atmOptions) {
+              // Get options prices and calculate IV
+              callPrice = await getOptionPrice(atmOptions.call.contract_id, apiKey);
+              putPrice = await getOptionPrice(atmOptions.put.contract_id, apiKey);
+              
+              if (callPrice && putPrice) {
+                straddleCost = callPrice + putPrice;
+                impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
+              }
+            }
+          }
         }
 
-        // Find ATM straddle options (closest to current price)
-        const atmOptions = findATMStraddleOptions(optionsData.results, currentPrice);
-        if (!atmOptions) {
-          continue;
+        // Calculate straddle cost and implied volatility (if not already calculated)
+        if (!straddleCost && callPrice && putPrice) {
+          straddleCost = callPrice + putPrice;
         }
-
-        // Get options prices and calculate IV
-        const callPrice = await getOptionPrice(atmOptions.call.contract_id, apiKey);
-        const putPrice = await getOptionPrice(atmOptions.put.contract_id, apiKey);
-        
-        if (!callPrice || !putPrice) {
-          continue;
+        if (!impliedVol && currentPrice && straddleCost && atmOptions) {
+          impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
         }
-
-        // Calculate straddle cost and implied volatility
-        const straddleCost = callPrice + putPrice;
-        const impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
 
         // Get historical price data for realized volatility calculation
         const historicalResponse = await fetch(
@@ -95,33 +95,33 @@ export default async function handler(req, res) {
         }
 
         // Calculate realized volatility
-        const realizedVol = calculateRealizedVolatility(historicalData.results);
+        if (!realizedVol && historicalData.results) {
+          realizedVol = calculateRealizedVolatility(historicalData.results);
+        }
 
-        // Get dark pool data for today
+                // Get dark pool data for today
         const darkPoolData = await getDarkPoolData(symbol, currentDate, apiKey);
 
-                // Create analysis data entry
+        // Create analysis data entry
         const analysisEntry = {
           symbol: symbol,
           current_price: currentPrice,
           implied_vol: impliedVol,
           realized_vol: realizedVol,
           dark_pool_ratio: darkPoolData ? (darkPoolData.darkPoolVolume / darkPoolData.totalVolume) : null,
-          options_analyzed: true,
+          options_analyzed: !!(callPrice && putPrice && atmOptions),
           call_price: callPrice,
           put_price: putPrice,
-          strike_price: atmOptions.strike,
-          days_to_expiry: atmOptions.daysToExpiry,
-          status: impliedVol < realizedVol ? 'opportunity' : 'overpriced',
-          reason: impliedVol < realizedVol ? 
-            'IV < HV - Volatility is underpriced, straddle opportunity available' :
-            'IV ≥ HV - Volatility is overpriced, no straddle opportunity'
+          strike_price: atmOptions?.strike,
+          days_to_expiry: atmOptions?.daysToExpiry,
+          status: determineStatus(impliedVol, realizedVol, currentPrice, callPrice, putPrice),
+          reason: determineReason(impliedVol, realizedVol, currentPrice, callPrice, putPrice)
         };
         
         analysisData.push(analysisEntry);
 
         // Only suggest straddle if IV < HV (volatility is underpriced)
-        if (impliedVol < realizedVol) {
+        if (impliedVol && realizedVol && impliedVol < realizedVol && straddleCost && atmOptions) {
           const opportunity = createStraddleOpportunity(
             symbol, 
             currentPrice, 
@@ -384,6 +384,24 @@ function createStraddleOpportunity(symbol, currentPrice, straddleCost, impliedVo
     };
   } catch (error) {
     console.error('Error creating straddle opportunity:', error);
-  return null;
+    return null;
+  }
 }
+
+function determineStatus(impliedVol, realizedVol, currentPrice, callPrice, putPrice) {
+  if (!currentPrice) return 'no_data';
+  if (!callPrice || !putPrice) return 'no_data';
+  if (!impliedVol || !realizedVol) return 'no_data';
+  
+  return impliedVol < realizedVol ? 'opportunity' : 'overpriced';
+}
+
+function determineReason(impliedVol, realizedVol, currentPrice, callPrice, putPrice) {
+  if (!currentPrice) return 'No stock price data available';
+  if (!callPrice || !putPrice) return 'No options data available';
+  if (!impliedVol || !realizedVol) return 'Unable to calculate volatility';
+  
+  return impliedVol < realizedVol ? 
+    'IV < HV - Volatility is underpriced, straddle opportunity available' :
+    'IV ≥ HV - Volatility is overpriced, no straddle opportunity';
 }
