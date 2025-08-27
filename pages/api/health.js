@@ -4,14 +4,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    const apiKey = process.env.POLYGON_API_KEY;
+    const hasApiKey = apiKey && apiKey !== 'YOUR_POLYGON_API_KEY_HERE' && apiKey !== 'your_polygon_api_key_here';
+    
     return res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      api_configured: hasApiKey,
+      environment: process.env.NODE_ENV || 'development',
       services: {
-        api: 'operational',
-        database: 'operational',
-        polygon_client: 'operational'
+        opportunities: hasApiKey ? 'available' : 'unavailable',
+        analytics: hasApiKey ? 'available' : 'unavailable',
+        trades: hasApiKey ? 'available' : 'unavailable'
       }
     });
 
@@ -19,7 +23,8 @@ export default async function handler(req, res) {
     console.error('Health check error:', error);
     return res.status(500).json({ 
       status: 'unhealthy',
-      error: 'Health check failed' 
+      error: 'Service health check failed',
+      timestamp: new Date().toISOString()
     });
   }
 }

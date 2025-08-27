@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.POLYGON_API_KEY;
 
     // Check if API key is properly configured
-    if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE') {
+    if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE' || apiKey === 'your_polygon_api_key_here') {
       return res.status(503).json({ 
         error: 'Trading scanner is currently unavailable. Please try again later.',
         details: 'Service temporarily unavailable'
@@ -33,8 +33,8 @@ export default async function handler(req, res) {
         }
         
         const currentTradesData = await currentTradesResponse.json();
-        if (!currentTradesData.results) {
-          console.error(`No results for current trades for ${symbol}`);
+        if (!currentTradesData.results || !Array.isArray(currentTradesData.results)) {
+          console.error(`No valid results for current trades for ${symbol}`);
           continue;
         }
 
@@ -49,8 +49,8 @@ export default async function handler(req, res) {
         }
         
         const historicalData = await historicalResponse.json();
-        if (!historicalData.results) {
-          console.error(`No results for historical trades for ${symbol}`);
+        if (!historicalData.results || !Array.isArray(historicalData.results)) {
+          console.error(`No valid results for historical trades for ${symbol}`);
           continue;
         }
 
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
 
     // Sort by opportunity score and apply limit
     const sortedOpportunities = opportunities
-      .sort((a, b) => b.opportunity_score - a.opportunity_score)
+      .sort((a, b) => (b.opportunity_score || 0) - (a.opportunity_score || 0))
       .slice(0, parseInt(limit));
 
     return res.status(200).json(sortedOpportunities);
@@ -84,71 +84,87 @@ export default async function handler(req, res) {
 }
 
 function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
-  // Identify dark pool trades (exchange = 4 AND trf_id present)
-  const currentDarkPoolTrades = currentTrades.filter(trade => 
-    trade.exchange === 4 && trade.trf_id !== undefined
-  );
-  
-  const historicalDarkPoolTrades = historicalTrades.filter(trade => 
-    trade.exchange === 4 && trade.trf_id !== undefined
-  );
-
-  // Calculate current dark pool activity
-  const currentDarkPoolVolume = currentDarkPoolTrades.reduce((sum, trade) => sum + trade.size, 0);
-  const currentTotalVolume = currentTrades.reduce((sum, trade) => sum + trade.size, 0);
-  const currentDarkPoolRatio = currentTotalVolume > 0 ? currentDarkPoolVolume / currentTotalVolume : 0;
-
-  // Calculate historical dark pool activity (90-day average)
-  const historicalDarkPoolVolume = historicalDarkPoolTrades.reduce((sum, trade) => sum + trade.size, 0);
-  const historicalTotalVolume = historicalTrades.reduce((sum, trade) => sum + trade.size, 0);
-  const historicalDarkPoolRatio = historicalTotalVolume > 0 ? historicalDarkPoolVolume / historicalTotalVolume : 0;
-
-  // Calculate activity ratio (current vs historical)
-  const activityRatio = historicalDarkPoolRatio > 0 ? currentDarkPoolRatio / historicalDarkPoolRatio : 0;
-
-  // Check if this meets our opportunity criteria
-  // 1. Dark pool activity > 300% of historical average
-  // 2. Sufficient volume for analysis
-  if (activityRatio >= 3.0 && currentTotalVolume > 100000) {
-    // Calculate opportunity score based on activity ratio and volume
-    const opportunityScore = Math.min(100, Math.floor(activityRatio * 20 + (currentTotalVolume / 1000000) * 10));
-    
-    // Determine strategy type based on activity level
-    let strategyType = "Long Straddle";
-    if (activityRatio >= 5.0) {
-      strategyType = "Volatility Explosion Play";
-    } else if (activityRatio >= 4.0) {
-      strategyType = "Long Volatility Play";
+  try {
+    // Validate input arrays
+    if (!Array.isArray(currentTrades) || !Array.isArray(historicalTrades)) {
+      return null;
     }
 
-    // Calculate expected profit based on activity ratio and volume
-    const baseProfit = 1000;
-    const profitMultiplier = Math.min(3, activityRatio / 3);
-    const expectedProfit = Math.floor(baseProfit * profitMultiplier);
+    // Identify dark pool trades (exchange = 4 AND trf_id present)
+    // According to Polygon.io documentation: https://polygon.io/knowledge-base/article/does-polygon-offer-dark-pool-data
+    const currentDarkPoolTrades = currentTrades.filter(trade => 
+      trade && typeof trade === 'object' && 
+      trade.exchange === 4 && 
+      trade.trf_id !== undefined
+    );
+    
+    const historicalDarkPoolTrades = historicalTrades.filter(trade => 
+      trade && typeof trade === 'object' && 
+      trade.exchange === 4 && 
+      trade.trf_id !== undefined
+    );
 
-    return {
-      id: Date.now() + Math.random(),
-      symbol: symbol,
-      strategy_type: strategyType,
-      vol_spread: (activityRatio - 1) * 100, // Convert to percentage
-      implied_vol: 0.25 + (activityRatio - 1) * 0.1, // Mock implied volatility
-      realized_vol: 0.20 + (activityRatio - 1) * 0.05, // Mock realized volatility
-      expected_profit: expectedProfit,
-      confidence: Math.min(95, Math.floor(opportunityScore)),
-      risk_level: activityRatio >= 5.0 ? "high" : activityRatio >= 3.5 ? "medium" : "low",
-      dark_pool_activity_ratio: activityRatio,
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      metadata: {
-        activity_ratio: activityRatio,
-        total_volume: currentTotalVolume,
-        total_trades: currentTrades.length,
-        dark_pool_volume: currentDarkPoolVolume,
-        dark_pool_trades: currentDarkPoolTrades.length,
-        historical_avg_ratio: historicalDarkPoolRatio
+    // Calculate current dark pool activity
+    const currentDarkPoolVolume = currentDarkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
+    const currentTotalVolume = currentTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
+    const currentDarkPoolRatio = currentTotalVolume > 0 ? currentDarkPoolVolume / currentTotalVolume : 0;
+
+    // Calculate historical dark pool activity (90-day average)
+    const historicalDarkPoolVolume = historicalDarkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
+    const historicalTotalVolume = historicalTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
+    const historicalDarkPoolRatio = historicalTotalVolume > 0 ? historicalDarkPoolVolume / historicalTotalVolume : 0;
+
+    // Calculate activity ratio (current vs historical)
+    const activityRatio = historicalDarkPoolRatio > 0 ? currentDarkPoolRatio / historicalDarkPoolRatio : 0;
+
+    // Check if this meets our opportunity criteria
+    // 1. Dark pool activity > 300% of historical average
+    // 2. Sufficient volume for analysis
+    if (activityRatio >= 3.0 && currentTotalVolume > 100000) {
+      // Calculate opportunity score based on activity ratio and volume
+      const opportunityScore = Math.min(100, Math.floor(activityRatio * 20 + (currentTotalVolume / 1000000) * 10));
+      
+      // Determine strategy type based on activity level
+      let strategyType = "Long Straddle";
+      if (activityRatio >= 5.0) {
+        strategyType = "Volatility Explosion Play";
+      } else if (activityRatio >= 4.0) {
+        strategyType = "Long Volatility Play";
       }
-    };
-  }
 
-  return null;
+      // Calculate expected profit based on activity ratio and volume
+      const baseProfit = 1000;
+      const profitMultiplier = Math.min(3, activityRatio / 3);
+      const expectedProfit = Math.floor(baseProfit * profitMultiplier);
+
+      return {
+        id: Date.now() + Math.random(),
+        symbol: symbol,
+        strategy_type: strategyType,
+        vol_spread: (activityRatio - 1) * 100, // Convert to percentage
+        implied_vol: 0.25 + (activityRatio - 1) * 0.1, // Mock implied volatility
+        realized_vol: 0.20 + (activityRatio - 1) * 0.05, // Mock realized volatility
+        expected_profit: expectedProfit,
+        confidence: Math.min(95, Math.floor(opportunityScore)),
+        risk_level: activityRatio >= 5.0 ? "high" : activityRatio >= 3.5 ? "medium" : "low",
+        dark_pool_activity_ratio: activityRatio,
+        opportunity_score: opportunityScore,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        metadata: {
+          activity_ratio: activityRatio,
+          total_volume: currentTotalVolume,
+          total_trades: currentTrades.length,
+          dark_pool_volume: currentDarkPoolVolume,
+          dark_pool_trades: currentDarkPoolTrades.length,
+          historical_avg_ratio: historicalDarkPoolRatio
+        }
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error analyzing dark pool opportunity for ${symbol}:`, error);
+    return null;
+  }
 }

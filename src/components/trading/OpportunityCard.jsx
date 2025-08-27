@@ -4,15 +4,26 @@ import { Button } from '../ui/button';
 import { TrendingUp, TrendingDown, DollarSign, Target, AlertTriangle } from 'lucide-react';
 
 const OpportunityCard = ({ opportunity }) => {
+  // Add null checks and default values
+  if (!opportunity) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center text-gray-500">
+          <p>Invalid opportunity data</p>
+        </div>
+      </div>
+    );
+  }
+
   const {
-    symbol,
-    strategy_type,
-    vol_spread,
-    implied_vol,
-    realized_vol,
-    expected_profit,
-    confidence,
-    risk_level
+    symbol = 'N/A',
+    strategy_type = 'Unknown Strategy',
+    vol_spread = 0,
+    implied_vol = 0,
+    realized_vol = 0,
+    expected_profit = 0,
+    confidence = 0,
+    risk_level = 'medium'
   } = opportunity;
 
   const getRiskColor = (risk) => {
@@ -31,16 +42,33 @@ const OpportunityCard = ({ opportunity }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount || 0);
+    } catch (error) {
+      return '$0';
+    }
   };
 
   const formatPercentage = (value) => {
-    return `${(value * 100).toFixed(1)}%`;
+    try {
+      return `${((value || 0) * 100).toFixed(1)}%`;
+    } catch (error) {
+      return '0.0%';
+    }
+  };
+
+  const formatVolSpread = (value) => {
+    try {
+      const numValue = parseFloat(value) || 0;
+      return `${numValue > 0 ? '+' : ''}${numValue.toFixed(1)}%`;
+    } catch (error) {
+      return '0.0%';
+    }
   };
 
   return (
@@ -90,7 +118,7 @@ const OpportunityCard = ({ opportunity }) => {
               <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
             )}
             <span className={`text-sm font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {vol_spread > 0 ? '+' : ''}{vol_spread.toFixed(1)}%
+              {formatVolSpread(vol_spread)}
             </span>
           </div>
         </div>

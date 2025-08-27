@@ -35,7 +35,9 @@ export default function Scanner() {
       const data = await response.json();
       
       if (response.ok) {
-        setOpportunities(data);
+        // Ensure data is an array and filter out any invalid entries
+        const validOpportunities = Array.isArray(data) ? data.filter(opp => opp && typeof opp === 'object') : [];
+        setOpportunities(validOpportunities);
       } else {
         setError(data.error || 'Unable to load trading opportunities');
         setOpportunities([]);
@@ -50,30 +52,32 @@ export default function Scanner() {
   };
 
   useEffect(() => {
-    let filtered = opportunities;
+    let filtered = opportunities || [];
 
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(opp => 
-        opp.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opp.strategy_type.toLowerCase().includes(searchTerm.toLowerCase())
+        opp && opp.symbol && opp.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        opp && opp.strategy_type && opp.strategy_type.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Filter by minimum profit
     if (minProfit) {
-      filtered = filtered.filter(opp => opp.expected_profit >= parseInt(minProfit));
+      filtered = filtered.filter(opp => opp && opp.expected_profit >= parseInt(minProfit));
     }
 
     // Sort opportunities
     filtered.sort((a, b) => {
+      if (!a || !b) return 0;
+      
       switch (sortBy) {
         case "profit":
-          return b.expected_profit - a.expected_profit;
+          return (b.expected_profit || 0) - (a.expected_profit || 0);
         case "confidence":
-          return b.confidence - a.confidence;
+          return (b.confidence || 0) - (a.confidence || 0);
         case "vol_spread":
-          return Math.abs(b.vol_spread) - Math.abs(a.vol_spread);
+          return Math.abs(b.vol_spread || 0) - Math.abs(a.vol_spread || 0);
         default:
           return 0;
       }
@@ -213,8 +217,8 @@ export default function Scanner() {
         {/* Opportunities Grid */}
         {!error && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredOpportunities.map((opportunity) => (
-              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            {filteredOpportunities.map((opportunity, index) => (
+              <OpportunityCard key={opportunity?.id || index} opportunity={opportunity} />
             ))}
           </div>
         )}
