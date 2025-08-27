@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client (you'll need to add your Supabase credentials)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'your_supabase_url';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your_supabase_key';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Simple API key validation without external dependencies
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

@@ -233,7 +233,7 @@ export default function LearningModules() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Link href="/">
+                                          <Link href="/">
                 <button className="text-gray-900 hover:text-green-600 p-2 flex items-center touch-manipulation">
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   <span className="font-medium">Back</span>
@@ -345,7 +345,7 @@ export default function LearningModules() {
               </p>
               <div className="space-y-3">
                 <button 
-                  onClick={() => navigate('/confirmation')}
+                                                  onClick={() => router.push('/confirmation')}
                   className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation"
                 >
                   Get the E-book
