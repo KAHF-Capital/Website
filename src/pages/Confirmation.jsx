@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { ArrowLeft, CheckCircle, Download, BookOpen, Shield, TrendingUp } from 'lucide-react';
 import Footer from './Footer';
 
@@ -11,7 +11,7 @@ export default function Confirmation() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Link to="/">
+              <Link href="/">
                 <button className="text-gray-900 hover:text-green-600 p-2 flex items-center touch-manipulation">
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   <span className="font-medium">Back to Home</span>

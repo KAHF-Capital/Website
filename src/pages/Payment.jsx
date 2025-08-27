@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { ArrowLeft, Smartphone } from 'lucide-react';
 import Footer from './Footer';
 
@@ -8,7 +9,7 @@ export default function Payment() {
     const [email, setEmail] = useState('');
     const [fullName, setFullName] = useState('');
     const [error, setError] = useState('');
-    const navigate = useNavigate();
+    const router = useRouter();
 
     const handleApplePay = () => {
         if (!email || !fullName) {
@@ -18,7 +19,7 @@ export default function Payment() {
         setError('');
         
         // Navigate directly to confirmation page
-        navigate('/confirmation');
+        router.push('/confirmation');
     };
 
     return (
@@ -28,7 +29,7 @@ export default function Payment() {
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                            <Link to="/learning">
+                            <Link href="/learning">
                                 <button className="text-gray-900 hover:text-green-600 p-2 flex items-center touch-manipulation">
                                     <ArrowLeft className="h-5 w-5 mr-2" />
                                     <span className="font-medium">Back</span>

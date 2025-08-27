@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
 import Footer from './Footer';
 
 export default function LearningModules() {
   const [activeStrategy, setActiveStrategy] = useState("long-straddle");
   const [activeTab, setActiveTab] = useState("overview");
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const strategies = {
     "long-straddle": {
@@ -232,7 +233,7 @@ export default function LearningModules() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Link to="/">
+              <Link href="/">
                 <button className="text-gray-900 hover:text-green-600 p-2 flex items-center touch-manipulation">
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   <span className="font-medium">Back</span>
