@@ -68,6 +68,16 @@ const SelectTrigger = React.forwardRef(({ className = '', children, onValueChang
 
 SelectTrigger.displayName = 'SelectTrigger';
 
+const SelectValue = React.forwardRef(({ placeholder = 'Select option...', ...props }, ref) => {
+  return (
+    <span ref={ref} {...props}>
+      {placeholder}
+    </span>
+  );
+});
+
+SelectValue.displayName = 'SelectValue';
+
 const SelectContent = React.forwardRef(({ className = '', children, onSelect, ...props }, ref) => {
   return (
     <div ref={ref} className={`py-1 ${className}`} {...props}>
@@ -104,11 +114,5 @@ const SelectItem = React.forwardRef(({ className = '', value, children, onSelect
 
 SelectItem.displayName = 'SelectItem';
 
-const SelectValue = ({ placeholder, children }) => {
-  return children || placeholder;
-};
-
-SelectValue.displayName = 'SelectValue';
-
-export { Select, SelectTrigger, SelectContent, SelectItem, SelectValue };
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem };
 
