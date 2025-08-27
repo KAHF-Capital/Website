@@ -239,6 +239,131 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
   );
 };
 
+// Dark Pool Info Modal Component
+const DarkPoolInfoModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">What is Dark Pool Activity?</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <SafeX />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">🌊 Dark Pools Explained</h3>
+              <p className="text-gray-700 text-sm">
+                Dark pools are private exchanges where institutional investors trade large blocks of shares 
+                away from public markets. These trades are not visible to the public until after they're completed.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">📊 Why It Matters</h3>
+              <ul className="text-gray-700 text-sm space-y-1">
+                <li>• <strong>Institutional Activity:</strong> High dark pool volume indicates large institutional trades</li>
+                <li>• <strong>Price Impact:</strong> These trades can significantly affect stock prices</li>
+                <li>• <strong>Volatility Signals:</strong> Spikes in dark pool activity often precede price movements</li>
+                <li>• <strong>Market Sentiment:</strong> Shows what "smart money" is doing</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">🎯 Trading Implications</h3>
+              <p className="text-gray-700 text-sm">
+                When dark pool activity increases significantly, it often signals that institutions are 
+                positioning for a major move. This can be a leading indicator for volatility expansion, 
+                making it valuable for straddle strategies.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">💡 Pro Tip</h4>
+              <p className="text-blue-800 text-sm">
+                Dark pool data is one of the few ways retail traders can see what institutional investors 
+                are doing in real-time. High dark pool ratios (10%+) often indicate significant institutional interest.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// SMS Subscription Modal Component
+const SMSModal = ({ isOpen, onClose, phoneNumber, setPhoneNumber, onSubscribe }) => {
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubscribe(phoneNumber);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">SMS Alerts</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <SafeX />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-2">📱 Get Instant Alerts</h3>
+              <p className="text-blue-800 text-sm">
+                Receive text messages whenever we detect new straddle opportunities with IV &lt; HV.
+                Never miss a profitable trading signal again.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <SafeInput
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  We'll only send you alerts for new opportunities
+                </p>
+              </div>
+
+              <SafeButton type="submit" className="w-full">
+                Subscribe to Alerts
+              </SafeButton>
+            </form>
+
+            <div className="text-xs text-gray-500 text-center">
+              Standard messaging rates may apply. You can unsubscribe at any time.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // How It Works Modal Component
 const HowItWorksModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -416,7 +541,16 @@ const SafeOpportunityCard = ({ opportunity }) => {
                    </div>
 
                                      <div>
-                     <h4 className="font-semibold text-gray-900 mb-2">🌊 Dark Pool Activity</h4>
+                     <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                       🌊 Dark Pool Activity
+                       <button
+                         onClick={() => setShowDarkPoolInfo(true)}
+                         className="ml-2 text-blue-500 hover:text-blue-700"
+                         title="What is Dark Pool Activity?"
+                       >
+                         <SafeInfo />
+                       </button>
+                     </h4>
                      <div className="space-y-2 text-sm">
                        <div className="flex justify-between">
                          <span>Dark Pool Volume:</span>
@@ -476,6 +610,10 @@ export default function Scanner() {
   const [isSearching, setIsSearching] = useState(false);
   const [showAllData, setShowAllData] = useState(false);
   const [allAnalysisData, setAllAnalysisData] = useState([]);
+  const [showSMSModal, setShowSMSModal] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [smsSubscribed, setSmsSubscribed] = useState(false);
+  const [showDarkPoolInfo, setShowDarkPoolInfo] = useState(false);
 
   useEffect(() => {
       fetchOpportunities();
@@ -540,6 +678,32 @@ export default function Scanner() {
     }
   };
 
+  const handleSMSSubscribe = async (phone) => {
+    try {
+      const response = await fetch('/api/sms-subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: phone }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSmsSubscribed(true);
+        setShowSMSModal(false);
+        setPhoneNumber("");
+        // You could show a success message here
+      } else {
+        setError(data.error || 'Failed to subscribe to SMS alerts');
+      }
+    } catch (error) {
+      console.error('Error subscribing to SMS:', error);
+      setError('Failed to subscribe to SMS alerts');
+    }
+  };
+
   useEffect(() => {
     try {
       let filtered = Array.isArray(opportunities) ? opportunities : [];
@@ -586,10 +750,10 @@ export default function Scanner() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Trading Scanner</h1>
-              <p className="mt-1 text-gray-600">Discover high-probability trading opportunities</p>
-            </div>
+                      <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
+            <p className="mt-1 text-gray-600">+Straddle Trading Signals</p>
+          </div>
             <div className="flex items-center space-x-3">
               <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
                 <SafeZap />
@@ -599,6 +763,15 @@ export default function Scanner() {
                 <SafeTrendingUp />
                 <span>{Array.isArray(filteredOpportunities) ? filteredOpportunities.length : 0} Opportunities</span>
               </SafeBadge>
+              <SafeButton
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSMSModal(true)}
+                className="flex items-center space-x-1"
+              >
+                <SafeZap />
+                <span>SMS Alerts</span>
+              </SafeButton>
               <SafeButton
                 variant="outline"
                 size="sm"
@@ -630,6 +803,21 @@ export default function Scanner() {
         isOpen={showAllData} 
         onClose={() => setShowAllData(false)} 
         data={allAnalysisData} 
+      />
+
+      {/* SMS Modal */}
+      <SMSModal 
+        isOpen={showSMSModal} 
+        onClose={() => setShowSMSModal(false)}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        onSubscribe={handleSMSSubscribe}
+      />
+
+      {/* Dark Pool Info Modal */}
+      <DarkPoolInfoModal 
+        isOpen={showDarkPoolInfo} 
+        onClose={() => setShowDarkPoolInfo(false)}
       />
 
       {/* Error Display */}
