@@ -114,7 +114,7 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
       <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Complete Market Analysis</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Complete Dark Pool Analysis</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -132,18 +132,18 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                 <p className="text-sm text-blue-700">Stocks</p>
               </div>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="font-semibold text-green-900">Opportunities</h3>
+                <h3 className="font-semibold text-green-900">High Activity</h3>
                 <p className="text-2xl font-bold text-green-800">
-                  {data.filter(item => item.status === 'opportunity').length}
+                  {data.filter(item => item.status === 'high_activity').length}
                 </p>
-                <p className="text-sm text-green-700">IV &lt; HV</p>
+                <p className="text-sm text-green-700">2x+ Average</p>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h3 className="font-semibold text-yellow-900">Overpriced</h3>
+                <h3 className="font-semibold text-yellow-900">Normal Activity</h3>
                 <p className="text-2xl font-bold text-yellow-800">
-                  {data.filter(item => item.status === 'overpriced').length}
+                  {data.filter(item => item.status === 'normal_activity').length}
                 </p>
-                <p className="text-sm text-yellow-700">IV ≥ HV</p>
+                <p className="text-sm text-yellow-700">Below 2x Average</p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <h3 className="font-semibold text-red-900">No Data</h3>
@@ -162,11 +162,10 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symbol</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IV</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HV</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Dark Pool</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">90-Day Avg</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Ratio</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dark Pool %</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Options</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -175,32 +174,22 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.symbol}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          item.status === 'opportunity' ? 'bg-green-100 text-green-800' :
-                          item.status === 'overpriced' ? 'bg-yellow-100 text-yellow-800' :
+                          item.status === 'high_activity' ? 'bg-green-100 text-green-800' :
+                          item.status === 'normal_activity' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {item.status === 'opportunity' ? 'Opportunity' :
-                           item.status === 'overpriced' ? 'Overpriced' : 'No Data'}
+                          {item.status === 'high_activity' ? 'High Activity' :
+                           item.status === 'normal_activity' ? 'Normal Activity' : 'No Data'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.current_price)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatPercentage(item.implied_vol)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatPercentage(item.realized_vol)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatNumber(item.today_dark_pool_volume)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatNumber(item.avg_90day_dark_pool_volume)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {item.dark_pool_ratio ? formatPercentage(item.dark_pool_ratio) : 'N/A'}
+                        {item.activity_ratio ? `${item.activity_ratio.toFixed(1)}x` : 'N/A'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {item.options_analyzed ? (
-                          <div className="text-xs">
-                            <div>Call: {formatCurrency(item.call_price)}</div>
-                            <div>Put: {formatCurrency(item.put_price)}</div>
-                            <div>Strike: {formatCurrency(item.strike_price)}</div>
-                            <div>Expiry: {item.days_to_expiry}d</div>
-                          </div>
-                        ) : 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
-                        {item.reason || 'No specific reason provided'}
+                        {item.today_dark_pool_ratio ? `${item.today_dark_pool_ratio.toFixed(1)}%` : 'N/A'}
                       </td>
                     </tr>
                   ))}
@@ -210,25 +199,25 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
 
             {/* Legend */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Analysis Legend</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">Dark Pool Analysis Legend</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
-                    Opportunity
+                    High Activity
                   </span>
-                  <span className="text-gray-700">IV &lt; HV - Straddle opportunity available</span>
+                  <span className="text-gray-700">Today's volume ≥ 2x 90-day average</span>
                 </div>
                 <div>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mr-2">
-                    Overpriced
+                    Normal Activity
                   </span>
-                  <span className="text-gray-700">IV ≥ HV - Volatility is overpriced</span>
+                  <span className="text-gray-700">Today's volume &lt; 2x 90-day average</span>
                 </div>
                 <div>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-2">
                     No Data
                   </span>
-                  <span className="text-gray-700">Insufficient options or price data</span>
+                  <span className="text-gray-700">Insufficient dark pool data available</span>
                 </div>
               </div>
             </div>
@@ -421,7 +410,7 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
   );
 };
 
-// Enhanced OpportunityCard with Details and Risk Analysis
+// Dark Pool Activity Card
 const SafeOpportunityCard = ({ opportunity }) => {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -430,7 +419,7 @@ const SafeOpportunityCard = ({ opportunity }) => {
       return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="text-center text-gray-500">
-            <p>Invalid opportunity data</p>
+            <p>Invalid dark pool data</p>
           </div>
         </div>
       );
@@ -438,20 +427,18 @@ const SafeOpportunityCard = ({ opportunity }) => {
 
     const { 
       symbol = 'N/A', 
-      strategy_type = 'Unknown', 
-      expected_profit = 0, 
-      probability_of_success = 0,
       current_price = 0,
-      straddle_cost = 0,
-      vol_spread = 0,
-      implied_vol = 0,
-      realized_vol = 0,
-      days_to_expiry = 0,
-      metadata = {}
+      today_dark_pool_volume = 0,
+      today_total_volume = 0,
+      today_dark_pool_ratio = 0,
+      avg_90day_dark_pool_volume = 0,
+      avg_90day_total_volume = 0,
+      activity_ratio = 0,
+      status = 'normal_activity'
     } = opportunity;
 
-    const formatPercentage = (value) => `${(value * 100).toFixed(1)}%`;
-    const formatCurrency = (amount) => `$${amount.toLocaleString()}`;
+    const formatCurrency = (amount) => `$${amount?.toLocaleString() || 'N/A'}`;
+    const formatNumber = (num) => num?.toLocaleString() || 'N/A';
 
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -459,22 +446,24 @@ const SafeOpportunityCard = ({ opportunity }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-bold text-gray-900">{symbol}</h3>
-            <p className="text-sm text-gray-600">{strategy_type}</p>
+            <p className="text-sm text-gray-600">Dark Pool Activity</p>
           </div>
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
-            {days_to_expiry}d
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            status === 'high_activity' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+          }`}>
+            {status === 'high_activity' ? 'High Activity' : 'Normal Activity'}
           </span>
         </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center">
-            <p className="text-lg font-semibold text-gray-900">{formatCurrency(expected_profit)}</p>
-            <p className="text-xs text-gray-600">Expected Profit</p>
+            <p className="text-lg font-semibold text-gray-900">{formatNumber(today_dark_pool_volume)}</p>
+            <p className="text-xs text-gray-600">Today's Dark Pool</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-semibold text-blue-600">{probability_of_success.toFixed(0)}%</p>
-            <p className="text-xs text-gray-600">Success Probability</p>
+            <p className="text-lg font-semibold text-blue-600">{activity_ratio ? `${activity_ratio.toFixed(1)}x` : 'N/A'}</p>
+            <p className="text-xs text-gray-600">Activity Ratio</p>
           </div>
         </div>
 
@@ -495,104 +484,83 @@ const SafeOpportunityCard = ({ opportunity }) => {
             <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-900">{symbol} - Trade Reasoning</h3>
+                  <h3 className="text-xl font-bold text-gray-900">{symbol} - Dark Pool Analysis</h3>
                   <button onClick={() => setShowDetails(false)} className="text-gray-400 hover:text-gray-600">
                     <SafeX />
                   </button>
                 </div>
                 
-                                 <div className="space-y-4">
-                   <div>
-                     <h4 className="font-semibold text-gray-900 mb-2">📊 Options Analysis</h4>
-                     <div className="space-y-2 text-sm">
-                       <div className="flex justify-between">
-                         <span>Current Price:</span>
-                         <span className="font-medium">{formatCurrency(current_price)}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Straddle Cost:</span>
-                         <span className="font-medium">{formatCurrency(straddle_cost)}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Days to Expiry:</span>
-                         <span className="font-medium">{days_to_expiry}</span>
-                       </div>
-                     </div>
-                   </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">📊 Stock Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Current Price:</span>
+                        <span className="font-medium">{formatCurrency(current_price)}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                   <div>
-                     <h4 className="font-semibold text-gray-900 mb-2">📈 Volatility Analysis</h4>
-                     <div className="space-y-2 text-sm">
-                       <div className="flex justify-between">
-                         <span>Implied Volatility:</span>
-                         <span className="font-medium">{formatPercentage(implied_vol)}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Realized Volatility:</span>
-                         <span className="font-medium">{formatPercentage(realized_vol)}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Volatility Spread:</span>
-                         <span className={`font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                           {vol_spread > 0 ? '+' : ''}{vol_spread.toFixed(1)}%
-                         </span>
-                       </div>
-                     </div>
-                   </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">🌊 Today's Dark Pool Activity</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Dark Pool Volume:</span>
+                        <span className="font-medium">{formatNumber(today_dark_pool_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Volume:</span>
+                        <span className="font-medium">{formatNumber(today_total_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Dark Pool %:</span>
+                        <span className="font-medium">{today_dark_pool_ratio ? `${today_dark_pool_ratio.toFixed(1)}%` : 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                                     <div>
-                     <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                       🌊 Dark Pool Activity
-                       <button
-                         onClick={() => setShowDarkPoolInfo(true)}
-                         className="ml-2 text-blue-500 hover:text-blue-700"
-                         title="What is Dark Pool Activity?"
-                       >
-                         <SafeInfo />
-                       </button>
-                     </h4>
-                     <div className="space-y-2 text-sm">
-                       <div className="flex justify-between">
-                         <span>Dark Pool Volume:</span>
-                         <span className="font-medium">{metadata.dark_pool_volume?.toLocaleString() || 'N/A'}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Total Volume:</span>
-                         <span className="font-medium">{metadata.total_volume?.toLocaleString() || 'N/A'}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Dark Pool Ratio:</span>
-                         <span className="font-medium">{metadata.dark_pool_ratio ? (metadata.dark_pool_ratio * 100).toFixed(1) + '%' : 'N/A'}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Dark Pool Trades:</span>
-                         <span className="font-medium">{metadata.dark_pool_trades || 'N/A'}</span>
-                       </div>
-                     </div>
-                   </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">📈 90-Day Historical Average</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Avg Dark Pool Volume:</span>
+                        <span className="font-medium">{formatNumber(avg_90day_dark_pool_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Avg Total Volume:</span>
+                        <span className="font-medium">{formatNumber(avg_90day_total_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Activity Ratio:</span>
+                        <span className={`font-medium ${activity_ratio >= 2 ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {activity_ratio ? `${activity_ratio.toFixed(1)}x` : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-                                     <div>
-                     <h4 className="font-semibold text-gray-900 mb-2">🎯 Strategy Rationale</h4>
-                     <p className="text-sm text-gray-700">
-                       High volatility environment with uncertain price direction. Dark pool activity suggests institutional positioning for a significant move. 
-                       Long straddle strategy profits when the stock makes a big move in either direction.
-                     </p>
-                   </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">🎯 Analysis</h4>
+                    <p className="text-sm text-gray-700">
+                      {activity_ratio >= 2 
+                        ? `High dark pool activity detected! Today's volume is ${activity_ratio.toFixed(1)}x the 90-day average, indicating significant institutional interest.`
+                        : `Normal dark pool activity. Today's volume is ${activity_ratio ? activity_ratio.toFixed(1) : 'N/A'}x the 90-day average.`
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-
       </div>
     );
   } catch (error) {
-    console.error('Error rendering opportunity card:', error);
+    console.error('Error rendering dark pool card:', error);
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="text-center text-gray-500">
-          <p>Error loading opportunity</p>
+          <p>Error loading dark pool data</p>
         </div>
       </div>
     );
@@ -605,7 +573,6 @@ export default function Scanner() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("profit");
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [showAllData, setShowAllData] = useState(false);
@@ -636,13 +603,13 @@ export default function Scanner() {
       
       const url = symbol ? `/api/opportunities?symbol=${encodeURIComponent(symbol)}` : '/api/opportunities';
       const response = await fetch(url);
-      const data = await response.json();
+        const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
         const validOpportunities = data.filter(opp => opp && typeof opp === 'object');
         setOpportunities(validOpportunities);
       } else {
-        const errorMessage = data?.error || 'Unable to load trading opportunities';
+        const errorMessage = data?.error || 'Unable to load dark pool data';
         setError(errorMessage);
         setOpportunities([]);
       }
@@ -663,15 +630,15 @@ export default function Scanner() {
       const response = await fetch('/api/opportunities?all_data=true');
       const data = await response.json();
       
-      if (response.ok && data.analysis_data) {
-        setAllAnalysisData(data.analysis_data);
+      if (response.ok && data.dark_pool_data) {
+        setAllAnalysisData(data.dark_pool_data);
         setShowAllData(true);
       } else {
-        const errorMessage = data?.error || 'Unable to load analysis data';
+        const errorMessage = data?.error || 'Unable to load dark pool data';
         setError(errorMessage);
       }
     } catch (error) {
-      console.error('Error fetching analysis data:', error);
+      console.error('Error fetching dark pool data:', error);
       setError('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
@@ -708,30 +675,18 @@ export default function Scanner() {
     try {
       let filtered = Array.isArray(opportunities) ? opportunities : [];
 
-      // If there's a search term, we're already filtering by symbol from the API
-      // So we don't need additional client-side filtering
-
+      // Sort by dark pool volume (highest first)
       filtered.sort((a, b) => {
         if (!a || !b) return 0;
-        
-      switch (sortBy) {
-        case "profit":
-            return (b.expected_profit || 0) - (a.expected_profit || 0);
-        case "confidence":
-            return (b.confidence || 0) - (a.confidence || 0);
-        case "vol_spread":
-            return Math.abs(b.vol_spread || 0) - Math.abs(a.vol_spread || 0);
-        default:
-          return 0;
-      }
-    });
+        return (b.today_dark_pool_volume || 0) - (a.today_dark_pool_volume || 0);
+      });
 
-    setFilteredOpportunities(filtered);
+      setFilteredOpportunities(filtered);
     } catch (error) {
-      console.error('Error filtering opportunities:', error);
+      console.error('Error filtering dark pool data:', error);
       setFilteredOpportunities([]);
     }
-  }, [opportunities, sortBy]);
+  }, [opportunities]);
 
   if (isLoading) {
     return (
@@ -750,10 +705,10 @@ export default function Scanner() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-                      <div>
+            <div>
             <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
             <p className="mt-1 text-gray-600">+Straddle Trading Signals</p>
-          </div>
+            </div>
             <div className="flex items-center space-x-3">
               <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
                 <SafeZap />
@@ -897,10 +852,10 @@ export default function Scanner() {
         {searchTerm && Array.isArray(filteredOpportunities) && filteredOpportunities.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Straddle Opportunities for {searchTerm.toUpperCase()}
+              Dark Pool Activity for {searchTerm.toUpperCase()}
             </h2>
             <p className="text-gray-600 mt-1">
-              Found {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? 's' : ''} where IV &lt; HV
+              Found {filteredOpportunities.length} result{filteredOpportunities.length !== 1 ? 's' : ''} with dark pool data
             </p>
           </div>
         )}
@@ -919,11 +874,11 @@ export default function Scanner() {
             <div className="text-gray-400 mb-4">
               <SafeSearch />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities found</h3>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No high dark pool activity found</h3>
             <p className="text-gray-600">
               {searchTerm ? 
-                `No straddle opportunities found for ${searchTerm.toUpperCase()}. This could mean IV ≥ HV (volatility is overpriced) or no options data available.` :
-                'No trading opportunities are currently available. Check back later for new opportunities.'
+                `No dark pool data found for ${searchTerm.toUpperCase()}. This could mean no trades today or insufficient data.` :
+                'No high dark pool activity is currently detected. Check back later for new activity.'
               }
             </p>
           </div>
@@ -934,7 +889,7 @@ export default function Scanner() {
             <div className="text-gray-400 mb-4">
               <SafeSearch />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No opportunities match your criteria</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No dark pool activity matches your criteria</h3>
             <p className="text-gray-600">Try searching for a different symbol or check back later.</p>
           </div>
         )}
