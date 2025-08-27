@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Footer from "./Footer";
 
 // Safe component imports with fallbacks
 const SafeBadge = ({ children, variant = 'default', className = '', ...props }) => {
@@ -161,7 +162,6 @@ const HowItWorksModal = ({ isOpen, onClose }) => {
 // Enhanced OpportunityCard with Details and Risk Analysis
 const SafeOpportunityCard = ({ opportunity }) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [showRisk, setShowRisk] = useState(false);
 
   try {
     if (!opportunity || typeof opportunity !== 'object') {
@@ -178,12 +178,13 @@ const SafeOpportunityCard = ({ opportunity }) => {
       symbol = 'N/A', 
       strategy_type = 'Unknown', 
       expected_profit = 0, 
-      confidence = 0, 
-      risk_level = 'medium',
+      probability_of_success = 0,
+      current_price = 0,
+      straddle_cost = 0,
       vol_spread = 0,
       implied_vol = 0,
       realized_vol = 0,
-      dark_pool_activity_ratio = 0,
+      days_to_expiry = 0,
       metadata = {}
     } = opportunity;
 
@@ -198,12 +199,8 @@ const SafeOpportunityCard = ({ opportunity }) => {
             <h3 className="text-xl font-bold text-gray-900">{symbol}</h3>
             <p className="text-sm text-gray-600">{strategy_type}</p>
           </div>
-          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            risk_level === 'high' ? 'bg-red-100 text-red-800' :
-            risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-            'bg-green-100 text-green-800'
-          }`}>
-            {risk_level} Risk
+          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
+            {days_to_expiry}d
           </span>
         </div>
 
@@ -214,8 +211,8 @@ const SafeOpportunityCard = ({ opportunity }) => {
             <p className="text-xs text-gray-600">Expected Profit</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-semibold text-blue-600">{confidence}%</p>
-            <p className="text-xs text-gray-600">Confidence</p>
+            <p className="text-lg font-semibold text-blue-600">{probability_of_success.toFixed(0)}%</p>
+            <p className="text-xs text-gray-600">Success Probability</p>
           </div>
         </div>
 
@@ -227,13 +224,6 @@ const SafeOpportunityCard = ({ opportunity }) => {
             onClick={() => setShowDetails(true)}
           >
             View Details
-          </SafeButton>
-          <SafeButton 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowRisk(true)}
-          >
-            Risk Analysis
           </SafeButton>
         </div>
 
@@ -249,47 +239,63 @@ const SafeOpportunityCard = ({ opportunity }) => {
                   </button>
                 </div>
                 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">📊 Volatility Analysis</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Implied Volatility:</span>
-                        <span className="font-medium">{formatPercentage(implied_vol)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Realized Volatility:</span>
-                        <span className="font-medium">{formatPercentage(realized_vol)}</span>
-                      </div>
-                                             <div className="flex justify-between">
+                                 <div className="space-y-4">
+                   <div>
+                     <h4 className="font-semibold text-gray-900 mb-2">📊 Options Analysis</h4>
+                     <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span>Current Price:</span>
+                         <span className="font-medium">{formatCurrency(current_price)}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Straddle Cost:</span>
+                         <span className="font-medium">{formatCurrency(straddle_cost)}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Days to Expiry:</span>
+                         <span className="font-medium">{days_to_expiry}</span>
+                       </div>
+                     </div>
+                   </div>
+
+                   <div>
+                     <h4 className="font-semibold text-gray-900 mb-2">📈 Volatility Analysis</h4>
+                     <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span>Implied Volatility:</span>
+                         <span className="font-medium">{formatPercentage(implied_vol)}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Realized Volatility:</span>
+                         <span className="font-medium">{formatPercentage(realized_vol)}</span>
+                       </div>
+                       <div className="flex justify-between">
                          <span>Volatility Spread:</span>
                          <span className={`font-medium ${vol_spread > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                           {vol_spread > 0 ? '+' : ''}{((implied_vol - realized_vol) * 100).toFixed(1)}%
+                           {vol_spread > 0 ? '+' : ''}{vol_spread.toFixed(1)}%
                          </span>
                        </div>
-                    </div>
-                  </div>
+                     </div>
+                   </div>
 
                                      <div>
                      <h4 className="font-semibold text-gray-900 mb-2">🌊 Dark Pool Activity</h4>
                      <div className="space-y-2 text-sm">
                        <div className="flex justify-between">
-                         <span>Today's Dark Pool Volume:</span>
-                         <span className="font-medium">{metadata.today_dark_pool_volume?.toLocaleString() || 'N/A'}</span>
+                         <span>Dark Pool Volume:</span>
+                         <span className="font-medium">{metadata.dark_pool_volume?.toLocaleString() || 'N/A'}</span>
                        </div>
                        <div className="flex justify-between">
-                         <span>90-Day Average Dark Pool:</span>
-                         <span className="font-medium">{metadata.avg_dark_pool_volume?.toLocaleString() || 'N/A'}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Activity Ratio (Today vs Avg):</span>
-                         <span className={`font-medium ${dark_pool_activity_ratio > 3 ? 'text-red-600' : dark_pool_activity_ratio > 2 ? 'text-orange-600' : 'text-green-600'}`}>
-                           {dark_pool_activity_ratio.toFixed(1)}x
-                         </span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Total Volume Today:</span>
+                         <span>Total Volume:</span>
                          <span className="font-medium">{metadata.total_volume?.toLocaleString() || 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Dark Pool Ratio:</span>
+                         <span className="font-medium">{metadata.dark_pool_ratio ? (metadata.dark_pool_ratio * 100).toFixed(1) + '%' : 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Dark Pool Trades:</span>
+                         <span className="font-medium">{metadata.dark_pool_trades || 'N/A'}</span>
                        </div>
                      </div>
                    </div>
@@ -307,75 +313,7 @@ const SafeOpportunityCard = ({ opportunity }) => {
           </div>
         )}
 
-        {/* Risk Analysis Modal */}
-        {showRisk && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-gray-900">{symbol} - Risk Analysis</h3>
-                  <button onClick={() => setShowRisk(false)} className="text-gray-400 hover:text-gray-600">
-                    <SafeX />
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Risk Chart */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Risk/Reward Profile</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Max Profit:</span>
-                        <span className="font-medium text-green-600">Unlimited</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Max Loss:</span>
-                        <span className="font-medium text-red-600">Premium Paid</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Breakeven:</span>
-                        <span className="font-medium text-gray-900">Strike ± Premium</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Risk Factors */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">⚠️ Risk Factors</h4>
-                    <ul className="space-y-1 text-sm text-gray-700">
-                      <li>• Time decay works against the position</li>
-                      <li>• Requires significant price movement to profit</li>
-                      <li>• High implied volatility increases premium cost</li>
-                      <li>• Market conditions can change rapidly</li>
-                    </ul>
-                  </div>
-
-                  {/* Risk Level Explanation */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Risk Level: {risk_level.toUpperCase()}</h4>
-                    <p className="text-sm text-gray-700">
-                      {risk_level === 'high' && 
-                        'High risk due to extreme dark pool activity and potential for significant price swings. Suitable for experienced traders only.'}
-                      {risk_level === 'medium' && 
-                        'Moderate risk with balanced reward potential. Dark pool activity suggests institutional interest but with manageable volatility.'}
-                      {risk_level === 'low' && 
-                        'Lower risk opportunity with more conservative profit potential. Suitable for traders new to volatility strategies.'}
-                    </p>
-                  </div>
-
-                  {/* Position Sizing Recommendation */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-2">💡 Position Sizing</h4>
-                    <p className="text-blue-800 text-sm">
-                      Consider allocating 1-3% of your portfolio per trade. 
-                      Higher risk levels should use smaller position sizes.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   } catch (error) {
@@ -625,6 +563,9 @@ export default function Scanner() {
           </div>
         )}
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

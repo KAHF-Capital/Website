@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // List of stocks to analyze for opportunities (expanded list)
+    // List of stocks to analyze for opportunities
     const symbols = [
       'AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD',
       'NFLX', 'CRM', 'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO',
@@ -23,46 +23,97 @@ export default async function handler(req, res) {
     ];
     const opportunities = [];
 
-    // Analyze each symbol for dark pool opportunities
+    // Analyze each symbol for straddle opportunities
     for (const symbol of symbols) {
       try {
-        // Get current day trades
-        const currentTradesResponse = await fetch(
-          `https://api.polygon.io/v3/trades/${symbol}?date=${new Date().toISOString().split('T')[0]}&limit=1000&apiKey=${apiKey}`
+        // Get current stock price
+        const stockResponse = await fetch(
+          `https://api.polygon.io/v2/aggs/ticker/${symbol}/prev?adjusted=true&apiKey=${apiKey}`
         );
         
-        if (!currentTradesResponse.ok) {
-          console.error(`Failed to fetch current trades for ${symbol}: ${currentTradesResponse.status}`);
+        if (!stockResponse.ok) {
+          console.error(`Failed to fetch stock price for ${symbol}: ${stockResponse.status}`);
           continue;
         }
         
-        const currentTradesData = await currentTradesResponse.json();
-        if (!currentTradesData.results || !Array.isArray(currentTradesData.results)) {
-          console.error(`No valid results for current trades for ${symbol}`);
+        const stockData = await stockResponse.json();
+        if (!stockData.results || !stockData.results[0]) {
+          console.error(`No valid stock data for ${symbol}`);
           continue;
         }
 
-        // Get historical trades (last 90 days)
+        const currentPrice = stockData.results[0].c; // Close price
+        const currentDate = new Date().toISOString().split('T')[0];
+
+        // Get options chain for current month expiration
+        const optionsResponse = await fetch(
+          `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expiration_date.gte=${currentDate}&limit=1000&apiKey=${apiKey}`
+        );
+        
+        if (!optionsResponse.ok) {
+          console.error(`Failed to fetch options for ${symbol}: ${optionsResponse.status}`);
+          continue;
+        }
+        
+        const optionsData = await optionsResponse.json();
+        if (!optionsData.results || !Array.isArray(optionsData.results)) {
+          console.error(`No valid options data for ${symbol}`);
+          continue;
+        }
+
+        // Find ATM straddle options (closest to current price)
+        const atmOptions = findATMStraddleOptions(optionsData.results, currentPrice);
+        if (!atmOptions) {
+          continue;
+        }
+
+        // Get options prices and calculate IV
+        const callPrice = await getOptionPrice(atmOptions.call.contract_id, apiKey);
+        const putPrice = await getOptionPrice(atmOptions.put.contract_id, apiKey);
+        
+        if (!callPrice || !putPrice) {
+          continue;
+        }
+
+        // Calculate straddle cost and implied volatility
+        const straddleCost = callPrice + putPrice;
+        const impliedVol = calculateImpliedVolatility(currentPrice, straddleCost, atmOptions.daysToExpiry);
+
+        // Get historical price data for realized volatility calculation
         const historicalResponse = await fetch(
-          `https://api.polygon.io/v3/trades/${symbol}?date=${new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}&limit=50000&apiKey=${apiKey}`
+          `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}/${currentDate}?adjusted=true&sort=asc&limit=30&apiKey=${apiKey}`
         );
         
         if (!historicalResponse.ok) {
-          console.error(`Failed to fetch historical trades for ${symbol}: ${historicalResponse.status}`);
           continue;
         }
         
         const historicalData = await historicalResponse.json();
         if (!historicalData.results || !Array.isArray(historicalData.results)) {
-          console.error(`No valid results for historical trades for ${symbol}`);
           continue;
         }
 
-        // Analyze dark pool activity
-        const opportunity = analyzeDarkPoolOpportunity(symbol, currentTradesData.results, historicalData.results);
-        
-        if (opportunity) {
-          opportunities.push(opportunity);
+        // Calculate realized volatility
+        const realizedVol = calculateRealizedVolatility(historicalData.results);
+
+        // Get dark pool data for today
+        const darkPoolData = await getDarkPoolData(symbol, currentDate, apiKey);
+
+        // Only suggest straddle if IV < HV (volatility is underpriced)
+        if (impliedVol < realizedVol) {
+          const opportunity = createStraddleOpportunity(
+            symbol, 
+            currentPrice, 
+            straddleCost, 
+            impliedVol, 
+            realizedVol, 
+            darkPoolData,
+            atmOptions.daysToExpiry
+          );
+          
+          if (opportunity) {
+            opportunities.push(opportunity);
+          }
         }
 
       } catch (error) {
@@ -71,9 +122,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Sort by opportunity score and apply limit
+    // Sort by probability of success and apply limit
     const sortedOpportunities = opportunities
-      .sort((a, b) => (b.opportunity_score || 0) - (a.opportunity_score || 0))
+      .sort((a, b) => (b.probability_of_success || 0) - (a.probability_of_success || 0))
       .slice(0, parseInt(limit));
 
     return res.status(200).json(sortedOpportunities);
@@ -87,91 +138,205 @@ export default async function handler(req, res) {
   }
 }
 
-function analyzeDarkPoolOpportunity(symbol, currentTrades, historicalTrades) {
+function findATMStraddleOptions(options, currentPrice) {
   try {
-    // Validate input arrays
-    if (!Array.isArray(currentTrades) || !Array.isArray(historicalTrades)) {
-      return null;
-    }
+    // Group options by expiration date
+    const optionsByExpiry = {};
+    options.forEach(option => {
+      if (!optionsByExpiry[option.expiration_date]) {
+        optionsByExpiry[option.expiration_date] = [];
+      }
+      optionsByExpiry[option.expiration_date].push(option);
+    });
 
-    // Identify dark pool trades (exchange = 4 AND trf_id present)
-    // According to Polygon.io documentation: https://polygon.io/knowledge-base/article/does-polygon-offer-dark-pool-data
-    const currentDarkPoolTrades = currentTrades.filter(trade => 
-      trade && typeof trade === 'object' && 
-      trade.exchange === 4 && 
-      trade.trf_id !== undefined
-    );
-    
-    const historicalDarkPoolTrades = historicalTrades.filter(trade => 
-      trade && typeof trade === 'object' && 
-      trade.exchange === 4 && 
-      trade.trf_id !== undefined
-    );
+    // Find the nearest expiration date
+    const expirationDates = Object.keys(optionsByExpiry).sort();
+    if (expirationDates.length === 0) return null;
 
-    // Calculate current dark pool activity
-    const currentDarkPoolVolume = currentDarkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
-    const currentTotalVolume = currentTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
-    const currentDarkPoolRatio = currentTotalVolume > 0 ? currentDarkPoolVolume / currentTotalVolume : 0;
+    const nearestExpiry = expirationDates[0];
+    const nearestOptions = optionsByExpiry[nearestExpiry];
 
-    // Calculate historical dark pool activity (90-day average)
-    const historicalDarkPoolVolume = historicalDarkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
-    const historicalTotalVolume = historicalTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
-    
-    // Calculate 90-day average daily dark pool volume
-    const avgDailyDarkPoolVolume = historicalDarkPoolVolume / 90;
-    const avgDailyTotalVolume = historicalTotalVolume / 90;
-    const historicalDarkPoolRatio = avgDailyTotalVolume > 0 ? avgDailyDarkPoolVolume / avgDailyTotalVolume : 0;
+    // Find ATM call and put
+    let atmCall = null;
+    let atmPut = null;
+    let minDiff = Infinity;
 
-    // Calculate activity ratio (today's dark pool volume vs 90-day average daily dark pool volume)
-    // Cap the ratio to prevent unrealistic values (max 10x)
-    const rawActivityRatio = avgDailyDarkPoolVolume > 0 ? currentDarkPoolVolume / avgDailyDarkPoolVolume : 0;
-    const activityRatio = Math.min(rawActivityRatio, 10); // Cap at 10x to prevent unrealistic ratios
-
-    // Check if this meets our opportunity criteria
-    // 1. Dark pool activity > 200% of historical average (more realistic)
-    // 2. Sufficient volume for analysis
-    if (activityRatio >= 2.0 && currentTotalVolume > 100000) {
-      // Calculate opportunity score based on activity ratio and volume
-      const opportunityScore = Math.min(100, Math.floor(activityRatio * 20 + (currentTotalVolume / 1000000) * 10));
-      
-      // Strategy is always Long Straddle
-      const strategyType = "Long Straddle";
-
-      // Calculate expected profit based on activity ratio and volume
-      const baseProfit = 1000;
-      const profitMultiplier = Math.min(3, activityRatio / 3);
-      const expectedProfit = Math.floor(baseProfit * profitMultiplier);
-
-      return {
-        id: Date.now() + Math.random(),
-        symbol: symbol,
-        strategy_type: strategyType,
-        vol_spread: ((0.25 + (activityRatio - 1) * 0.1) - (0.20 + (activityRatio - 1) * 0.05)) * 100, // Implied - Realized as percentage
-        implied_vol: 0.25 + (activityRatio - 1) * 0.1, // Mock implied volatility
-        realized_vol: 0.20 + (activityRatio - 1) * 0.05, // Mock realized volatility
-        expected_profit: expectedProfit,
-        confidence: Math.min(95, Math.floor(opportunityScore)),
-        risk_level: activityRatio >= 5.0 ? "high" : activityRatio >= 3.0 ? "medium" : "low",
-        dark_pool_activity_ratio: activityRatio,
-        opportunity_score: opportunityScore,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        metadata: {
-          activity_ratio: activityRatio,
-          total_volume: currentTotalVolume,
-          total_trades: currentTrades.length,
-          today_dark_pool_volume: currentDarkPoolVolume,
-          dark_pool_trades: currentDarkPoolTrades.length,
-          avg_dark_pool_volume: Math.round(avgDailyDarkPoolVolume),
-          avg_total_volume: Math.round(avgDailyTotalVolume),
-          historical_avg_ratio: historicalDarkPoolRatio
+    nearestOptions.forEach(option => {
+      const diff = Math.abs(option.strike_price - currentPrice);
+      if (diff < minDiff) {
+        minDiff = diff;
+        if (option.contract_type === 'call') {
+          atmCall = option;
+        } else if (option.contract_type === 'put') {
+          atmPut = option;
         }
-      };
+      }
+    });
+
+    // Find the matching put/call for the ATM strike
+    const atmStrike = atmCall ? atmCall.strike_price : atmPut ? atmPut.strike_price : null;
+    if (!atmStrike) return null;
+
+    if (!atmCall) {
+      atmCall = nearestOptions.find(opt => opt.contract_type === 'call' && opt.strike_price === atmStrike);
+    }
+    if (!atmPut) {
+      atmPut = nearestOptions.find(opt => opt.contract_type === 'put' && opt.strike_price === atmStrike);
     }
 
-    return null;
+    if (!atmCall || !atmPut) return null;
+
+    // Calculate days to expiry
+    const expiryDate = new Date(nearestExpiry);
+    const today = new Date();
+    const daysToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+
+    return {
+      call: atmCall,
+      put: atmPut,
+      strike: atmStrike,
+      expiration: nearestExpiry,
+      daysToExpiry: daysToExpiry
+    };
   } catch (error) {
-    console.error(`Error analyzing dark pool opportunity for ${symbol}:`, error);
+    console.error('Error finding ATM straddle options:', error);
+    return null;
+  }
+}
+
+async function getOptionPrice(contractId, apiKey) {
+  try {
+    const response = await fetch(
+      `https://api.polygon.io/v2/aggs/ticker/O:${contractId}/prev?adjusted=true&apiKey=${apiKey}`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (!data.results || !data.results[0]) return null;
+    
+    return data.results[0].c; // Close price
+  } catch (error) {
+    console.error('Error getting option price:', error);
+    return null;
+  }
+}
+
+function calculateImpliedVolatility(stockPrice, straddleCost, daysToExpiry) {
+  try {
+    // Simplified IV calculation using straddle approximation
+    // IV ≈ (straddle_cost / stock_price) * sqrt(365 / days_to_expiry)
+    const timeToExpiry = daysToExpiry / 365;
+    const iv = (straddleCost / stockPrice) / Math.sqrt(timeToExpiry);
+    return Math.min(Math.max(iv, 0.1), 2.0); // Cap between 10% and 200%
+  } catch (error) {
+    console.error('Error calculating implied volatility:', error);
+    return 0.3; // Default 30%
+  }
+}
+
+function calculateRealizedVolatility(priceData) {
+  try {
+    if (priceData.length < 2) return 0.3;
+
+    const returns = [];
+    for (let i = 1; i < priceData.length; i++) {
+      const return_val = Math.log(priceData[i].c / priceData[i-1].c);
+      returns.push(return_val);
+    }
+
+    const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+    const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / returns.length;
+    const volatility = Math.sqrt(variance * 252); // Annualized
+
+    return Math.min(Math.max(volatility, 0.1), 2.0); // Cap between 10% and 200%
+  } catch (error) {
+    console.error('Error calculating realized volatility:', error);
+    return 0.3; // Default 30%
+  }
+}
+
+async function getDarkPoolData(symbol, date, apiKey) {
+  try {
+    // Get today's trades
+    const response = await fetch(
+      `https://api.polygon.io/v3/trades/${symbol}?date=${date}&limit=1000&apiKey=${apiKey}`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (!data.results || !Array.isArray(data.results)) return null;
+
+    // Filter dark pool trades (exchange = 4 AND trf_id present)
+    const darkPoolTrades = data.results.filter(trade => 
+      trade && typeof trade === 'object' && 
+      trade.exchange === 4 && 
+      trade.trf_id !== undefined
+    );
+
+    const totalVolume = data.results.reduce((sum, trade) => sum + (trade.size || 0), 0);
+    const darkPoolVolume = darkPoolTrades.reduce((sum, trade) => sum + (trade.size || 0), 0);
+
+    return {
+      totalVolume,
+      darkPoolVolume,
+      darkPoolTrades: darkPoolTrades.length,
+      totalTrades: data.results.length
+    };
+  } catch (error) {
+    console.error('Error getting dark pool data:', error);
+    return null;
+  }
+}
+
+function createStraddleOpportunity(symbol, currentPrice, straddleCost, impliedVol, realizedVol, darkPoolData, daysToExpiry) {
+  try {
+    // Calculate volatility spread
+    const volSpread = ((realizedVol - impliedVol) / impliedVol) * 100;
+    
+    // Calculate probability of success based on historical patterns
+    // Higher vol spread = higher probability of success
+    const baseProbability = Math.min(85, Math.max(15, 50 + volSpread * 2));
+    
+    // Adjust probability based on dark pool activity
+    let darkPoolMultiplier = 1.0;
+    if (darkPoolData && darkPoolData.totalVolume > 0) {
+      const darkPoolRatio = darkPoolData.darkPoolVolume / darkPoolData.totalVolume;
+      if (darkPoolRatio > 0.1) { // More than 10% dark pool activity
+        darkPoolMultiplier = 1.2;
+      }
+    }
+    
+    const probabilityOfSuccess = Math.min(95, baseProbability * darkPoolMultiplier);
+    
+    // Calculate expected profit based on vol spread and probability
+    const expectedProfit = Math.floor(straddleCost * (volSpread / 100) * 10);
+    
+    return {
+      id: Date.now() + Math.random(),
+      symbol: symbol,
+      strategy_type: "Long Straddle",
+      current_price: currentPrice,
+      straddle_cost: straddleCost,
+      implied_vol: impliedVol,
+      realized_vol: realizedVol,
+      vol_spread: volSpread,
+      expected_profit: expectedProfit,
+      probability_of_success: probabilityOfSuccess,
+      days_to_expiry: daysToExpiry,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      metadata: {
+        total_volume: darkPoolData?.totalVolume || 0,
+        dark_pool_volume: darkPoolData?.darkPoolVolume || 0,
+        dark_pool_ratio: darkPoolData?.totalVolume > 0 ? (darkPoolData.darkPoolVolume / darkPoolData.totalVolume) : 0,
+        total_trades: darkPoolData?.totalTrades || 0,
+        dark_pool_trades: darkPoolData?.darkPoolTrades || 0
+      }
+    };
+  } catch (error) {
+    console.error('Error creating straddle opportunity:', error);
     return null;
   }
 }
