@@ -2,8 +2,8 @@
 
 ## ✅ **What I've Built For You:**
 
-### **1. SQL Database System**
-- **SQLite database** for storing dark pool trades
+### **1. JSON-Based Storage System**
+- **JSON file storage** for dark pool trades (Vercel-compatible)
 - **Automatic data collection** from Polygon.io
 - **15-minute refresh cycle** for real-time updates
 - **Specific data fields**: ticker, exchange_id=4, trf_id, volume, price, timestamp
@@ -15,18 +15,24 @@
 - **Auto-refresh every 15 minutes**
 - **Search functionality** for specific tickers
 
-### **3. Database Schema**
-```sql
-darkpool_trades table:
-- id (auto-increment)
-- ticker (stock symbol)
-- exchange_id (always 4 for dark pools)
-- trf_id (Trade Reporting Facility ID)
-- volume (number of shares)
-- price (trade price)
-- timestamp (trade time)
-- trade_date (date)
-- created_at (database timestamp)
+### **3. Data Structure**
+```json
+{
+  "trades": [
+    {
+      "id": "unique_id",
+      "ticker": "AAPL",
+      "exchange_id": 4,
+      "trf_id": "123",
+      "volume": 1000,
+      "price": 150.25,
+      "timestamp": "2024-01-01T10:00:00Z",
+      "trade_date": "2024-01-01",
+      "created_at": "2024-01-01T10:00:00Z"
+    }
+  ],
+  "last_updated": "2024-01-01T10:00:00Z"
+}
 ```
 
 ## 🛠️ **What You Need to Do:**
@@ -109,10 +115,10 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 2. Check browser console for errors
 3. Verify Polygon API is working
 
-### **If database issues occur:**
-1. The system will automatically create the database
+### **If storage issues occur:**
+1. The system will automatically create the JSON data file
 2. Check Vercel logs for any errors
-3. Database file will be created in your project root
+3. Data file will be created in `/tmp` directory on Vercel
 
 ## 📈 **Next Steps:**
 
