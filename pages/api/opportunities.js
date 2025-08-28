@@ -252,17 +252,26 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
     let sampleDays = 0;
     let successfulDays = 0;
 
-    // Sample every 3 days to get ~30 data points over 90 days for better accuracy
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 3)) {
+    // Sample every 7 days to get ~13 data points over 90 days (more reliable)
+    // Exclude today from historical calculation
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 7)) {
       const dateStr = d.toISOString().split('T')[0];
+      
+      // Skip if this is today's date
+      if (dateStr === currentDate) {
+        console.log(`Skipping today's date ${dateStr} for historical calculation`);
+        continue;
+      }
+      
       sampleDays++;
       
       try {
-        // Add a small delay to avoid rate limiting
+        // Add a delay to avoid rate limiting
         if (sampleDays > 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
+        console.log(`Fetching historical data for ${symbol} on ${dateStr}...`);
         const response = await fetch(
           `https://api.polygon.io/v3/trades/${symbol}?date=${dateStr}&limit=1000&apiKey=${apiKey}`
         );
@@ -288,10 +297,15 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
               totalDarkPoolVolume += dayDarkPoolVolume;
               daysWithData++;
               successfulDays++;
+              console.log(`${symbol} ${dateStr}: Total=${dayVolume.toLocaleString()}, Dark Pool=${dayDarkPoolVolume.toLocaleString()}`);
+            } else {
+              console.log(`${symbol} ${dateStr}: No volume data`);
             }
+          } else {
+            console.log(`${symbol} ${dateStr}: No trade results`);
           }
         } else {
-          console.log(`No data for ${symbol} on ${dateStr}: ${response.status}`);
+          console.log(`${symbol} ${dateStr}: API error ${response.status}`);
         }
       } catch (error) {
         console.log(`Error getting historical data for ${symbol} on ${dateStr}:`, error.message);
@@ -300,6 +314,7 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
     }
 
     console.log(`Historical analysis for ${symbol}: ${successfulDays} successful days with data out of ${sampleDays} sampled days`);
+    console.log(`Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} (excluding today)`);
 
     if (daysWithData === 0) {
       console.log(`${symbol}: No historical data available`);
@@ -314,6 +329,7 @@ async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
     const avgDailyTotalVolume = totalVolume / daysWithData;
 
     console.log(`${symbol} 90-day averages: Dark Pool ${avgDailyDarkPoolVolume.toLocaleString()}, Total ${avgDailyTotalVolume.toLocaleString()}`);
+    console.log(`${symbol} Today's data will be compared against this 90-day average`);
 
     return {
       avgDailyDarkPoolVolume: avgDailyDarkPoolVolume,
