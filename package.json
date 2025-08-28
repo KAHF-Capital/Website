@@ -6,14 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup": "node setup-env.js"
   },
   "dependencies": {
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "lucide-react": "^0.400.0",
-    "framer-motion": "^10.16.0"
+    "framer-motion": "^10.16.0",
+    "sqlite3": "^5.1.6",
+    "better-sqlite3": "^9.2.2"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.0",

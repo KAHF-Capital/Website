@@ -1,41 +1,43 @@
-# KAHF Capital Website
+# 🌊 Dark Pool Scanner
 
-A Next.js application for volatility trading education and dark pool analytics using real Polygon.io market data.
+A real-time dark pool trading scanner that monitors institutional trading activity across major stocks and ETFs using Polygon.io market data.
 
 ## Features
 
 - **Real Dark Pool Analytics**: Identifies dark pool trades using Polygon.io's official criteria (exchange ID = 4 AND trf_id present)
-- **Trading Opportunities**: Automated identification of straddle opportunities based on 300%+ dark pool activity vs 90-day historical average
-- **Learning Modules**: Educational content for volatility trading strategies
-- **Real-time Data**: Integration with Polygon.io REST API and WebSocket for live market data
+- **15-Minute Auto-Refresh**: Automatically updates data every 15 minutes for real-time monitoring
+- **SQLite Database**: Stores all dark pool trade data locally for historical analysis
+- **Search Functionality**: Look up specific tickers for dark pool activity
+- **Vercel Deployment Ready**: Easy deployment with automatic environment variable setup
 
-## 🚀 **Setup Instructions**
+## 🚀 **Quick Setup**
 
-### **Step 1: Get Your Polygon.io API Key**
-1. Go to [polygon.io](https://polygon.io) and sign up for an account
-2. Once you're logged in, find your API key in your account settings
-3. Copy it (it looks like a long string of letters and numbers)
-
-### **Step 2: Configure Environment Variables**
-1. Copy `env.example` to `.env.local`
-2. Replace `your_polygon_api_key_here` with your actual API key
-3. Save the file
-
-**Example:**
-```
-POLYGON_API_KEY=abc123def456ghi789
+### **Option 1: Automated Setup (Recommended)**
+```bash
+npm install
+npm run setup
+npm run dev
 ```
 
-### **Step 3: Deploy to Production**
-1. Go to your Vercel dashboard
-2. Find your project
-3. Go to Settings → Environment Variables
-4. Add a new variable:
-   - Name: `POLYGON_API_KEY`
-   - Value: Your actual API key
-5. Save and redeploy!
+### **Option 2: Manual Setup**
+1. **Get your Polygon.io API key** from [polygon.io](https://polygon.io)
+2. **Run the setup script:**
+   ```bash
+   npm run setup
+   ```
+3. **Or manually create `.env.local`:**
+   ```bash
+   cp env.example .env.local
+   # Edit .env.local and add your API key
+   ```
 
-**Note:** The scanner works out of the box once the API key is configured. No user input required!
+### **Step 3: Deploy to Vercel**
+1. Push your code to GitHub
+2. Connect to Vercel
+3. Add `POLYGON_API_KEY` environment variable in Vercel dashboard
+4. Deploy!
+
+**Note:** The scanner automatically refreshes every 15 minutes once deployed!
 
 ## Setup
 
@@ -65,10 +67,9 @@ npm run build
 
 ## API Routes
 
-- `GET /api/trades?symbol=AAPL` - Get real trades and identify dark pool activity
-- `GET /api/historical-trades?symbol=AAPL&days=90` - Get historical trades for comparison
-- `GET /api/opportunities` - Get trading opportunities based on dark pool analysis
-- `GET /api/analytics/[symbol]` - Get detailed stock analytics
+- `GET /api/darkpool-trades` - Get today's dark pool trades from database
+- `GET /api/darkpool-trades?ticker=AAPL&refresh=true` - Get and refresh dark pool trades for specific ticker
+- `POST /api/refresh-darkpool` - Manually refresh all dark pool data from Polygon.io
 - `GET /api/health` - Health check
 - `GET /api/config` - Get configuration
 
