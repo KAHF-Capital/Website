@@ -165,12 +165,7 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Dark Pool</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">90-Day Avg</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Ratio</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dark Pool %
-                      <div className="text-xs font-normal text-gray-400 mt-1">
-                        (Dark Pool Volume ÷ Total Volume) × 100
-                      </div>
-                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -193,9 +188,7 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {item.activity_ratio ? `${item.activity_ratio.toFixed(1)}x` : 'N/A'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {item.today_dark_pool_ratio ? `${item.today_dark_pool_ratio.toFixed(1)}%` : 'N/A'}
-                      </td>
+
                     </tr>
                   ))}
                 </tbody>
@@ -508,20 +501,16 @@ const SafeOpportunityCard = ({ opportunity }) => {
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">🌊 Today's Dark Pool Activity</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Dark Pool Volume:</span>
-                        <span className="font-medium">{formatNumber(today_dark_pool_volume)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Volume:</span>
-                        <span className="font-medium">{formatNumber(today_total_volume)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Dark Pool %:</span>
-                        <span className="font-medium">{today_dark_pool_ratio ? `${today_dark_pool_ratio.toFixed(1)}%` : 'N/A'}</span>
-                      </div>
-                    </div>
+                                         <div className="space-y-2 text-sm">
+                       <div className="flex justify-between">
+                         <span>Dark Pool Volume:</span>
+                         <span className="font-medium">{formatNumber(today_dark_pool_volume)}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Total Volume:</span>
+                         <span className="font-medium">{formatNumber(today_total_volume)}</span>
+                       </div>
+                     </div>
                   </div>
 
                   <div>

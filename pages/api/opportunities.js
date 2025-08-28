@@ -46,35 +46,39 @@ export default async function handler(req, res) {
         // Get today's dark pool data
         const todayDarkPool = await getDarkPoolData(symbol, currentDate, apiKey);
         
-        // Get 90-day historical dark pool data for average calculation
-        const historicalDarkPool = await getHistoricalDarkPoolData(symbol, currentDate, apiKey);
+        // Get 90-day averages from the tracker
+        const trackerResponse = await fetch(`${req.headers.host ? `http://${req.headers.host}` : 'http://localhost:3000'}/api/dark-pool-tracker?action=averages`);
+        let historicalAverages = { avgDailyDarkPoolVolume: 0, avgDailyTotalVolume: 0 };
+        
+        if (trackerResponse.ok) {
+          const trackerData = await trackerResponse.json();
+          historicalAverages = trackerData.averages[symbol] || { avgDailyDarkPoolVolume: 0, avgDailyTotalVolume: 0 };
+        }
 
-        if (todayDarkPool && historicalDarkPool) {
-          const activityRatio = todayDarkPool.darkPoolVolume / historicalDarkPool.avgDailyDarkPoolVolume;
+        if (todayDarkPool && historicalAverages.avgDailyDarkPoolVolume > 0) {
+          const activityRatio = todayDarkPool.darkPoolVolume / historicalAverages.avgDailyDarkPoolVolume;
           
-          console.log(`${symbol} comparison: Today DP=${todayDarkPool.darkPoolVolume.toLocaleString()}, 90-day avg=${historicalDarkPool.avgDailyDarkPoolVolume.toLocaleString()}, ratio=${activityRatio.toFixed(2)}x`);
+          console.log(`${symbol} comparison: Today DP=${todayDarkPool.darkPoolVolume.toLocaleString()}, 90-day avg=${historicalAverages.avgDailyDarkPoolVolume.toLocaleString()}, ratio=${activityRatio.toFixed(2)}x`);
           
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
             today_dark_pool_volume: todayDarkPool.darkPoolVolume,
             today_total_volume: todayDarkPool.totalVolume,
-            today_dark_pool_ratio: (todayDarkPool.darkPoolVolume / todayDarkPool.totalVolume) * 100,
-            avg_90day_dark_pool_volume: historicalDarkPool.avgDailyDarkPoolVolume,
-            avg_90day_total_volume: historicalDarkPool.avgDailyTotalVolume,
+            avg_90day_dark_pool_volume: historicalAverages.avgDailyDarkPoolVolume,
+            avg_90day_total_volume: historicalAverages.avgDailyTotalVolume,
             activity_ratio: activityRatio,
             status: activityRatio >= 2.0 ? 'high_activity' : 'normal_activity'
           });
         } else {
-          console.log(`${symbol}: Missing data - today: ${!!todayDarkPool}, historical: ${!!historicalDarkPool}`);
+          console.log(`${symbol}: Missing data - today: ${!!todayDarkPool}, historical avg: ${historicalAverages.avgDailyDarkPoolVolume}`);
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
-            today_dark_pool_volume: 0,
-            today_total_volume: 0,
-            today_dark_pool_ratio: 0,
-            avg_90day_dark_pool_volume: 0,
-            avg_90day_total_volume: 0,
+            today_dark_pool_volume: todayDarkPool?.darkPoolVolume || 0,
+            today_total_volume: todayDarkPool?.totalVolume || 0,
+            avg_90day_dark_pool_volume: historicalAverages.avgDailyDarkPoolVolume,
+            avg_90day_total_volume: historicalAverages.avgDailyTotalVolume,
             activity_ratio: 0,
             status: 'no_data'
           });
@@ -163,80 +167,4 @@ async function getDarkPoolData(symbol, date, apiKey) {
   }
 }
 
-async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
-  try {
-    // Get 90 days of historical data (sampling every 5 days to avoid rate limits but get more data points)
-    const startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const endDate = new Date(currentDate);
-    
-    let totalDarkPoolVolume = 0;
-    let totalVolume = 0;
-    let daysWithData = 0;
-    let sampleDays = 0;
 
-    // Sample every 5 days to get ~18 data points over 90 days
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 5)) {
-      const dateStr = d.toISOString().split('T')[0];
-      sampleDays++;
-      
-      try {
-        const response = await fetch(
-          `https://api.polygon.io/v3/trades/${symbol}?date=${dateStr}&limit=1000&apiKey=${apiKey}`
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.results && Array.isArray(data.results)) {
-            let dayVolume = 0;
-            let dayDarkPoolVolume = 0;
-
-            data.results.forEach(trade => {
-              const volume = trade.size || 0;
-              dayVolume += volume;
-
-              // Dark pool identification: exchange = 4 AND trf_id present
-              if (trade.exchange === 4 && trade.trf_id !== undefined) {
-                dayDarkPoolVolume += volume;
-              }
-            });
-
-            if (dayVolume > 0) {
-              totalVolume += dayVolume;
-              totalDarkPoolVolume += dayDarkPoolVolume;
-              daysWithData++;
-            }
-          }
-        }
-      } catch (error) {
-        console.log(`Error getting historical data for ${symbol} on ${dateStr}:`, error.message);
-        continue;
-      }
-    }
-
-    console.log(`Historical analysis for ${symbol}: ${daysWithData} days with data out of ${sampleDays} sampled days`);
-
-    if (daysWithData === 0) {
-      return {
-        avgDailyDarkPoolVolume: 0,
-        avgDailyTotalVolume: 0
-      };
-    }
-
-    // Calculate average daily volumes
-    const avgDailyDarkPoolVolume = totalDarkPoolVolume / daysWithData;
-    const avgDailyTotalVolume = totalVolume / daysWithData;
-
-    console.log(`${symbol} 90-day averages: Dark Pool ${avgDailyDarkPoolVolume.toLocaleString()}, Total ${avgDailyTotalVolume.toLocaleString()}`);
-
-    return {
-      avgDailyDarkPoolVolume: avgDailyDarkPoolVolume,
-      avgDailyTotalVolume: avgDailyTotalVolume
-    };
-  } catch (error) {
-    console.error(`Error getting historical dark pool data for ${symbol}:`, error);
-    return {
-      avgDailyDarkPoolVolume: 0,
-      avgDailyTotalVolume: 0
-    };
-  }
-}
