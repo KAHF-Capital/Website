@@ -16,12 +16,14 @@ export default async function handler(req, res) {
 
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Use provided symbol or default list
-    const symbols = symbol ? [symbol.toUpperCase()] : [
-      'AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD',
-      'NFLX', 'CRM', 'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO',
-      'TXN', 'MU', 'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR'
-    ];
+    // Use provided symbol or get top tickers by dark pool activity
+    let symbols;
+    if (symbol) {
+      symbols = [symbol.toUpperCase()];
+    } else {
+      // Get top tickers by dark pool activity
+      symbols = await getTopTickersByDarkPoolActivity(apiKey, currentDate);
+    }
 
     const darkPoolData = [];
 
@@ -46,40 +48,36 @@ export default async function handler(req, res) {
         // Get today's dark pool data
         const todayDarkPool = await getDarkPoolData(symbol, currentDate, apiKey);
         
-        // Get 90-day averages from the tracker
-        const trackerResponse = await fetch(`${req.headers.host ? `http://${req.headers.host}` : 'http://localhost:3000'}/api/dark-pool-tracker?action=averages`);
-        let historicalAverages = { avgDailyDarkPoolVolume: 0, avgDailyTotalVolume: 0 };
-        
-        if (trackerResponse.ok) {
-          const trackerData = await trackerResponse.json();
-          historicalAverages = trackerData.averages[symbol] || { avgDailyDarkPoolVolume: 0, avgDailyTotalVolume: 0 };
-        }
+        // Get 90-day historical dark pool data for average calculation
+        const historicalDarkPool = await getHistoricalDarkPoolData(symbol, currentDate, apiKey);
 
-        if (todayDarkPool && historicalAverages.avgDailyDarkPoolVolume > 0) {
-          const activityRatio = todayDarkPool.darkPoolVolume / historicalAverages.avgDailyDarkPoolVolume;
+        if (todayDarkPool && historicalDarkPool && historicalDarkPool.avgDailyDarkPoolVolume !== null) {
+          const activityRatio = todayDarkPool.darkPoolVolume / historicalDarkPool.avgDailyDarkPoolVolume;
           
-          console.log(`${symbol} comparison: Today DP=${todayDarkPool.darkPoolVolume.toLocaleString()}, 90-day avg=${historicalAverages.avgDailyDarkPoolVolume.toLocaleString()}, ratio=${activityRatio.toFixed(2)}x`);
+          console.log(`${symbol} comparison: Today DP=${todayDarkPool.darkPoolVolume.toLocaleString()}, 90-day avg=${historicalDarkPool.avgDailyDarkPoolVolume.toLocaleString()}, ratio=${activityRatio.toFixed(2)}x`);
           
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
             today_dark_pool_volume: todayDarkPool.darkPoolVolume,
             today_total_volume: todayDarkPool.totalVolume,
-            avg_90day_dark_pool_volume: historicalAverages.avgDailyDarkPoolVolume,
-            avg_90day_total_volume: historicalAverages.avgDailyTotalVolume,
+            today_dark_pool_ratio: (todayDarkPool.darkPoolVolume / todayDarkPool.totalVolume) * 100,
+            avg_90day_dark_pool_volume: historicalDarkPool.avgDailyDarkPoolVolume,
+            avg_90day_total_volume: historicalDarkPool.avgDailyTotalVolume,
             activity_ratio: activityRatio,
             status: activityRatio >= 2.0 ? 'high_activity' : 'normal_activity'
           });
         } else {
-          console.log(`${symbol}: Missing data - today: ${!!todayDarkPool}, historical avg: ${historicalAverages.avgDailyDarkPoolVolume}`);
+          console.log(`${symbol}: Missing data - today: ${!!todayDarkPool}, historical: ${!!historicalDarkPool}, historical avg: ${historicalDarkPool?.avgDailyDarkPoolVolume}`);
           darkPoolData.push({
             symbol: symbol,
             current_price: currentPrice,
             today_dark_pool_volume: todayDarkPool?.darkPoolVolume || 0,
             today_total_volume: todayDarkPool?.totalVolume || 0,
-            avg_90day_dark_pool_volume: historicalAverages.avgDailyDarkPoolVolume,
-            avg_90day_total_volume: historicalAverages.avgDailyTotalVolume,
-            activity_ratio: 0,
+            today_dark_pool_ratio: todayDarkPool ? (todayDarkPool.darkPoolVolume / todayDarkPool.totalVolume) * 100 : 0,
+            avg_90day_dark_pool_volume: historicalDarkPool?.avgDailyDarkPoolVolume || null,
+            avg_90day_total_volume: historicalDarkPool?.avgDailyTotalVolume || null,
+            activity_ratio: null,
             status: 'no_data'
           });
         }
@@ -125,6 +123,81 @@ export default async function handler(req, res) {
   }
 }
 
+async function getTopTickersByDarkPoolActivity(apiKey, date) {
+  try {
+    console.log('Scanning for top tickers by dark pool activity...');
+    
+    // Start with a broad list of popular stocks to scan
+    const candidateSymbols = [
+      // Major tech stocks
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
+      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
+      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
+      'SHOP', 'SQ', 'ROKU', 'SPOT', 'UBER', 'LYFT', 'DASH', 'ABNB', 'COIN', 'HOOD',
+      
+      // ETFs and indices
+      'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'ARKK', 'TQQQ', 'SQQQ', 'UVXY', 'VIXY',
+      
+      // Financial stocks
+      'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'COF', 'AXP',
+      
+      // Healthcare
+      'JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'TMO', 'DHR', 'ABT', 'BMY', 'AMGN',
+      
+      // Consumer
+      'HD', 'LOW', 'WMT', 'TGT', 'COST', 'SBUX', 'NKE', 'MCD', 'DIS', 'NFLX',
+      
+      // Energy
+      'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'PSX', 'VLO', 'MPC', 'HAL', 'BKR',
+      
+      // Industrial
+      'CAT', 'DE', 'BA', 'LMT', 'RTX', 'GE', 'MMM', 'HON', 'UPS', 'FDX',
+      
+      // More tech
+      'ZM', 'DOCU', 'CRWD', 'OKTA', 'TEAM', 'WDAY', 'VEEV', 'NOW', 'SERV', 'ESTC'
+    ];
+
+    const tickerScores = [];
+
+    // Scan each candidate symbol for dark pool activity
+    for (const symbol of candidateSymbols) {
+      try {
+        const darkPoolData = await getDarkPoolData(symbol, date, apiKey);
+        
+        if (darkPoolData && darkPoolData.darkPoolVolume > 0) {
+          tickerScores.push({
+            symbol: symbol,
+            darkPoolVolume: darkPoolData.darkPoolVolume,
+            totalVolume: darkPoolData.totalVolume,
+            darkPoolRatio: (darkPoolData.darkPoolVolume / darkPoolData.totalVolume) * 100
+          });
+        }
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+      } catch (error) {
+        console.log(`Error scanning ${symbol}:`, error.message);
+        continue;
+      }
+    }
+
+    // Sort by dark pool volume and take top 25
+    const topTickers = tickerScores
+      .sort((a, b) => b.darkPoolVolume - a.darkPoolVolume)
+      .slice(0, 25)
+      .map(item => item.symbol);
+
+    console.log(`Found top 25 tickers by dark pool activity: ${topTickers.join(', ')}`);
+    
+    return topTickers;
+  } catch (error) {
+    console.error('Error getting top tickers:', error);
+    // Fallback to a smaller list if scanning fails
+    return ['AAPL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'MSFT', 'GOOGL', 'META', 'AMD'];
+  }
+}
+
 async function getDarkPoolData(symbol, date, apiKey) {
   try {
     // Get today's trades
@@ -167,4 +240,90 @@ async function getDarkPoolData(symbol, date, apiKey) {
   }
 }
 
+async function getHistoricalDarkPoolData(symbol, currentDate, apiKey) {
+  try {
+    // Get 90 days of historical data with more comprehensive sampling
+    const startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const endDate = new Date(currentDate);
+    
+    let totalDarkPoolVolume = 0;
+    let totalVolume = 0;
+    let daysWithData = 0;
+    let sampleDays = 0;
+    let successfulDays = 0;
 
+    // Sample every 3 days to get ~30 data points over 90 days for better accuracy
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 3)) {
+      const dateStr = d.toISOString().split('T')[0];
+      sampleDays++;
+      
+      try {
+        // Add a small delay to avoid rate limiting
+        if (sampleDays > 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        const response = await fetch(
+          `https://api.polygon.io/v3/trades/${symbol}?date=${dateStr}&limit=1000&apiKey=${apiKey}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+            let dayVolume = 0;
+            let dayDarkPoolVolume = 0;
+
+            data.results.forEach(trade => {
+              const volume = trade.size || 0;
+              dayVolume += volume;
+
+              // Dark pool identification: exchange = 4 AND trf_id present
+              if (trade.exchange === 4 && trade.trf_id !== undefined) {
+                dayDarkPoolVolume += volume;
+              }
+            });
+
+            if (dayVolume > 0) {
+              totalVolume += dayVolume;
+              totalDarkPoolVolume += dayDarkPoolVolume;
+              daysWithData++;
+              successfulDays++;
+            }
+          }
+        } else {
+          console.log(`No data for ${symbol} on ${dateStr}: ${response.status}`);
+        }
+      } catch (error) {
+        console.log(`Error getting historical data for ${symbol} on ${dateStr}:`, error.message);
+        continue;
+      }
+    }
+
+    console.log(`Historical analysis for ${symbol}: ${successfulDays} successful days with data out of ${sampleDays} sampled days`);
+
+    if (daysWithData === 0) {
+      console.log(`${symbol}: No historical data available`);
+      return {
+        avgDailyDarkPoolVolume: null,
+        avgDailyTotalVolume: null
+      };
+    }
+
+    // Calculate average daily volumes
+    const avgDailyDarkPoolVolume = totalDarkPoolVolume / daysWithData;
+    const avgDailyTotalVolume = totalVolume / daysWithData;
+
+    console.log(`${symbol} 90-day averages: Dark Pool ${avgDailyDarkPoolVolume.toLocaleString()}, Total ${avgDailyTotalVolume.toLocaleString()}`);
+
+    return {
+      avgDailyDarkPoolVolume: avgDailyDarkPoolVolume,
+      avgDailyTotalVolume: avgDailyTotalVolume
+    };
+  } catch (error) {
+    console.error(`Error getting historical dark pool data for ${symbol}:`, error);
+    return {
+      avgDailyDarkPoolVolume: null,
+      avgDailyTotalVolume: null
+    };
+  }
+}

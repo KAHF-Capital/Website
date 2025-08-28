@@ -184,11 +184,11 @@ const AllDataModal = ({ isOpen, onClose, data }) => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(item.current_price)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{formatNumber(item.today_dark_pool_volume)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatNumber(item.avg_90day_dark_pool_volume)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {item.activity_ratio ? `${item.activity_ratio.toFixed(1)}x` : 'N/A'}
-                      </td>
-
+                                              <td className="px-4 py-3 text-sm text-gray-900">{item.avg_90day_dark_pool_volume ? formatNumber(item.avg_90day_dark_pool_volume) : 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {item.activity_ratio ? `${item.activity_ratio.toFixed(1)}x` : 'N/A'}
+                        </td>
+                      
                     </tr>
                   ))}
                 </tbody>
@@ -501,44 +501,50 @@ const SafeOpportunityCard = ({ opportunity }) => {
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">🌊 Today's Dark Pool Activity</h4>
-                                         <div className="space-y-2 text-sm">
-                       <div className="flex justify-between">
-                         <span>Dark Pool Volume:</span>
-                         <span className="font-medium">{formatNumber(today_dark_pool_volume)}</span>
-                       </div>
-                       <div className="flex justify-between">
-                         <span>Total Volume:</span>
-                         <span className="font-medium">{formatNumber(today_total_volume)}</span>
-                       </div>
-                     </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Dark Pool Volume:</span>
+                        <span className="font-medium">{formatNumber(today_dark_pool_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Volume:</span>
+                        <span className="font-medium">{formatNumber(today_total_volume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Dark Pool %:</span>
+                        <span className="font-medium">{today_dark_pool_ratio ? `${today_dark_pool_ratio.toFixed(1)}%` : 'N/A'}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">📈 90-Day Historical Average</h4>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Avg Dark Pool Volume:</span>
-                        <span className="font-medium">{formatNumber(avg_90day_dark_pool_volume)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Avg Total Volume:</span>
-                        <span className="font-medium">{formatNumber(avg_90day_total_volume)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Activity Ratio:</span>
-                        <span className={`font-medium ${activity_ratio >= 2 ? 'text-green-600' : 'text-yellow-600'}`}>
-                          {activity_ratio ? `${activity_ratio.toFixed(1)}x` : 'N/A'}
-                        </span>
-                      </div>
+                                             <div className="flex justify-between">
+                         <span>Avg Dark Pool Volume:</span>
+                         <span className="font-medium">{avg_90day_dark_pool_volume ? formatNumber(avg_90day_dark_pool_volume) : 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Avg Total Volume:</span>
+                         <span className="font-medium">{avg_90day_total_volume ? formatNumber(avg_90day_total_volume) : 'N/A'}</span>
+                       </div>
+                       <div className="flex justify-between">
+                         <span>Activity Ratio:</span>
+                         <span className={`font-medium ${activity_ratio && activity_ratio >= 2 ? 'text-green-600' : 'text-yellow-600'}`}>
+                           {activity_ratio ? `${activity_ratio.toFixed(1)}x` : 'N/A'}
+                         </span>
+                       </div>
                     </div>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">🎯 Analysis</h4>
                     <p className="text-sm text-gray-700">
-                      {activity_ratio >= 2 
+                      {activity_ratio && activity_ratio >= 2 
                         ? `High dark pool activity detected! Today's volume is ${activity_ratio.toFixed(1)}x the 90-day average, indicating significant institutional interest.`
-                        : `Normal dark pool activity. Today's volume is ${activity_ratio ? activity_ratio.toFixed(1) : 'N/A'}x the 90-day average.`
+                        : activity_ratio 
+                          ? `Normal dark pool activity. Today's volume is ${activity_ratio.toFixed(1)}x the 90-day average.`
+                          : `Unable to calculate activity ratio due to insufficient historical data.`
                       }
                     </p>
                   </div>
@@ -670,12 +676,12 @@ export default function Scanner() {
       let filtered = Array.isArray(opportunities) ? opportunities : [];
 
       // Sort by dark pool volume (highest first)
-      filtered.sort((a, b) => {
+    filtered.sort((a, b) => {
         if (!a || !b) return 0;
         return (b.today_dark_pool_volume || 0) - (a.today_dark_pool_volume || 0);
-      });
+    });
 
-      setFilteredOpportunities(filtered);
+    setFilteredOpportunities(filtered);
     } catch (error) {
       console.error('Error filtering dark pool data:', error);
       setFilteredOpportunities([]);
