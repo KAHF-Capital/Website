@@ -19,15 +19,6 @@ const SafeButton = ({ children, variant = 'default', size = 'default', className
   }
 };
 
-const SafeInput = ({ className = '', type = 'text', ...props }) => {
-  try {
-    const { Input } = require("../components/ui/input");
-    return <Input className={className} type={type} {...props} />;
-  } catch (error) {
-    return <input className={`flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm ${className}`} type={type} {...props} />;
-  }
-};
-
 // Safe icon imports
 const SafeSearch = () => {
   try {
@@ -184,6 +175,9 @@ export default function Scanner() {
       let url = '/api/darkpool-trades';
       if (ticker) {
         url += `?ticker=${encodeURIComponent(ticker)}&refresh=true`;
+      } else {
+        // Always refresh when fetching top 25 to ensure we have data
+        url += '?refresh=true';
       }
       
       const response = await fetch(url);
@@ -223,6 +217,7 @@ export default function Scanner() {
 
   // Auto-refresh every 15 minutes
   useEffect(() => {
+    // Initial load with refresh to ensure we have data
     fetchDarkPoolData();
     
     const interval = setInterval(() => {

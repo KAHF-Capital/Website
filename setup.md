@@ -9,11 +9,12 @@
 - **Specific data fields**: ticker, exchange_id=4, trf_id, volume, price, timestamp
 
 ### **2. New Scanner Interface**
-- **Shows only dark pool trades** (no more straddle signals)
-- **Displays ticker, volume, and ID information**
+- **Shows top 25 tickers by default** (ranked by dark pool volume)
+- **Displays ticker and total daily volume** (no timestamps or IDs)
 - **"15 min delayed" indicator** instead of "Live Data"
 - **Auto-refresh every 15 minutes**
 - **Search functionality** for specific tickers
+- **Daily volume resets at midnight**
 
 ### **3. Data Structure**
 ```json

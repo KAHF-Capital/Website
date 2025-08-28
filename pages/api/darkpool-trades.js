@@ -50,6 +50,13 @@ export default async function handler(req, res) {
     } else {
       // Get all today's dark pool trades grouped by ticker (top 25)
       trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
+      
+      // If no data exists, automatically fetch some initial data
+      if (trades.length === 0) {
+        console.log('No data found, fetching initial data for top tickers...');
+        await refreshTopTickersData(currentDate, apiKey);
+        trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
+      }
     }
 
     return res.status(200).json({
