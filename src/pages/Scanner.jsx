@@ -83,97 +83,25 @@ const SafeClock = () => {
   }
 };
 
-// Dark Pool Trade Card Component
-const DarkPoolTradeCard = ({ trade }) => {
-  const formatNumber = (num) => num?.toLocaleString() || '0';
-  const formatTime = (timestamp) => {
-    try {
-      return new Date(timestamp).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch (error) {
-      return 'N/A';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">{trade.ticker}</h3>
-          <p className="text-sm text-gray-600">Dark Pool Trade</p>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500">ID: {trade.id}</div>
-          <div className="text-xs text-gray-500">Exchange: {trade.exchange_id}</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-blue-600">{formatNumber(trade.volume)}</p>
-          <p className="text-xs text-gray-600">Volume</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-900">{formatTime(trade.timestamp)}</p>
-          <p className="text-xs text-gray-600">Time</p>
-        </div>
-      </div>
-
-      <div className="border-t pt-2">
-        <div className="text-xs text-gray-500">
-          <div>TRF ID: {trade.trf_id || 'N/A'}</div>
-          <div>Price: ${trade.price?.toFixed(2) || 'N/A'}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Dark Pool Summary Card Component
 const DarkPoolSummaryCard = ({ summary }) => {
   const formatNumber = (num) => num?.toLocaleString() || '0';
-  const formatTime = (timestamp) => {
-    try {
-      return new Date(timestamp).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-    } catch (error) {
-      return 'N/A';
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-lg font-bold text-gray-900">{summary.ticker}</h3>
-          <p className="text-sm text-gray-600">Today's Dark Pool Activity</p>
+          <p className="text-sm text-gray-600">Today's Dark Pool Volume</p>
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500">{summary.trade_count} trades</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-blue-600">{formatNumber(summary.total_volume)}</p>
-          <p className="text-xs text-gray-600">Total Volume</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-900">{formatTime(summary.last_trade)}</p>
-          <p className="text-xs text-gray-600">Last Trade</p>
-        </div>
-      </div>
-
-      <div className="border-t pt-2">
-        <div className="text-xs text-gray-500">
-          <div>First Trade: {formatTime(summary.first_trade)}</div>
-          <div>Avg Volume: {formatNumber(Math.round(summary.total_volume / summary.trade_count))}</div>
-        </div>
+      <div className="text-center">
+        <p className="text-2xl font-bold text-blue-600">{formatNumber(summary.total_volume)}</p>
+        <p className="text-sm text-gray-600">Total Volume</p>
       </div>
     </div>
   );
@@ -209,10 +137,10 @@ const InfoModal = ({ isOpen, onClose }) => {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">📊 Data Details</h3>
               <ul className="text-gray-700 text-sm space-y-1">
-                <li>• <strong>Exchange ID 4:</strong> Indicates dark pool execution</li>
-                <li>• <strong>TRF ID:</strong> Trade Reporting Facility identifier</li>
-                <li>• <strong>Volume:</strong> Number of shares traded</li>
+                <li>• <strong>Daily Volume:</strong> Total dark pool volume for the current trading day</li>
+                <li>• <strong>Trade Count:</strong> Number of individual dark pool trades</li>
                 <li>• <strong>15-min delay:</strong> Data is delayed for regulatory compliance</li>
+                <li>• <strong>Midnight Reset:</strong> Volume resets at midnight each day</li>
               </ul>
             </div>
 
@@ -447,10 +375,22 @@ export default function Scanner() {
         {searchTerm && darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Dark Pool Trades for {searchTerm.toUpperCase()}
+              Dark Pool Volume for {searchTerm.toUpperCase()}
             </h2>
             <p className="text-gray-600 mt-1">
-              Found {darkPoolData.length} dark pool trade{darkPoolData.length !== 1 ? 's' : ''}
+              Today's total dark pool volume
+            </p>
+          </div>
+        )}
+
+        {/* Default View Header */}
+        {!searchTerm && darkPoolData.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Top 25 Tickers by Dark Pool Volume
+            </h2>
+            <p className="text-gray-600 mt-1">
+              Today's highest dark pool activity
             </p>
           </div>
         )}
@@ -459,13 +399,7 @@ export default function Scanner() {
         {!error && darkPoolData.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {darkPoolData.map((item, index) => (
-              <div key={item.id || index}>
-                {item.trade_count ? (
-                  <DarkPoolSummaryCard summary={item} />
-                ) : (
-                  <DarkPoolTradeCard trade={item} />
-                )}
-              </div>
+              <DarkPoolSummaryCard key={item.ticker || index} summary={item} />
             ))}
           </div>
         )}

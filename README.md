@@ -5,9 +5,11 @@ A real-time dark pool trading scanner that monitors institutional trading activi
 ## Features
 
 - **Real Dark Pool Analytics**: Identifies dark pool trades using Polygon.io's official criteria (exchange ID = 4 AND trf_id present)
+- **Daily Volume Tracking**: Shows total dark pool volume for each trading day (resets at midnight)
+- **Top 25 by Default**: Displays highest dark pool activity tickers automatically
+- **Search Functionality**: Look up specific tickers for daily volume totals
 - **15-Minute Auto-Refresh**: Automatically updates data every 15 minutes for real-time monitoring
 - **JSON Storage**: Stores dark pool trade data in JSON files (Vercel-compatible)
-- **Search Functionality**: Look up specific tickers for dark pool activity
 - **Vercel Deployment Ready**: Easy deployment with automatic environment variable setup
 
 ## 🚀 **Quick Setup**

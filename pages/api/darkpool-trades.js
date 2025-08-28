@@ -23,16 +23,33 @@ export default async function handler(req, res) {
     
     // If refresh is requested, fetch new data from Polygon
     if (refresh === 'true') {
-      await fetchAndStoreDarkPoolTrades(ticker, currentDate, apiKey);
+      if (ticker) {
+        await fetchAndStoreDarkPoolTrades(ticker, currentDate, apiKey);
+      } else {
+        // Refresh data for top tickers
+        await refreshTopTickersData(currentDate, apiKey);
+      }
     }
 
     // Get dark pool trades from database
     let trades;
     if (ticker) {
-      trades = db.getTodayDarkPoolTrades(ticker.toUpperCase(), currentDate);
+      // Get specific ticker data
+      const tickerData = db.getTodayDarkPoolTrades(ticker.toUpperCase(), currentDate);
+      if (tickerData.length > 0) {
+        // Calculate summary for the specific ticker
+        const totalVolume = tickerData.reduce((sum, trade) => sum + trade.volume, 0);
+        trades = [{
+          ticker: ticker.toUpperCase(),
+          total_volume: totalVolume,
+          trade_count: tickerData.length
+        }];
+      } else {
+        trades = [];
+      }
     } else {
-      // Get all today's dark pool trades grouped by ticker
-      trades = db.getAllTodayDarkPoolTrades(currentDate);
+      // Get all today's dark pool trades grouped by ticker (top 25)
+      trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
     }
 
     return res.status(200).json({
@@ -99,5 +116,56 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     
   } catch (error) {
     console.error(`Error fetching dark pool trades for ${ticker}:`, error);
+  }
+}
+
+async function refreshTopTickersData(date, apiKey) {
+  try {
+    // List of popular tickers to monitor
+    const tickers = [
+      // Major tech stocks
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
+      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
+      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
+      'SHOP', 'SQ', 'ROKU', 'SPOT', 'UBER', 'LYFT', 'DASH', 'ABNB', 'COIN', 'HOOD',
+      
+      // ETFs and indices
+      'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'ARKK', 'TQQQ', 'SQQQ', 'UVXY', 'VIXY',
+      
+      // Financial stocks
+      'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'COF', 'AXP',
+      
+      // Healthcare
+      'JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'TMO', 'DHR', 'ABT', 'BMY', 'AMGN',
+      
+      // Consumer
+      'HD', 'LOW', 'WMT', 'TGT', 'COST', 'SBUX', 'NKE', 'MCD', 'DIS',
+      
+      // Energy
+      'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'PSX', 'VLO', 'MPC', 'HAL', 'BKR',
+      
+      // Industrial
+      'CAT', 'DE', 'BA', 'LMT', 'RTX', 'GE', 'MMM', 'HON', 'UPS', 'FDX'
+    ];
+
+    console.log(`Refreshing data for ${tickers.length} tickers...`);
+
+    // Process each ticker
+    for (const ticker of tickers) {
+      try {
+        await fetchAndStoreDarkPoolTrades(ticker, date, apiKey);
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Error processing ${ticker}:`, error);
+      }
+    }
+
+    console.log('Top tickers refresh completed');
+    
+  } catch (error) {
+    console.error('Error refreshing top tickers data:', error);
   }
 }

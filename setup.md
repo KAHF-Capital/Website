@@ -90,13 +90,13 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 
 ### **Scanner Dashboard:**
 - **Header**: Shows "15 min delayed" badge and ticker count
-- **Search**: Enter any ticker to see its dark pool trades
+- **Default View**: Shows top 25 tickers by dark pool volume for the day
+- **Search**: Enter any ticker to see its total daily dark pool volume
 - **Cards**: Each card shows:
   - Ticker symbol
-  - Today's dark pool volume
-  - Trade ID and exchange ID
-  - TRF ID and price information
-  - Timestamp of trades
+  - Today's total dark pool volume
+  - Number of trades
+  - Resets at midnight each day
 
 ### **Data Updates:**
 - **Real-time**: Data updates every 15 minutes automatically
