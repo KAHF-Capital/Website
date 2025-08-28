@@ -581,10 +581,11 @@ export default function Scanner() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [smsSubscribed, setSmsSubscribed] = useState(false);
   const [showDarkPoolInfo, setShowDarkPoolInfo] = useState(false);
+  const [activeTab, setActiveTab] = useState('top25'); // 'top25' or 'all'
 
   useEffect(() => {
       fetchOpportunities();
-  }, []);
+  }, [activeTab]);
 
   const handleSymbolSearch = async () => {
     if (!searchTerm.trim()) {
@@ -601,9 +602,17 @@ export default function Scanner() {
       setIsLoading(true);
       setError(null);
       
-      const url = symbol ? `/api/opportunities?symbol=${encodeURIComponent(symbol)}` : '/api/opportunities';
+      let url;
+      if (symbol) {
+        url = `/api/opportunities?symbol=${encodeURIComponent(symbol)}`;
+      } else if (activeTab === 'all') {
+        url = '/api/all-stocks';
+      } else {
+        url = '/api/opportunities';
+      }
+      
       const response = await fetch(url);
-        const data = await response.json();
+      const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
         const validOpportunities = data.filter(opp => opp && typeof opp === 'object');
@@ -799,54 +808,77 @@ export default function Scanner() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Symbol Search */}
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <SafeSearch />
-              </div>
-              <SafeInput
-                placeholder="Enter symbol (e.g., AAPL, TSLA)..."
-                value={searchTerm || ''}
-                onChange={(e) => setSearchTerm(e.target.value || '')}
-                onKeyPress={(e) => e.key === 'Enter' && handleSymbolSearch()}
-                className="pl-10"
-              />
+              {/* Tabs */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+            <div className="flex space-x-4 mb-6">
+              <button
+                onClick={() => setActiveTab('top25')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'top25'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Top 25 by Dark Pool Activity
+              </button>
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Tracked Stocks
+              </button>
             </div>
 
-            {/* Search Button */}
-            <SafeButton
-              onClick={handleSymbolSearch}
-              disabled={isSearching || !searchTerm.trim()}
-              className="flex items-center space-x-2"
-            >
-              {isSearching ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Searching...</span>
-                </>
-              ) : (
-                <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Symbol Search */}
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                   <SafeSearch />
-                  <span>Search Symbol</span>
-                </>
-              )}
-            </SafeButton>
+                </div>
+                <SafeInput
+                  placeholder="Enter symbol (e.g., AAPL, TSLA)..."
+                  value={searchTerm || ''}
+                  onChange={(e) => setSearchTerm(e.target.value || '')}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSymbolSearch()}
+                  className="pl-10"
+                />
+              </div>
 
-            {/* Show All Data */}
-            <SafeButton
-              variant="outline"
-              onClick={fetchAllAnalysisData}
-              className="flex items-center space-x-2"
-            >
-              <SafeTrendingUp />
-              <span>Show All Data</span>
-            </SafeButton>
+              {/* Search Button */}
+              <SafeButton
+                onClick={handleSymbolSearch}
+                disabled={isSearching || !searchTerm.trim()}
+                className="flex items-center space-x-2"
+              >
+                {isSearching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <SafeSearch />
+                    <span>Search Symbol</span>
+                  </>
+                )}
+              </SafeButton>
+
+              {/* Show All Data */}
+              <SafeButton
+                variant="outline"
+                onClick={fetchAllAnalysisData}
+                className="flex items-center space-x-2"
+              >
+                <SafeTrendingUp />
+                <span>Show All Data</span>
+              </SafeButton>
+            </div>
           </div>
-        </div>
 
         {/* Search Results Header */}
         {searchTerm && Array.isArray(filteredOpportunities) && filteredOpportunities.length > 0 && (
