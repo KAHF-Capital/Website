@@ -151,3 +151,4 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     return 0;
   }
 }
+
