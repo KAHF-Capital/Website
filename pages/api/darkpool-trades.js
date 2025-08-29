@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { refresh = 'false' } = req.query;
+    const { refresh = 'false', include_history = 'false' } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
 
     // Check if API key is properly configured
@@ -28,12 +28,22 @@ export default async function handler(req, res) {
     
     if (cachedAnalysis && cachedAnalysis.trades.length > 0 && refresh !== 'true') {
       console.log('Returning cached analysis for today');
+      
+      let trades = cachedAnalysis.trades;
+      
+      // Add historical data if requested
+      if (include_history === 'true') {
+        console.log('Adding historical data to cached results...');
+        trades = await addHistoricalDataToTrades(trades, apiKey);
+      }
+      
       return res.status(200).json({
         date: currentDate,
-        trades: cachedAnalysis.trades,
-        total_tickers: cachedAnalysis.trades.length,
+        trades: trades,
+        total_tickers: trades.length,
         last_updated: cachedAnalysis.last_updated,
-        cached: true
+        cached: true,
+        has_history: include_history === 'true'
       });
     }
 
@@ -43,15 +53,24 @@ export default async function handler(req, res) {
     try {
       const analysis = await performFullDarkPoolAnalysis(currentDate, apiKey);
       
+      let trades = analysis.trades;
+      
+      // Add historical data if requested
+      if (include_history === 'true') {
+        console.log('Adding historical data to fresh results...');
+        trades = await addHistoricalDataToTrades(trades, apiKey);
+      }
+      
       // Cache the results for the rest of the day
-      db.saveTodayAnalysis(currentDate, analysis);
+      db.saveTodayAnalysis(currentDate, { ...analysis, trades: trades });
       
       return res.status(200).json({
         date: currentDate,
-        trades: analysis.trades,
-        total_tickers: analysis.trades.length,
+        trades: trades,
+        total_tickers: trades.length,
         last_updated: analysis.last_updated,
-        cached: false
+        cached: false,
+        has_history: include_history === 'true'
       });
       
     } catch (error) {
@@ -60,12 +79,22 @@ export default async function handler(req, res) {
       // If analysis fails, return cached data if available
       if (cachedAnalysis && cachedAnalysis.trades.length > 0) {
         console.log('Analysis failed, returning cached data');
+        
+        let trades = cachedAnalysis.trades;
+        
+        // Add historical data if requested
+        if (include_history === 'true') {
+          console.log('Adding historical data to cached fallback...');
+          trades = await addHistoricalDataToTrades(trades, apiKey);
+        }
+        
         return res.status(200).json({
           date: currentDate,
-          trades: cachedAnalysis.trades,
-          total_tickers: cachedAnalysis.trades.length,
+          trades: trades,
+          total_tickers: trades.length,
           last_updated: cachedAnalysis.last_updated,
           cached: true,
+          has_history: include_history === 'true',
           message: 'Using cached data due to analysis error'
         });
       }
@@ -83,6 +112,116 @@ export default async function handler(req, res) {
       error: 'Internal server error',
       details: error.message 
     });
+  }
+}
+
+async function addHistoricalDataToTrades(trades, apiKey) {
+  console.log('Adding 30-day historical data to trades...');
+  
+  const tradesWithHistory = await Promise.all(
+    trades.map(async (trade) => {
+      try {
+        const historicalData = await get30DayDarkPoolHistory(trade.ticker, apiKey);
+        return {
+          ...trade,
+          avg_30day_volume: historicalData.avgVolume,
+          avg_30day_trades: historicalData.avgTrades,
+          volume_ratio: historicalData.avgVolume > 0 ? trade.total_volume / historicalData.avgVolume : 0
+        };
+      } catch (error) {
+        console.error(`Error fetching historical data for ${trade.ticker}:`, error);
+        return {
+          ...trade,
+          avg_30day_volume: 0,
+          avg_30day_trades: 0,
+          volume_ratio: 0
+        };
+      }
+    })
+  );
+  
+  console.log('Historical data added successfully');
+  return tradesWithHistory;
+}
+
+async function get30DayDarkPoolHistory(ticker, apiKey) {
+  try {
+    console.log(`Fetching 30-day historical data for ${ticker}...`);
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    // Get historical trades from Polygon.io with shorter timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    const response = await fetch(
+      `https://api.polygon.io/v3/trades/${ticker}?timestamp=${startDateStr}&limit=50000&apiKey=${apiKey}`,
+      { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.log(`Failed to get historical trades for ${ticker}: ${response.status} ${response.statusText}`);
+      return { avgVolume: 0, avgTrades: 0 };
+    }
+    
+    const data = await response.json();
+    if (!data.results || !Array.isArray(data.results)) {
+      console.log(`No historical trade data for ${ticker}`);
+      return { avgVolume: 0, avgTrades: 0 };
+    }
+
+    // Filter dark pool trades and group by date
+    const darkPoolTrades = data.results.filter(trade => 
+      trade && typeof trade === 'object' && 
+      trade.exchange === 4 && 
+      trade.trf_id !== undefined
+    );
+
+    // Group by date and calculate daily totals
+    const dailyData = {};
+    darkPoolTrades.forEach(trade => {
+      const tradeDate = new Date(trade.t).toISOString().split('T')[0];
+      if (!dailyData[tradeDate]) {
+        dailyData[tradeDate] = { volume: 0, trades: 0 };
+      }
+      dailyData[tradeDate].volume += trade.size || 0;
+      dailyData[tradeDate].trades += 1;
+    });
+
+    // Calculate averages
+    const days = Object.keys(dailyData).length;
+    if (days === 0) {
+      return { avgVolume: 0, avgTrades: 0 };
+    }
+
+    const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
+    const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
+
+    console.log(`${ticker}: 30-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
+
+    return {
+      avgVolume: Math.round(totalVolume / days),
+      avgTrades: Math.round(totalTrades / days)
+    };
+    
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log(`Timeout fetching 30-day historical data for ${ticker}`);
+    } else {
+      console.error(`Error fetching 30-day historical data for ${ticker}:`, error);
+    }
+    return { avgVolume: 0, avgTrades: 0 };
   }
 }
 

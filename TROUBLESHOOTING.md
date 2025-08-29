@@ -8,13 +8,22 @@ The scanner now uses a **smart caching system** that:
 2. **Finds the most active stocks** with dark pool activity
 3. **Caches results for the entire day** (no more repeated API calls)
 4. **Shows you what's actually trading** instead of guessing
+5. **Optional 30-day historical comparison** (loads on demand)
 
 ### How It Works
 
 1. **First visit of the day**: Takes 2-3 minutes to analyze all trades
 2. **Subsequent visits**: Shows cached results instantly
 3. **Manual refresh**: Forces a new analysis (takes 2-3 minutes)
-4. **Next day**: Automatically refreshes
+4. **30-day data**: Click "Show 30-Day Data" to see historical comparisons
+5. **Next day**: Automatically refreshes
+
+### Historical Data Feature
+
+- **Toggle button**: "Show 30-Day Data" in the header
+- **Volume ratios**: Compare today's volume to 30-day average
+- **Color coding**: Green (>2x), Yellow (1-2x), Red (<1x)
+- **On-demand loading**: Only loads when requested (doesn't slow down main page)
 
 ## Common Issues and Solutions
 

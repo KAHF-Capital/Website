@@ -96,12 +96,12 @@ const DarkPoolSummaryCard = ({ summary }) => {
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
 
-      {/* 90-Day Average */}
-      {summary.avg_90day_volume > 0 && (
+      {/* 30-Day Average */}
+      {summary.avg_30day_volume > 0 && (
         <div className="border-t pt-3">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">90-Day Avg:</span>
-            <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
+            <span className="text-gray-600">30-Day Avg:</span>
+            <span className="font-medium">{formatNumber(summary.avg_30day_volume)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
             <span className="text-gray-600">Volume Ratio:</span>
@@ -113,31 +113,31 @@ const DarkPoolSummaryCard = ({ summary }) => {
             onClick={() => setShowHistory(!showHistory)}
             className="w-full mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
           >
-            {showHistory ? 'Hide Details' : 'Show 90-Day History'}
+            {showHistory ? 'Hide Details' : 'Show 30-Day History'}
           </button>
         </div>
       )}
 
-      {/* 90-Day History Panel */}
-      {showHistory && summary.avg_90day_volume > 0 && (
+      {/* 30-Day History Panel */}
+      {showHistory && summary.avg_30day_volume > 0 && (
         <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">90-Day Dark Pool History</h4>
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">30-Day Dark Pool History</h4>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Volume:</span>
               <span className="font-medium">{formatNumber(summary.total_volume)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">90-Day Average:</span>
-              <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
+              <span className="text-gray-600">30-Day Average:</span>
+              <span className="font-medium">{formatNumber(summary.avg_30day_volume)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Trades:</span>
               <span className="font-medium">{summary.trade_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">90-Day Avg Trades:</span>
-              <span className="font-medium">{summary.avg_90day_trades}</span>
+              <span className="text-gray-600">30-Day Avg Trades:</span>
+              <span className="font-medium">{summary.avg_30day_trades}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Volume vs Average:</span>
@@ -228,6 +228,8 @@ export default function Scanner() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCached, setIsCached] = useState(false);
+  const [includeHistory, setIncludeHistory] = useState(false);
+  const [hasHistory, setHasHistory] = useState(false);
 
   // Fetch dark pool data with 10-minute timeout
   const fetchDarkPoolData = async () => {
@@ -235,7 +237,7 @@ export default function Scanner() {
       setIsLoading(true);
       setError(null);
       
-      const url = '/api/darkpool-trades';
+      const url = `/api/darkpool-trades?include_history=${includeHistory}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
@@ -272,6 +274,7 @@ export default function Scanner() {
       setDarkPoolData(data.trades || []);
       setLastUpdated(data.last_updated);
       setIsCached(data.cached || false);
+      setHasHistory(data.has_history || false);
       
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
@@ -293,7 +296,7 @@ export default function Scanner() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for refresh
       
-      const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
+      const response = await fetch(`/api/darkpool-trades?refresh=true&include_history=${includeHistory}`, { signal: controller.signal });
       clearTimeout(timeoutId);
       
       // Check if response is ok before trying to parse JSON
@@ -323,6 +326,7 @@ export default function Scanner() {
       setDarkPoolData(data.trades || []);
       setLastUpdated(data.last_updated);
       setIsCached(data.cached || false);
+      setHasHistory(data.has_history || false);
       setError(null);
       
     } catch (error) {
@@ -341,17 +345,35 @@ export default function Scanner() {
   const downloadCSV = () => {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
-    const headers = ['Ticker', 'Total Volume', 'Trade Count', 'First Trade', 'Last Trade', 'Date'];
+    const headers = hasHistory 
+      ? ['Ticker', 'Total Volume', 'Trade Count', '30-Day Avg Volume', '30-Day Avg Trades', 'Volume Ratio', 'First Trade', 'Last Trade', 'Date']
+      : ['Ticker', 'Total Volume', 'Trade Count', 'First Trade', 'Last Trade', 'Date'];
+      
     const csvContent = [
       headers.join(','),
-      ...darkPoolData.map(item => [
-        item.ticker,
-        item.total_volume,
-        item.trade_count,
-        item.first_trade || '',
-        item.last_trade || '',
-        new Date().toISOString().split('T')[0]
-      ].join(','))
+      ...darkPoolData.map(item => {
+        const baseData = [
+          item.ticker,
+          item.total_volume,
+          item.trade_count
+        ];
+        
+        if (hasHistory) {
+          baseData.push(
+            item.avg_30day_volume || 0,
+            item.avg_30day_trades || 0,
+            item.volume_ratio ? item.volume_ratio.toFixed(2) : 0
+          );
+        }
+        
+        baseData.push(
+          item.first_trade || '',
+          item.last_trade || '',
+          new Date().toISOString().split('T')[0]
+        );
+        
+        return baseData.join(',');
+      })
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -422,6 +444,18 @@ export default function Scanner() {
               >
                 <SafeDownload />
                 <span>Download CSV</span>
+              </SafeButton>
+              <SafeButton
+                variant={includeHistory ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setIncludeHistory(!includeHistory);
+                  // Refetch data with new history setting
+                  setTimeout(() => fetchDarkPoolData(), 100);
+                }}
+                className="flex items-center space-x-1"
+              >
+                <span>📊 {includeHistory ? 'Hide' : 'Show'} 30-Day Data</span>
               </SafeButton>
               <SafeButton
                 variant="outline"
