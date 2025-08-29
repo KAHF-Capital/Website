@@ -228,17 +228,16 @@ export default function Scanner() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch dark pool data with optimized timeout
+  // Fetch dark pool data with 10-minute timeout
   const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Use a shorter timeout and don't refresh by default to prevent timeouts
       const url = '/api/darkpool-trades';
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
       
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -255,7 +254,7 @@ export default function Scanner() {
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
       if (error.name === 'AbortError') {
-        setError('Request timed out. Please try again.');
+        setError('Request timed out after 10 minutes. Please try again.');
       } else {
         setError('Network error. Please check your connection and try again.');
       }
@@ -265,12 +264,12 @@ export default function Scanner() {
     }
   };
 
-  // Manual refresh with timeout
+  // Manual refresh with 10-minute timeout
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for refresh
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for refresh
       
       const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -287,7 +286,7 @@ export default function Scanner() {
     } catch (error) {
       console.error('Error refreshing dark pool data:', error);
       if (error.name === 'AbortError') {
-        setError('Refresh timed out. Please try again.');
+        setError('Refresh timed out after 10 minutes. Please try again.');
       } else {
         setError('Network error during refresh. Please try again.');
       }
