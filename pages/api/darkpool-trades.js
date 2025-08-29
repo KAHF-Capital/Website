@@ -56,23 +56,23 @@ export default async function handler(req, res) {
       }
     }
 
-    // Add 90-day historical data for each ticker (with better error handling)
+    // Add 30-day historical data for each ticker (with better error handling)
     const tradesWithHistory = await Promise.all(
       trades.map(async (trade) => {
         try {
-          const historicalData = await get90DayDarkPoolHistory(trade.ticker, apiKey);
+          const historicalData = await get30DayDarkPoolHistory(trade.ticker, apiKey);
           return {
             ...trade,
-            avg_90day_volume: historicalData.avgVolume,
-            avg_90day_trades: historicalData.avgTrades,
+            avg_30day_volume: historicalData.avgVolume,
+            avg_30day_trades: historicalData.avgTrades,
             volume_ratio: historicalData.avgVolume > 0 ? trade.total_volume / historicalData.avgVolume : 0
           };
         } catch (error) {
           console.error(`Error fetching historical data for ${trade.ticker}:`, error);
           return {
             ...trade,
-            avg_90day_volume: 0,
-            avg_90day_trades: 0,
+            avg_30day_volume: 0,
+            avg_30day_trades: 0,
             volume_ratio: 0
           };
         }
@@ -164,13 +164,15 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
   }
 }
 
-async function get90DayDarkPoolHistory(ticker, apiKey) {
+async function get30DayDarkPoolHistory(ticker, apiKey) {
   try {
-    console.log(`Fetching 90-day historical data for ${ticker}...`);
+    console.log(`Fetching 30-day historical data for ${ticker}...`);
     
+    // For historical data, we'll fetch data for the last 30 days instead of 90 days
+    // to avoid hitting API limits and improve performance
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 90);
+    startDate.setDate(startDate.getDate() - 30); // Reduced from 90 to 30 days
     
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
@@ -179,8 +181,9 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
+    // Use the correct API format for historical data
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=50000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?timestamp=${startDateStr}&limit=50000&apiKey=${apiKey}`,
       { 
         signal: controller.signal,
         headers: {
@@ -229,7 +232,7 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
     const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
 
-    console.log(`${ticker}: 90-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
+    console.log(`${ticker}: 30-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
 
     return {
       avgVolume: Math.round(totalVolume / days),
@@ -238,9 +241,9 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log(`Timeout fetching historical data for ${ticker}`);
+      console.log(`Timeout fetching 30-day historical data for ${ticker}`);
     } else {
-      console.error(`Error fetching historical data for ${ticker}:`, error);
+      console.error(`Error fetching 30-day historical data for ${ticker}:`, error);
     }
     return { avgVolume: 0, avgTrades: 0 };
   }

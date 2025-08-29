@@ -338,15 +338,15 @@ export default function Scanner() {
   const downloadCSV = () => {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
-    const headers = ['Ticker', 'Total Volume', 'Trade Count', '90-Day Avg Volume', '90-Day Avg Trades', 'Volume Ratio', 'Date'];
+    const headers = ['Ticker', 'Total Volume', 'Trade Count', '30-Day Avg Volume', '30-Day Avg Trades', 'Volume Ratio', 'Date'];
     const csvContent = [
       headers.join(','),
       ...darkPoolData.map(item => [
         item.ticker,
         item.total_volume,
         item.trade_count,
-        item.avg_90day_volume || 0,
-        item.avg_90day_trades || 0,
+        item.avg_30day_volume || 0,
+        item.avg_30day_trades || 0,
         item.volume_ratio ? item.volume_ratio.toFixed(2) : 0,
         new Date().toISOString().split('T')[0]
       ].join(','))

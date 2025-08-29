@@ -112,7 +112,7 @@
 The dark pool scanner requires a Polygon.io API key with access to:
 - **Trades endpoint** (`/v3/trades/`)
 - **Real-time data** (for current day trades)
-- **Historical data** (for 90-day averages)
+- **Historical data** (for 30-day averages)
 
 **Recommended plans**:
 - **Starter**: Limited to 5 API calls per minute
