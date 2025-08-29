@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup": "node setup-env.js"
+    "setup": "node setup-env.js",
+    "check-env": "node check-env.js"
   },
   "dependencies": {
     "next": "^14.0.0",

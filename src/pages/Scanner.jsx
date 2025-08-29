@@ -242,15 +242,35 @@ export default function Scanner() {
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-      } else {
-        setError(data.error || 'Unable to load dark pool data');
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok) {
+        let errorMessage = 'Unable to load dark pool data';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `${response.status}: ${response.statusText}`;
+        }
+        setError(errorMessage);
         setDarkPoolData([]);
+        return;
       }
+      
+      // Try to parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        setError('Invalid response format from server');
+        setDarkPoolData([]);
+        return;
+      }
+      
+      setDarkPoolData(data.trades || []);
+      setLastUpdated(data.last_updated);
+      
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
       if (error.name === 'AbortError') {
@@ -274,15 +294,34 @@ export default function Scanner() {
       const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
       clearTimeout(timeoutId);
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-        setError(null);
-      } else {
-        setError(data.error || 'Unable to refresh dark pool data');
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok) {
+        let errorMessage = 'Unable to refresh dark pool data';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `${response.status}: ${response.statusText}`;
+        }
+        setError(errorMessage);
+        return;
       }
+      
+      // Try to parse JSON response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        setError('Invalid response format from server');
+        return;
+      }
+      
+      setDarkPoolData(data.trades || []);
+      setLastUpdated(data.last_updated);
+      setError(null);
+      
     } catch (error) {
       console.error('Error refreshing dark pool data:', error);
       if (error.name === 'AbortError') {
