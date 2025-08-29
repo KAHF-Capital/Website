@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { ticker, refresh = 'false' } = req.query;
+    const { refresh = 'false' } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
 
     if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE' || apiKey === 'your_polygon_api_key_here') {
@@ -23,40 +23,17 @@ export default async function handler(req, res) {
     
     // If refresh is requested, fetch new data from Polygon
     if (refresh === 'true') {
-      if (ticker) {
-        await fetchAndStoreDarkPoolTrades(ticker, currentDate, apiKey);
-      } else {
-        // Refresh data for top tickers (limited to prevent timeouts)
-        await refreshTopTickersData(currentDate, apiKey);
-      }
+      await refreshTopTickersData(currentDate, apiKey);
     }
 
-    // Get dark pool trades from database
-    let trades;
-    if (ticker) {
-      // Get specific ticker data
-      const tickerData = db.getTodayDarkPoolTrades(ticker.toUpperCase(), currentDate);
-      if (tickerData.length > 0) {
-        // Calculate summary for the specific ticker
-        const totalVolume = tickerData.reduce((sum, trade) => sum + trade.volume, 0);
-        trades = [{
-          ticker: ticker.toUpperCase(),
-          total_volume: totalVolume,
-          trade_count: tickerData.length
-        }];
-      } else {
-        trades = [];
-      }
-    } else {
-      // Get all today's dark pool trades grouped by ticker (top 25)
+    // Get all today's dark pool trades grouped by ticker (top 25)
+    let trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
+    
+    // If no data exists, try to fetch a smaller set of initial data
+    if (trades.length === 0) {
+      console.log('No data found, fetching initial data for top tickers...');
+      await refreshTopTickersData(currentDate, apiKey, true); // limited=true
       trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
-      
-      // If no data exists, try to fetch a smaller set of initial data
-      if (trades.length === 0) {
-        console.log('No data found, fetching initial data for top tickers...');
-        await refreshTopTickersData(currentDate, apiKey, true); // limited=true
-        trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
-      }
     }
 
     return res.status(200).json({
@@ -78,10 +55,10 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     
     // Get trades from Polygon.io with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=500&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=300&apiKey=${apiKey}`,
       { signal: controller.signal }
     );
     
@@ -138,36 +115,16 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
 
 async function refreshTopTickersData(date, apiKey, limited = false) {
   try {
-    // Reduced list of popular tickers to prevent timeouts
+    // Focus on the most liquid stocks that are likely to have dark pool activity
     const tickers = limited ? [
-      // Top 25 most liquid stocks for initial load
+      // Top 15 most liquid stocks for initial load
       'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
-      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
-      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML'
+      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO'
     ] : [
-      // Full list for complete refresh
+      // Top 30 most liquid stocks for complete refresh
       'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
       'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
-      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
-      'SHOP', 'SQ', 'ROKU', 'SPOT', 'UBER', 'LYFT', 'DASH', 'ABNB', 'COIN', 'HOOD',
-      
-      // ETFs and indices
-      'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'ARKK', 'TQQQ', 'SQQQ', 'UVXY', 'VIXY',
-      
-      // Financial stocks
-      'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'COF', 'AXP',
-      
-      // Healthcare
-      'JNJ', 'PFE', 'UNH', 'ABBV', 'MRK', 'TMO', 'DHR', 'ABT', 'BMY', 'AMGN',
-      
-      // Consumer
-      'HD', 'LOW', 'WMT', 'TGT', 'COST', 'SBUX', 'NKE', 'MCD', 'DIS',
-      
-      // Energy
-      'XOM', 'CVX', 'COP', 'EOG', 'SLB', 'PSX', 'VLO', 'MPC', 'HAL', 'BKR',
-      
-      // Industrial
-      'CAT', 'DE', 'BA', 'LMT', 'RTX', 'GE', 'MMM', 'HON', 'UPS', 'FDX'
+      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM'
     ];
 
     console.log(`Refreshing data for ${tickers.length} tickers (limited: ${limited})...`);
@@ -178,7 +135,7 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
         await fetchAndStoreDarkPoolTrades(ticker, date, apiKey);
         
         // Shorter delay to prevent timeouts
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 30));
         
       } catch (error) {
         console.error(`Error processing ${ticker}:`, error);

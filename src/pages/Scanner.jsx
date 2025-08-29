@@ -20,15 +20,6 @@ const SafeButton = ({ children, variant = 'default', size = 'default', className
 };
 
 // Safe icon imports
-const SafeSearch = () => {
-  try {
-    const { Search } = require("lucide-react");
-    return <Search className="h-4 w-4" />;
-  } catch (error) {
-    return <span>🔍</span>;
-  }
-};
-
 const SafeRefreshCw = () => {
   try {
     const { RefreshCw } = require("lucide-react");
@@ -71,6 +62,15 @@ const SafeClock = () => {
     return <Clock className="h-4 w-4" />;
   } catch (error) {
     return <span>🕐</span>;
+  }
+};
+
+const SafeDownload = () => {
+  try {
+    const { Download } = require("lucide-react");
+    return <Download className="h-4 w-4" />;
+  } catch (error) {
+    return <span>📥</span>;
   }
 };
 
@@ -161,24 +161,17 @@ export default function Scanner() {
   const [darkPoolData, setDarkPoolData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch dark pool data
-  const fetchDarkPoolData = async (ticker = null) => {
+  const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      let url = '/api/darkpool-trades';
-      if (ticker) {
-        url += `?ticker=${encodeURIComponent(ticker)}&refresh=true`;
-      } else {
-        // Always refresh when fetching top 25 to ensure we have data
-        url += '?refresh=true';
-      }
+      const url = '/api/darkpool-trades?refresh=true';
       
       const response = await fetch(url);
       const data = await response.json();
@@ -202,38 +195,50 @@ export default function Scanner() {
   // Manual refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchDarkPoolData(searchTerm);
+    await fetchDarkPoolData();
     setIsRefreshing(false);
   };
 
-  // Search for specific ticker
-  const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      await fetchDarkPoolData();
-    } else {
-      await fetchDarkPoolData(searchTerm.trim().toUpperCase());
-    }
+  // Download CSV
+  const downloadCSV = () => {
+    if (!darkPoolData || darkPoolData.length === 0) return;
+
+    const headers = ['Ticker', 'Total Volume', 'Trade Count', 'Date'];
+    const csvContent = [
+      headers.join(','),
+      ...darkPoolData.map(item => [
+        item.ticker,
+        item.total_volume,
+        item.trade_count,
+        new Date().toISOString().split('T')[0]
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dark-pool-data-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   // Auto-refresh every 30 minutes (reduced frequency to prevent timeouts)
   useEffect(() => {
-    // Initial load with refresh to ensure we have data
+    // Initial load
     fetchDarkPoolData();
     
+    // Set up auto-refresh interval
     const interval = setInterval(() => {
       console.log('Auto-refreshing dark pool data...');
       fetchDarkPoolData();
-    }, 30 * 60 * 1000); // 30 minutes instead of 15 to reduce API load
+    }, 30 * 60 * 1000); // 30 minutes
 
+    // Cleanup interval on unmount
     return () => clearInterval(interval);
   }, []);
-
-  // Handle search on Enter key
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
 
   if (isLoading) {
     return (
@@ -272,6 +277,16 @@ export default function Scanner() {
               >
                 <SafeInfo />
                 <span>Info</span>
+              </SafeButton>
+              <SafeButton
+                variant="outline"
+                size="sm"
+                onClick={downloadCSV}
+                disabled={darkPoolData.length === 0}
+                className="flex items-center space-x-1"
+              >
+                <SafeDownload />
+                <span>Download CSV</span>
               </SafeButton>
               <SafeButton
                 variant="outline"
@@ -315,71 +330,19 @@ export default function Scanner() {
         </div>
       )}
 
-      {/* Search and Controls */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Symbol Search */}
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                <SafeSearch />
-              </div>
-              <input
-                placeholder="Enter ticker (e.g., AAPL, TSLA)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex h-10 w-full rounded-md border border-gray-300 bg-white pl-10 pr-3 py-2 text-sm"
-              />
-            </div>
-
-            {/* Search Button */}
-            <SafeButton
-              onClick={handleSearch}
-              className="flex items-center space-x-2"
-            >
-              <SafeSearch />
-              <span>Search Ticker</span>
-            </SafeButton>
-
-            {/* Clear Search */}
-            {searchTerm && (
-              <SafeButton
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm("");
-                  fetchDarkPoolData();
-                }}
-                className="flex items-center space-x-2"
-              >
-                <SafeX />
-                <span>Clear Search</span>
-              </SafeButton>
-            )}
-          </div>
-
-          {/* Last Updated */}
-          {lastUpdated && (
-            <div className="mt-4 text-sm text-gray-500">
+        {/* Last Updated */}
+        {lastUpdated && (
+          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+            <div className="text-sm text-gray-500">
               Last updated: {new Date(lastUpdated).toLocaleString()}
             </div>
-          )}
-        </div>
-
-        {/* Search Results Header */}
-        {searchTerm && darkPoolData.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Dark Pool Volume for {searchTerm.toUpperCase()}
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Today's total dark pool volume
-            </p>
           </div>
         )}
 
-        {/* Default View Header */}
-        {!searchTerm && darkPoolData.length > 0 && (
+        {/* Header */}
+        {darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
               Top 25 Tickers by Dark Pool Volume
@@ -403,14 +366,11 @@ export default function Scanner() {
         {!error && darkPoolData.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
-              <SafeSearch />
+              <SafeRefreshCw />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No dark pool activity found</h3>
             <p className="text-gray-600">
-              {searchTerm ? 
-                `No dark pool trades found for ${searchTerm.toUpperCase()} today. This could mean no dark pool activity or the ticker may not be actively traded.` :
-                'No dark pool activity is currently detected. Check back later for new activity.'
-              }
+              No dark pool activity is currently detected. Check back later for new activity.
             </p>
           </div>
         )}

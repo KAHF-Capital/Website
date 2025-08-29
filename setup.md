@@ -12,8 +12,8 @@
 - **Shows top 25 tickers by default** (ranked by dark pool volume)
 - **Displays ticker and total daily volume** (no timestamps or IDs)
 - **"15 min delayed" indicator** instead of "Live Data"
-- **Auto-refresh every 15 minutes**
-- **Search functionality** for specific tickers
+- **Auto-refresh every 30 minutes** (optimized to prevent timeouts)
+- **CSV download** functionality for data export
 - **Daily volume resets at midnight**
 
 ### **3. Data Structure**
@@ -79,7 +79,7 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 4. **Frontend Display** → Shows trades in real-time with auto-refresh
 
 ### **API Endpoints:**
-- **`/api/darkpool-trades`** → Get today's dark pool trades
+- **`/api/darkpool-trades`** → Get today's top 25 dark pool trades
 - **`/api/refresh-darkpool`** → Manually refresh data from Polygon
 
 ### **Auto-Refresh Schedule:**
@@ -93,7 +93,7 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 ### **Scanner Dashboard:**
 - **Header**: Shows "15 min delayed" badge and ticker count
 - **Default View**: Shows top 25 tickers by dark pool volume for the day
-- **Search**: Enter any ticker to see its total daily dark pool volume
+- **CSV Download**: Export current data to CSV file
 - **Cards**: Each card shows:
   - Ticker symbol
   - Today's total dark pool volume
@@ -101,9 +101,9 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
   - Resets at midnight each day
 
 ### **Data Updates:**
-- **Real-time**: Data updates every 15 minutes automatically
+- **Real-time**: Data updates every 30 minutes automatically
 - **Manual**: Click refresh button for immediate update
-- **Search**: Enter ticker to see specific dark pool activity
+- **Export**: Download CSV file with current data
 
 ## 🔧 **Troubleshooting:**
 
