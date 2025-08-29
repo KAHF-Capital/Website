@@ -155,13 +155,14 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
     startDate.setDate(startDate.getDate() - 30);
     
     const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
     
     // Get historical trades from Polygon.io with shorter timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?timestamp=${startDateStr}&limit=50000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=50000&apiKey=${apiKey}`,
       { 
         signal: controller.signal,
         headers: {
@@ -178,11 +179,18 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
     }
     
     const data = await response.json();
+    console.log(`${ticker}: API response status: ${data.status}, results count: ${data.results?.length || 0}`);
+    
     if (!data.results || !Array.isArray(data.results)) {
       console.log(`No historical trade data for ${ticker}`);
       return { avgVolume: 0, avgTrades: 0 };
     }
 
+    // Log first trade structure for debugging
+    if (data.results.length > 0) {
+      console.log(`${ticker}: Sample trade structure:`, JSON.stringify(data.results[0], null, 2));
+    }
+    
     // Filter dark pool trades and group by date
     const darkPoolTrades = data.results.filter(trade => 
       trade && typeof trade === 'object' && 
@@ -190,10 +198,16 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
       trade.trf_id !== undefined
     );
 
+    console.log(`${ticker}: Found ${darkPoolTrades.length} dark pool trades in 30-day period`);
+
     // Group by date and calculate daily totals
     const dailyData = {};
     darkPoolTrades.forEach(trade => {
-      const tradeDate = new Date(trade.t).toISOString().split('T')[0];
+      // Use participant_timestamp for more accurate date grouping
+      const timestamp = trade.participant_timestamp || trade.t || trade.sip_timestamp;
+      if (!timestamp) return;
+      
+      const tradeDate = new Date(timestamp).toISOString().split('T')[0];
       if (!dailyData[tradeDate]) {
         dailyData[tradeDate] = { volume: 0, trades: 0 };
       }
@@ -203,7 +217,10 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
 
     // Calculate averages
     const days = Object.keys(dailyData).length;
+    console.log(`${ticker}: Daily data summary:`, dailyData);
+    
     if (days === 0) {
+      console.log(`${ticker}: No daily data found`);
       return { avgVolume: 0, avgTrades: 0 };
     }
 
