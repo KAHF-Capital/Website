@@ -76,6 +76,7 @@ const SafeDownload = () => {
 
 // Dark Pool Summary Card Component
 const DarkPoolSummaryCard = ({ summary }) => {
+  const [showHistory, setShowHistory] = useState(false);
   const formatNumber = (num) => num?.toLocaleString() || '0';
 
   return (
@@ -90,10 +91,63 @@ const DarkPoolSummaryCard = ({ summary }) => {
         </div>
       </div>
 
-      <div className="text-center">
+      <div className="text-center mb-3">
         <p className="text-2xl font-bold text-blue-600">{formatNumber(summary.total_volume)}</p>
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
+
+      {/* 90-Day Average */}
+      {summary.avg_90day_volume > 0 && (
+        <div className="border-t pt-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">90-Day Avg:</span>
+            <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-1">
+            <span className="text-gray-600">Volume Ratio:</span>
+            <span className={`font-medium ${summary.volume_ratio > 2 ? 'text-green-600' : summary.volume_ratio > 1 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {summary.volume_ratio.toFixed(1)}x
+            </span>
+          </div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="w-full mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            {showHistory ? 'Hide Details' : 'Show 90-Day History'}
+          </button>
+        </div>
+      )}
+
+      {/* 90-Day History Panel */}
+      {showHistory && summary.avg_90day_volume > 0 && (
+        <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">90-Day Dark Pool History</h4>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Today's Volume:</span>
+              <span className="font-medium">{formatNumber(summary.total_volume)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">90-Day Average:</span>
+              <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Today's Trades:</span>
+              <span className="font-medium">{summary.trade_count}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">90-Day Avg Trades:</span>
+              <span className="font-medium">{summary.avg_90day_trades}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Volume vs Average:</span>
+              <span className={`font-medium ${summary.volume_ratio > 2 ? 'text-green-600' : summary.volume_ratio > 1 ? 'text-yellow-600' : 'text-red-600'}`}>
+                {summary.volume_ratio > 1 ? '+' : ''}{((summary.volume_ratio - 1) * 100).toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -131,14 +185,15 @@ const InfoModal = ({ isOpen, onClose }) => {
                 <li>• <strong>Daily Volume:</strong> Total dark pool volume for the current trading day</li>
                 <li>• <strong>Trade Count:</strong> Number of individual dark pool trades</li>
                 <li>• <strong>15-min delay:</strong> Data is delayed for regulatory compliance</li>
-                <li>• <strong>Midnight Reset:</strong> Volume resets at midnight each day</li>
+                <li>• <strong>90-Day History:</strong> Compare today's activity to 90-day average</li>
+                <li>• <strong>4:00 PM ET Refresh:</strong> Data refreshes daily at market close</li>
               </ul>
             </div>
 
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">🔄 Auto-Refresh</h3>
               <p className="text-gray-700 text-sm">
-                The scanner automatically refreshes every 30 minutes to show the latest dark pool trading activity.
+                The scanner automatically refreshes at 4:00 PM ET daily to capture all dark pool activity for that day.
                 You can also manually refresh using the refresh button.
               </p>
             </div>
@@ -147,7 +202,8 @@ const InfoModal = ({ isOpen, onClose }) => {
               <h4 className="font-semibold text-blue-900 mb-2">💡 Pro Tip</h4>
               <p className="text-blue-800 text-sm">
                 High dark pool volume often indicates institutional positioning and can be a leading indicator 
-                for significant price movements in the near future.
+                for significant price movements in the near future. Volume ratios above 2x the 90-day average 
+                suggest unusual institutional activity.
               </p>
             </div>
           </div>
@@ -163,6 +219,7 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [showInfo, setShowInfo] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [nextRefresh, setNextRefresh] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch dark pool data
@@ -179,6 +236,7 @@ export default function Scanner() {
       if (response.ok) {
         setDarkPoolData(data.trades || []);
         setLastUpdated(data.last_updated);
+        setNextRefresh(data.next_refresh);
       } else {
         setError(data.error || 'Unable to load dark pool data');
         setDarkPoolData([]);
@@ -203,13 +261,16 @@ export default function Scanner() {
   const downloadCSV = () => {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
-    const headers = ['Ticker', 'Total Volume', 'Trade Count', 'Date'];
+    const headers = ['Ticker', 'Total Volume', 'Trade Count', '90-Day Avg Volume', '90-Day Avg Trades', 'Volume Ratio', 'Date'];
     const csvContent = [
       headers.join(','),
       ...darkPoolData.map(item => [
         item.ticker,
         item.total_volume,
         item.trade_count,
+        item.avg_90day_volume || 0,
+        item.avg_90day_trades || 0,
+        item.volume_ratio ? item.volume_ratio.toFixed(2) : 0,
         new Date().toISOString().split('T')[0]
       ].join(','))
     ].join('\n');
@@ -225,19 +286,9 @@ export default function Scanner() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Auto-refresh every 30 minutes (reduced frequency to prevent timeouts)
+  // Initial load
   useEffect(() => {
-    // Initial load
     fetchDarkPoolData();
-    
-    // Set up auto-refresh interval
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing dark pool data...');
-      fetchDarkPoolData();
-    }, 30 * 60 * 1000); // 30 minutes
-
-    // Cleanup interval on unmount
-    return () => clearInterval(interval);
   }, []);
 
   if (isLoading) {
@@ -259,7 +310,7 @@ export default function Scanner() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
-              <p className="mt-1 text-gray-600">Real-time dark pool trading activity</p>
+              <p className="mt-1 text-gray-600">24-hour dark pool trading activity</p>
             </div>
             <div className="flex items-center space-x-3">
               <SafeBadge className="flex items-center space-x-1 bg-orange-100 text-orange-800 border-orange-200">
@@ -332,14 +383,17 @@ export default function Scanner() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Last Updated */}
-        {lastUpdated && (
-          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+        {/* Status Info */}
+        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+          <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500">
-              Last updated: {new Date(lastUpdated).toLocaleString()}
+              {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
+            </div>
+            <div className="text-sm text-gray-500">
+              {nextRefresh && `Next refresh: ${new Date(nextRefresh).toLocaleString()} (4:00 PM ET)`}
             </div>
           </div>
-        )}
+        </div>
 
         {/* Header */}
         {darkPoolData.length > 0 && (
@@ -348,7 +402,7 @@ export default function Scanner() {
               Top 25 Tickers by Dark Pool Volume
             </h2>
             <p className="text-gray-600 mt-1">
-              Today's highest dark pool activity
+              Today's highest dark pool activity with 90-day historical comparison
             </p>
           </div>
         )}

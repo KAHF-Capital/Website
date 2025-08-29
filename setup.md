@@ -12,7 +12,8 @@
 - **Shows top 25 tickers by default** (ranked by dark pool volume)
 - **Displays ticker and total daily volume** (no timestamps or IDs)
 - **"15 min delayed" indicator** instead of "Live Data"
-- **Auto-refresh every 30 minutes** (optimized to prevent timeouts)
+- **24-hour data collection** with daily refresh at 4:00 PM ET
+- **90-day historical comparison** for each ticker
 - **CSV download** functionality for data export
 - **Daily volume resets at midnight**
 
@@ -83,27 +84,31 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 - **`/api/refresh-darkpool`** → Manually refresh data from Polygon
 
 ### **Auto-Refresh Schedule:**
-- **Every 30 minutes** → Automatically fetches new data (optimized to prevent timeouts)
+- **4:00 PM ET daily** → Automatically refreshes to capture all dark pool activity
 - **Manual refresh** → Click refresh button anytime
-- **Search refresh** → Automatically refreshes when searching specific tickers
-- **Timeout protection** → 10-second timeout per API call to prevent hanging
+- **90-day historical data** → Fetched for each ticker to show activity ratios
+- **Timeout protection** → 12-second timeout per API call to prevent hanging
 
 ## 🎯 **What You'll See:**
 
 ### **Scanner Dashboard:**
 - **Header**: Shows "15 min delayed" badge and ticker count
 - **Default View**: Shows top 25 tickers by dark pool volume for the day
+- **90-Day History**: Expandable panels showing historical comparison
 - **CSV Download**: Export current data to CSV file
 - **Cards**: Each card shows:
   - Ticker symbol
   - Today's total dark pool volume
   - Number of trades
+  - 90-day average volume and trade count
+  - Volume ratio (today vs 90-day average)
   - Resets at midnight each day
 
 ### **Data Updates:**
-- **Real-time**: Data updates every 30 minutes automatically
+- **Daily**: Data refreshes at 4:00 PM ET to capture all dark pool activity
 - **Manual**: Click refresh button for immediate update
-- **Export**: Download CSV file with current data
+- **Historical**: 90-day data fetched for activity ratio calculations
+- **Export**: Download CSV file with current data and historical averages
 
 ## 🔧 **Troubleshooting:**
 
