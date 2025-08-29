@@ -83,9 +83,10 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 - **`/api/refresh-darkpool`** → Manually refresh data from Polygon
 
 ### **Auto-Refresh Schedule:**
-- **Every 15 minutes** → Automatically fetches new data
+- **Every 30 minutes** → Automatically fetches new data (optimized to prevent timeouts)
 - **Manual refresh** → Click refresh button anytime
 - **Search refresh** → Automatically refreshes when searching specific tickers
+- **Timeout protection** → 10-second timeout per API call to prevent hanging
 
 ## 🎯 **What You'll See:**
 

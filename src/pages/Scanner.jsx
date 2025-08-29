@@ -138,7 +138,7 @@ const InfoModal = ({ isOpen, onClose }) => {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">🔄 Auto-Refresh</h3>
               <p className="text-gray-700 text-sm">
-                The scanner automatically refreshes every 15 minutes to show the latest dark pool trading activity.
+                The scanner automatically refreshes every 30 minutes to show the latest dark pool trading activity.
                 You can also manually refresh using the refresh button.
               </p>
             </div>
@@ -215,7 +215,7 @@ export default function Scanner() {
     }
   };
 
-  // Auto-refresh every 15 minutes
+  // Auto-refresh every 30 minutes (reduced frequency to prevent timeouts)
   useEffect(() => {
     // Initial load with refresh to ensure we have data
     fetchDarkPoolData();
@@ -223,7 +223,7 @@ export default function Scanner() {
     const interval = setInterval(() => {
       console.log('Auto-refreshing dark pool data...');
       fetchDarkPoolData();
-    }, 15 * 60 * 1000); // 15 minutes
+    }, 30 * 60 * 1000); // 30 minutes instead of 15 to reduce API load
 
     return () => clearInterval(interval);
   }, []);

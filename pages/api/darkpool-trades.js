@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       if (ticker) {
         await fetchAndStoreDarkPoolTrades(ticker, currentDate, apiKey);
       } else {
-        // Refresh data for top tickers
+        // Refresh data for top tickers (limited to prevent timeouts)
         await refreshTopTickersData(currentDate, apiKey);
       }
     }
@@ -51,10 +51,10 @@ export default async function handler(req, res) {
       // Get all today's dark pool trades grouped by ticker (top 25)
       trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
       
-      // If no data exists, automatically fetch some initial data
+      // If no data exists, try to fetch a smaller set of initial data
       if (trades.length === 0) {
         console.log('No data found, fetching initial data for top tickers...');
-        await refreshTopTickersData(currentDate, apiKey);
+        await refreshTopTickersData(currentDate, apiKey, true); // limited=true
         trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
       }
     }
@@ -76,10 +76,16 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
   try {
     console.log(`Fetching dark pool trades for ${ticker} on ${date}...`);
     
-    // Get trades from Polygon.io
+    // Get trades from Polygon.io with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=1000&apiKey=${apiKey}`
+      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=500&apiKey=${apiKey}`,
+      { signal: controller.signal }
     );
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.log(`Failed to get trades for ${ticker} on ${date}: ${response.status}`);
@@ -122,15 +128,24 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     console.log(`${ticker}: Saved ${savedCount} dark pool trades to database`);
     
   } catch (error) {
-    console.error(`Error fetching dark pool trades for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.log(`Timeout fetching data for ${ticker}`);
+    } else {
+      console.error(`Error fetching dark pool trades for ${ticker}:`, error);
+    }
   }
 }
 
-async function refreshTopTickersData(date, apiKey) {
+async function refreshTopTickersData(date, apiKey, limited = false) {
   try {
-    // List of popular tickers to monitor
-    const tickers = [
-      // Major tech stocks
+    // Reduced list of popular tickers to prevent timeouts
+    const tickers = limited ? [
+      // Top 25 most liquid stocks for initial load
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
+      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
+      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML'
+    ] : [
+      // Full list for complete refresh
       'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
       'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
       'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
@@ -155,15 +170,15 @@ async function refreshTopTickersData(date, apiKey) {
       'CAT', 'DE', 'BA', 'LMT', 'RTX', 'GE', 'MMM', 'HON', 'UPS', 'FDX'
     ];
 
-    console.log(`Refreshing data for ${tickers.length} tickers...`);
+    console.log(`Refreshing data for ${tickers.length} tickers (limited: ${limited})...`);
 
-    // Process each ticker
+    // Process each ticker with shorter delays
     for (const ticker of tickers) {
       try {
         await fetchAndStoreDarkPoolTrades(ticker, date, apiKey);
         
-        // Add small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Shorter delay to prevent timeouts
+        await new Promise(resolve => setTimeout(resolve, 50));
         
       } catch (error) {
         console.error(`Error processing ${ticker}:`, error);
