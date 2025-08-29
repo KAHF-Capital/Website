@@ -152,25 +152,32 @@ const DarkPoolSummaryCard = ({ summary }) => {
   );
 };
 
-// Info Modal Component
+// Info Modal Component with proper accessibility
 const InfoModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
+      role="dialog" 
+      aria-modal="true"
+      aria-labelledby="dialog-title"
+      aria-describedby="dialog-description"
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full" role="document">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Dark Pool Scanner Info</h2>
+            <h2 className="text-xl font-bold text-gray-900" id="dialog-title">Dark Pool Scanner Info</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close dialog"
             >
               <SafeX />
             </button>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4" id="dialog-description">
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">🌊 What is Dark Pool Trading?</h3>
               <p className="text-gray-700 text-sm">
@@ -186,15 +193,15 @@ const InfoModal = ({ isOpen, onClose }) => {
                 <li>• <strong>Trade Count:</strong> Number of individual dark pool trades</li>
                 <li>• <strong>15-min delay:</strong> Data is delayed for regulatory compliance</li>
                 <li>• <strong>90-Day History:</strong> Compare today's activity to 90-day average</li>
-                <li>• <strong>4:00 PM ET Refresh:</strong> Data refreshes daily at market close</li>
+                <li>• <strong>Midnight Reset:</strong> Data resets daily at midnight</li>
               </ul>
             </div>
 
             <div>
-              <h3 className="font-semibold text-gray-900 mb-2">🔄 Auto-Refresh</h3>
+              <h3 className="font-semibold text-gray-900 mb-2">🔄 Manual Refresh</h3>
               <p className="text-gray-700 text-sm">
-                The scanner automatically refreshes at 4:00 PM ET daily to capture all dark pool activity for that day.
-                You can also manually refresh using the refresh button.
+                The scanner refreshes data when you click the refresh button. Data resets at midnight each day.
+                You can also manually refresh anytime to get the latest dark pool activity.
               </p>
             </div>
 
@@ -219,42 +226,74 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [showInfo, setShowInfo] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [nextRefresh, setNextRefresh] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch dark pool data
+  // Fetch dark pool data with optimized timeout
   const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const url = '/api/darkpool-trades?refresh=true';
+      // Use a shorter timeout and don't refresh by default to prevent timeouts
+      const url = '/api/darkpool-trades';
       
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
       
       if (response.ok) {
         setDarkPoolData(data.trades || []);
         setLastUpdated(data.last_updated);
-        setNextRefresh(data.next_refresh);
       } else {
         setError(data.error || 'Unable to load dark pool data');
         setDarkPoolData([]);
       }
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
-      setError('Network error. Please check your connection and try again.');
+      if (error.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError('Network error. Please check your connection and try again.');
+      }
       setDarkPoolData([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Manual refresh
+  // Manual refresh with timeout
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchDarkPoolData();
-    setIsRefreshing(false);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for refresh
+      
+      const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDarkPoolData(data.trades || []);
+        setLastUpdated(data.last_updated);
+        setError(null);
+      } else {
+        setError(data.error || 'Unable to refresh dark pool data');
+      }
+    } catch (error) {
+      console.error('Error refreshing dark pool data:', error);
+      if (error.name === 'AbortError') {
+        setError('Refresh timed out. Please try again.');
+      } else {
+        setError('Network error during refresh. Please try again.');
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Download CSV
@@ -385,13 +424,8 @@ export default function Scanner() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Status Info */}
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-500">
-              {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
-            </div>
-            <div className="text-sm text-gray-500">
-              {nextRefresh && `Next refresh: ${new Date(nextRefresh).toLocaleString()} (4:00 PM ET)`}
-            </div>
+          <div className="text-sm text-gray-500">
+            {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
           </div>
         </div>
 

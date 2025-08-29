@@ -19,15 +19,10 @@ export default async function handler(req, res) {
     // Initialize database
     db.initializeDatabase();
     
-    // Get current date and check if it's time to refresh (4:00 PM ET)
-    const now = new Date();
-    const etTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-    const isRefreshTime = etTime.getHours() === 16 && etTime.getMinutes() < 5; // 4:00-4:05 PM ET
+    const currentDate = new Date().toISOString().split('T')[0];
     
-    const currentDate = now.toISOString().split('T')[0];
-    
-    // If refresh is requested or it's refresh time, fetch new data from Polygon
-    if (refresh === 'true' || isRefreshTime) {
+    // If refresh is requested, fetch new data from Polygon
+    if (refresh === 'true') {
       console.log('Refreshing dark pool data...');
       await refreshTopTickersData(currentDate, apiKey);
     }
@@ -69,8 +64,7 @@ export default async function handler(req, res) {
       date: currentDate,
       trades: tradesWithHistory,
       total_tickers: tradesWithHistory.length,
-      last_updated: new Date().toISOString(),
-      next_refresh: getNextRefreshTime()
+      last_updated: new Date().toISOString()
     });
 
   } catch (error) {
@@ -85,7 +79,7 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     
     // Get trades from Polygon.io with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout for more data
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for large data requests
     
     const response = await fetch(
       `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=50000&apiKey=${apiKey}`,
@@ -156,7 +150,7 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     
     // Get historical trades from Polygon.io
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for 90-day historical data
     
     const response = await fetch(
       `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=50000&apiKey=${apiKey}`,
@@ -256,20 +250,4 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
   } catch (error) {
     console.error('Error refreshing top tickers data:', error);
   }
-}
-
-function getNextRefreshTime() {
-  const now = new Date();
-  const etTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-  
-  // Calculate next 4:00 PM ET
-  const nextRefresh = new Date(etTime);
-  nextRefresh.setHours(16, 0, 0, 0); // 4:00 PM ET
-  
-  // If it's already past 4:00 PM today, set to tomorrow
-  if (etTime.getHours() >= 16) {
-    nextRefresh.setDate(nextRefresh.getDate() + 1);
-  }
-  
-  return nextRefresh.toISOString();
 }

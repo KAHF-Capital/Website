@@ -12,7 +12,7 @@
 - **Shows top 25 tickers by default** (ranked by dark pool volume)
 - **Displays ticker and total daily volume** (no timestamps or IDs)
 - **"15 min delayed" indicator** instead of "Live Data"
-- **24-hour data collection** with daily refresh at 4:00 PM ET
+- **24-hour data collection** with manual refresh capability
 - **90-day historical comparison** for each ticker
 - **CSV download** functionality for data export
 - **Daily volume resets at midnight**
@@ -83,11 +83,11 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
 - **`/api/darkpool-trades`** → Get today's top 25 dark pool trades
 - **`/api/refresh-darkpool`** → Manually refresh data from Polygon
 
-### **Auto-Refresh Schedule:**
-- **4:00 PM ET daily** → Automatically refreshes to capture all dark pool activity
-- **Manual refresh** → Click refresh button anytime
+### **Refresh Schedule:**
+- **Manual refresh** → Click refresh button anytime to get latest data
 - **90-day historical data** → Fetched for each ticker to show activity ratios
-- **Timeout protection** → 12-second timeout per API call to prevent hanging
+- **Timeout protection** → 15-20 second timeout per API call for large data requests
+- **Midnight reset** → All data resets daily at midnight
 
 ## 🎯 **What You'll See:**
 
@@ -105,10 +105,10 @@ Visit `http://localhost:3000/scanner` to see your dark pool scanner!
   - Resets at midnight each day
 
 ### **Data Updates:**
-- **Daily**: Data refreshes at 4:00 PM ET to capture all dark pool activity
-- **Manual**: Click refresh button for immediate update
+- **Manual**: Click refresh button anytime to get latest data
 - **Historical**: 90-day data fetched for activity ratio calculations
 - **Export**: Download CSV file with current data and historical averages
+- **Midnight reset**: All data resets daily at midnight
 
 ## 🔧 **Troubleshooting:**
 
