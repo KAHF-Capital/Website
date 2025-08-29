@@ -227,6 +227,7 @@ export default function Scanner() {
   const [showInfo, setShowInfo] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCached, setIsCached] = useState(false);
 
   // Fetch dark pool data with 10-minute timeout
   const fetchDarkPoolData = async () => {
@@ -270,6 +271,7 @@ export default function Scanner() {
       
       setDarkPoolData(data.trades || []);
       setLastUpdated(data.last_updated);
+      setIsCached(data.cached || false);
       
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
@@ -320,6 +322,7 @@ export default function Scanner() {
       
       setDarkPoolData(data.trades || []);
       setLastUpdated(data.last_updated);
+      setIsCached(data.cached || false);
       setError(null);
       
     } catch (error) {
@@ -338,16 +341,15 @@ export default function Scanner() {
   const downloadCSV = () => {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
-    const headers = ['Ticker', 'Total Volume', 'Trade Count', '30-Day Avg Volume', '30-Day Avg Trades', 'Volume Ratio', 'Date'];
+    const headers = ['Ticker', 'Total Volume', 'Trade Count', 'First Trade', 'Last Trade', 'Date'];
     const csvContent = [
       headers.join(','),
       ...darkPoolData.map(item => [
         item.ticker,
         item.total_volume,
         item.trade_count,
-        item.avg_30day_volume || 0,
-        item.avg_30day_trades || 0,
-        item.volume_ratio ? item.volume_ratio.toFixed(2) : 0,
+        item.first_trade || '',
+        item.last_trade || '',
         new Date().toISOString().split('T')[0]
       ].join(','))
     ].join('\n');
@@ -394,6 +396,11 @@ export default function Scanner() {
                 <SafeClock />
                 <span>15 min delayed</span>
               </SafeBadge>
+              {isCached && (
+                <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
+                  <span>📦 Cached</span>
+                </SafeBadge>
+              )}
               <SafeBadge variant="outline" className="flex items-center space-x-1">
                 <span>{darkPoolData.length} Tickers</span>
               </SafeBadge>

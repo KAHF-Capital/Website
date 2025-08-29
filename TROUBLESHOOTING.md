@@ -1,5 +1,21 @@
 # Dark Pool Scanner Troubleshooting Guide
 
+## 🚀 New Approach (v2.0)
+
+The scanner now uses a **smart caching system** that:
+
+1. **Downloads ALL trades for today** (not just predetermined tickers)
+2. **Finds the most active stocks** with dark pool activity
+3. **Caches results for the entire day** (no more repeated API calls)
+4. **Shows you what's actually trading** instead of guessing
+
+### How It Works
+
+1. **First visit of the day**: Takes 2-3 minutes to analyze all trades
+2. **Subsequent visits**: Shows cached results instantly
+3. **Manual refresh**: Forces a new analysis (takes 2-3 minutes)
+4. **Next day**: Automatically refreshes
+
 ## Common Issues and Solutions
 
 ### 1. 504 Gateway Timeout Error
@@ -12,10 +28,10 @@
 - Network connectivity issues
 
 **Solutions**:
-- ✅ **Fixed**: Reduced timeout from 15-20 seconds to 10-15 seconds per API call
-- ✅ **Fixed**: Reduced number of tickers from 50 to 25 for refresh, 20 to 10 for initial load
-- ✅ **Fixed**: Added better error handling to continue with existing data if refresh fails
-- ✅ **Fixed**: Added proper headers to API requests
+- ✅ **Fixed**: New caching system - only analyzes once per day
+- ✅ **Fixed**: Smart ticker discovery - finds most active stocks automatically
+- ✅ **Fixed**: Better error handling - continues with cached data if analysis fails
+- ✅ **Fixed**: Reduced API load - no more repeated calls throughout the day
 
 ### 2. JSON Parsing Error
 
