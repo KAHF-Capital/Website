@@ -230,6 +230,7 @@ export default function Scanner() {
   const [isCached, setIsCached] = useState(false);
   const [includeHistory, setIncludeHistory] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Fetch dark pool data with 10-minute timeout
   const fetchDarkPoolData = async () => {
@@ -414,10 +415,6 @@ export default function Scanner() {
               <p className="mt-1 text-gray-600">24-hour dark pool trading activity</p>
             </div>
             <div className="flex items-center space-x-3">
-              <SafeBadge className="flex items-center space-x-1 bg-orange-100 text-orange-800 border-orange-200">
-                <SafeClock />
-                <span>15 min delayed</span>
-              </SafeBadge>
               {isCached && (
                 <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
                   <span>📦 Cached</span>
@@ -448,14 +445,51 @@ export default function Scanner() {
               <SafeButton
                 variant={includeHistory ? "default" : "outline"}
                 size="sm"
-                onClick={() => {
-                  setIncludeHistory(!includeHistory);
+                onClick={async () => {
+                  const newHistoryState = !includeHistory;
+                  setIncludeHistory(newHistoryState);
+                  setIsLoadingHistory(true);
+                  
                   // Refetch data with new history setting
-                  setTimeout(() => fetchDarkPoolData(), 100);
+                  try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
+                    
+                    const response = await fetch(`/api/darkpool-trades?include_history=${newHistoryState}`, { 
+                      signal: controller.signal 
+                    });
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                      let errorMessage = 'Unable to load dark pool data';
+                      try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                      } catch (parseError) {
+                        errorMessage = `${response.status}: ${response.statusText}`;
+                      }
+                      setError(errorMessage);
+                      return;
+                    }
+                    
+                    const data = await response.json();
+                    setDarkPoolData(data.trades || []);
+                    setLastUpdated(data.last_updated);
+                    setIsCached(data.cached || false);
+                    setHasHistory(data.has_history || false);
+                    setError(null);
+                    
+                  } catch (error) {
+                    console.error('Error fetching data:', error);
+                    setError('Network error. Please try again.');
+                  } finally {
+                    setIsLoadingHistory(false);
+                  }
                 }}
+                disabled={isLoadingHistory}
                 className="flex items-center space-x-1"
               >
-                <span>📊 {includeHistory ? 'Hide' : 'Show'} 30-Day Data</span>
+                <span>📊 {isLoadingHistory ? 'Loading...' : (includeHistory ? 'Hide' : 'Show')} 30-Day Data</span>
               </SafeButton>
               <SafeButton
                 variant="outline"
@@ -505,6 +539,11 @@ export default function Scanner() {
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
           <div className="text-sm text-gray-500">
             {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
+            {isLoadingHistory && (
+              <div className="mt-2 text-blue-600">
+                🔄 Loading 30-day historical data...
+              </div>
+            )}
           </div>
         </div>
 
@@ -512,10 +551,10 @@ export default function Scanner() {
         {darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Top 25 Tickers by Dark Pool Volume
+              Top 50 Tickers by Dark Pool Volume
             </h2>
             <p className="text-gray-600 mt-1">
-              Today's highest dark pool activity with 90-day historical comparison
+              Today's highest dark pool activity{hasHistory ? ' with 30-day historical comparison' : ''}
             </p>
           </div>
         )}

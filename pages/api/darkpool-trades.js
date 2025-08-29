@@ -8,6 +8,8 @@ export default async function handler(req, res) {
   try {
     const { refresh = 'false', include_history = 'false' } = req.query;
     const apiKey = process.env.POLYGON_API_KEY;
+    
+    console.log('API Request:', { refresh, include_history });
 
     // Check if API key is properly configured
     if (!apiKey || apiKey === 'YOUR_POLYGON_API_KEY_HERE' || apiKey === 'your_polygon_api_key_here') {
