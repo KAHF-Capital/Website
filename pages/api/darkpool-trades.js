@@ -118,24 +118,24 @@ export default async function handler(req, res) {
 }
 
 async function addHistoricalDataToTrades(trades, apiKey) {
-  console.log('Adding 30-day historical data to trades...');
+  console.log('Adding 7-day historical data to trades...');
   
   const tradesWithHistory = await Promise.all(
     trades.map(async (trade) => {
       try {
-        const historicalData = await get30DayDarkPoolHistory(trade.ticker, apiKey);
+        const historicalData = await get7DayDarkPoolHistory(trade.ticker, apiKey);
         return {
           ...trade,
-          avg_30day_volume: historicalData.avgVolume,
-          avg_30day_trades: historicalData.avgTrades,
+          avg_7day_volume: historicalData.avgVolume,
+          avg_7day_trades: historicalData.avgTrades,
           volume_ratio: historicalData.avgVolume > 0 ? trade.total_volume / historicalData.avgVolume : 0
         };
       } catch (error) {
         console.error(`Error fetching historical data for ${trade.ticker}:`, error);
         return {
           ...trade,
-          avg_30day_volume: 0,
-          avg_30day_trades: 0,
+          avg_7day_volume: 0,
+          avg_7day_trades: 0,
           volume_ratio: 0
         };
       }
@@ -146,16 +146,18 @@ async function addHistoricalDataToTrades(trades, apiKey) {
   return tradesWithHistory;
 }
 
-async function get30DayDarkPoolHistory(ticker, apiKey) {
+async function get7DayDarkPoolHistory(ticker, apiKey) {
   try {
-    console.log(`Fetching 30-day historical data for ${ticker}...`);
+    console.log(`Fetching 7-day historical data for ${ticker}...`);
     
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
+    startDate.setDate(startDate.getDate() - 7); // Try 7 days first to see if we get data
     
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`${ticker}: Fetching data from ${startDateStr} to ${endDateStr}`);
     
     // Get historical trades from Polygon.io with shorter timeout
     const controller = new AbortController();
@@ -191,14 +193,34 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
       console.log(`${ticker}: Sample trade structure:`, JSON.stringify(data.results[0], null, 2));
     }
     
-    // Filter dark pool trades and group by date
-    const darkPoolTrades = data.results.filter(trade => 
+    // Check what exchanges we have
+    const exchanges = [...new Set(data.results.map(trade => trade.exchange))];
+    console.log(`${ticker}: Available exchanges:`, exchanges);
+    
+    // Check what trades have trf_id
+    const tradesWithTrf = data.results.filter(trade => trade.trf_id !== undefined);
+    console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length} out of ${data.results.length}`);
+    
+    // Try different approaches to identify dark pool trades
+    // First, let's see what we get with just TRF ID
+    const tradesWithTrfId = data.results.filter(trade => 
       trade && typeof trade === 'object' && 
-      trade.exchange === 4 && 
       trade.trf_id !== undefined
     );
+    
+    // Also try exchange 4 (if that's what it should be)
+    const tradesWithExchange4 = data.results.filter(trade => 
+      trade && typeof trade === 'object' && 
+      trade.exchange === 4
+    );
+    
+    console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrfId.length}`);
+    console.log(`${ticker}: Trades with exchange 4: ${tradesWithExchange4.length}`);
+    
+    // Use trades with TRF ID as dark pool trades (this is more reliable)
+    const darkPoolTrades = tradesWithTrfId;
 
-    console.log(`${ticker}: Found ${darkPoolTrades.length} dark pool trades in 30-day period`);
+    console.log(`${ticker}: Using ${darkPoolTrades.length} dark pool trades in 7-day period`);
 
     // Group by date and calculate daily totals
     const dailyData = {};
@@ -227,7 +249,7 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
     const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
     const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
 
-    console.log(`${ticker}: 30-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
+    console.log(`${ticker}: 7-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
 
     return {
       avgVolume: Math.round(totalVolume / days),
@@ -236,9 +258,9 @@ async function get30DayDarkPoolHistory(ticker, apiKey) {
     
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log(`Timeout fetching 30-day historical data for ${ticker}`);
+      console.log(`Timeout fetching 7-day historical data for ${ticker}`);
     } else {
-      console.error(`Error fetching 30-day historical data for ${ticker}:`, error);
+      console.error(`Error fetching 7-day historical data for ${ticker}:`, error);
     }
     return { avgVolume: 0, avgTrades: 0 };
   }

@@ -96,12 +96,12 @@ const DarkPoolSummaryCard = ({ summary }) => {
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
 
-      {/* 30-Day Average */}
-      {summary.avg_30day_volume > 0 && (
+      {/* 7-Day Average */}
+      {summary.avg_7day_volume > 0 && (
         <div className="border-t pt-3">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">30-Day Avg:</span>
-            <span className="font-medium">{formatNumber(summary.avg_30day_volume)}</span>
+            <span className="text-gray-600">7-Day Avg:</span>
+            <span className="font-medium">{formatNumber(summary.avg_7day_volume)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
             <span className="text-gray-600">Volume Ratio:</span>
@@ -113,31 +113,31 @@ const DarkPoolSummaryCard = ({ summary }) => {
             onClick={() => setShowHistory(!showHistory)}
             className="w-full mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
           >
-            {showHistory ? 'Hide Details' : 'Show 30-Day History'}
+            {showHistory ? 'Hide Details' : 'Show 7-Day History'}
           </button>
         </div>
       )}
 
-      {/* 30-Day History Panel */}
-      {showHistory && summary.avg_30day_volume > 0 && (
+      {/* 7-Day History Panel */}
+      {showHistory && summary.avg_7day_volume > 0 && (
         <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">30-Day Dark Pool History</h4>
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">7-Day Dark Pool History</h4>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Volume:</span>
               <span className="font-medium">{formatNumber(summary.total_volume)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">30-Day Average:</span>
-              <span className="font-medium">{formatNumber(summary.avg_30day_volume)}</span>
+              <span className="text-gray-600">7-Day Average:</span>
+              <span className="font-medium">{formatNumber(summary.avg_7day_volume)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Trades:</span>
               <span className="font-medium">{summary.trade_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">30-Day Avg Trades:</span>
-              <span className="font-medium">{summary.avg_30day_trades}</span>
+              <span className="text-gray-600">7-Day Avg Trades:</span>
+              <span className="font-medium">{summary.avg_7day_trades}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Volume vs Average:</span>
@@ -347,7 +347,7 @@ export default function Scanner() {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
     const headers = hasHistory 
-      ? ['Ticker', 'Total Volume', 'Trade Count', '30-Day Avg Volume', '30-Day Avg Trades', 'Volume Ratio', 'First Trade', 'Last Trade', 'Date']
+      ? ['Ticker', 'Total Volume', 'Trade Count', '7-Day Avg Volume', '7-Day Avg Trades', 'Volume Ratio', 'First Trade', 'Last Trade', 'Date']
       : ['Ticker', 'Total Volume', 'Trade Count', 'First Trade', 'Last Trade', 'Date'];
       
     const csvContent = [
@@ -361,8 +361,8 @@ export default function Scanner() {
         
         if (hasHistory) {
           baseData.push(
-            item.avg_30day_volume || 0,
-            item.avg_30day_trades || 0,
+            item.avg_7day_volume || 0,
+            item.avg_7day_trades || 0,
             item.volume_ratio ? item.volume_ratio.toFixed(2) : 0
           );
         }
@@ -489,7 +489,7 @@ export default function Scanner() {
                 disabled={isLoadingHistory}
                 className="flex items-center space-x-1"
               >
-                <span>📊 {isLoadingHistory ? 'Loading...' : (includeHistory ? 'Hide' : 'Show')} 30-Day Data</span>
+                <span>📊 {isLoadingHistory ? 'Loading...' : (includeHistory ? 'Hide' : 'Show')} 7-Day Data</span>
               </SafeButton>
               <SafeButton
                 variant="outline"
@@ -541,7 +541,7 @@ export default function Scanner() {
             {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
             {isLoadingHistory && (
               <div className="mt-2 text-blue-600">
-                🔄 Loading 30-day historical data...
+                🔄 Loading 7-day historical data...
               </div>
             )}
           </div>
@@ -554,7 +554,7 @@ export default function Scanner() {
               Top 50 Tickers by Dark Pool Volume
             </h2>
             <p className="text-gray-600 mt-1">
-              Today's highest dark pool activity{hasHistory ? ' with 30-day historical comparison' : ''}
+              Today's highest dark pool activity{hasHistory ? ' with 7-day historical comparison' : ''}
             </p>
           </div>
         )}

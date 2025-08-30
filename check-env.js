@@ -58,3 +58,4 @@ try {
   console.error('❌ Error reading .env.local:', error.message);
   process.exit(1);
 }
+
