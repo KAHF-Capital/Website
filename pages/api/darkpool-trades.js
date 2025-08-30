@@ -201,24 +201,15 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     const tradesWithTrf = data.results.filter(trade => trade.trf_id !== undefined);
     console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length} out of ${data.results.length}`);
     
-    // Try different approaches to identify dark pool trades
-    // First, let's see what we get with just TRF ID
-    const tradesWithTrfId = data.results.filter(trade => 
+    // Filter dark pool trades according to Polygon.io documentation
+    // Dark pool trades must have BOTH exchange: 4 AND trf_id field
+    const darkPoolTrades = data.results.filter(trade => 
       trade && typeof trade === 'object' && 
+      trade.exchange === 4 && 
       trade.trf_id !== undefined
     );
     
-    // Also try exchange 4 (if that's what it should be)
-    const tradesWithExchange4 = data.results.filter(trade => 
-      trade && typeof trade === 'object' && 
-      trade.exchange === 4
-    );
-    
-    console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrfId.length}`);
-    console.log(`${ticker}: Trades with exchange 4: ${tradesWithExchange4.length}`);
-    
-    // Use trades with TRF ID as dark pool trades (this is more reliable)
-    const darkPoolTrades = tradesWithTrfId;
+    console.log(`${ticker}: Dark pool trades (exchange:4 + trf_id): ${darkPoolTrades.length}`);
 
     console.log(`${ticker}: Using ${darkPoolTrades.length} dark pool trades in 7-day period`);
 
