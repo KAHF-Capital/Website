@@ -551,7 +551,7 @@ export default function Scanner() {
         {darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Top 50 Tickers by Dark Pool Volume
+              Top 100 Tickers by Dark Pool Volume
             </h2>
             <p className="text-gray-600 mt-1">
               Today's highest dark pool activity{hasHistory ? ' with 7-day historical comparison' : ''}

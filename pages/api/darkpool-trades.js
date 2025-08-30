@@ -117,48 +117,6 @@ export default async function handler(req, res) {
   }
 }
 
-// ------------------------
-// Helpers
-// ------------------------
-
-function toStartOfDayUtcNs(date) {
-  const d = new Date(date + 'T00:00:00.000Z');
-  return d.getTime() * 1_000_000; // ms -> ns
-}
-
-function toEndOfDayUtcNs(date) {
-  const d = new Date(date + 'T23:59:59.999Z');
-  return d.getTime() * 1_000_000; // ms -> ns
-}
-
-function nsToIso(tsNs) {
-  if (!tsNs) return new Date().toISOString();
-  const ms = Math.floor(Number(tsNs) / 1_000_000);
-  return new Date(ms).toISOString();
-}
-
-async function fetchAllTradesPaginated(url, apiKey) {
-  let nextUrl = url.includes('apiKey=') ? url : `${url}&apiKey=${apiKey}`;
-  const all = [];
-  let safety = 0;
-  while (nextUrl && safety < 50) {
-    const resp = await fetch(nextUrl, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) {
-      console.log('fetchAllTradesPaginated failed', resp.status, resp.statusText);
-      break;
-    }
-    const data = await resp.json();
-    if (Array.isArray(data.results)) all.push(...data.results);
-    nextUrl = data.next_url || null;
-    safety++;
-  }
-  return all;
-}
-
-// ------------------------
-// Historical (7-day) enrichment
-// ------------------------
-
 async function addHistoricalDataToTrades(trades, apiKey) {
   console.log('Adding 7-day historical data to trades...');
   
@@ -193,43 +151,76 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     console.log(`Fetching 7-day historical data for ${ticker}...`);
     
     const endDate = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 7);
-    const startNs = toStartOfDayUtcNs(start.toISOString().split('T')[0]);
-    const endNs = toEndOfDayUtcNs(endDate.toISOString().split('T')[0]);
-
-    const baseUrl = `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startNs}&timestamp.lte=${endNs}&limit=50000&sort=timestamp&order=asc`;
-    const results = await fetchAllTradesPaginated(baseUrl, apiKey);
-
-    console.log(`${ticker}: historical results count: ${results.length}`);
-    if (results.length === 0) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7); // Try 7 days first to see if we get data
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`${ticker}: Fetching data from ${startDateStr} to ${endDateStr}`);
+    
+    // Paginate across all historical results in window
+    const baseUrl = `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=50000`;
+    const allResults = await fetchAllTradesPaginated(baseUrl, apiKey);
+    console.log(`${ticker}: Historical results fetched: ${allResults.length}`);
+    if (!allResults || allResults.length === 0) {
+      console.log(`No historical trade data for ${ticker}`);
       return { avgVolume: 0, avgTrades: 0 };
     }
 
-    // Filter dark pool trades (exchange:4 AND trf_id)
-    const darkPoolTrades = results.filter(trade => 
+    // Log first trade structure for debugging
+    if (allResults.length > 0) {
+      console.log(`${ticker}: Sample trade structure:`, JSON.stringify(allResults[0], null, 2));
+    }
+    
+    // Check what exchanges we have
+    const exchanges = [...new Set(allResults.map(trade => trade.exchange))];
+    console.log(`${ticker}: Available exchanges:`, exchanges);
+    
+    // Check what trades have trf_id
+    const tradesWithTrf = allResults.filter(trade => trade.trf_id !== undefined);
+    console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length} out of ${allResults.length}`);
+    
+    // Filter dark pool trades according to Polygon.io documentation
+    // Dark pool trades must have BOTH exchange: 4 AND trf_id field
+    const darkPoolTrades = allResults.filter(trade => 
       trade && typeof trade === 'object' && 
       trade.exchange === 4 && 
       trade.trf_id !== undefined
     );
+    
+    console.log(`${ticker}: Dark pool trades (exchange:4 + trf_id): ${darkPoolTrades.length}`);
 
-    console.log(`${ticker}: dark pool trades in 7d: ${darkPoolTrades.length}`);
+    console.log(`${ticker}: Using ${darkPoolTrades.length} dark pool trades in 7-day period`);
 
+    // Group by date and calculate daily totals
     const dailyData = {};
-    for (const trade of darkPoolTrades) {
-      const ts = trade.trf_timestamp || trade.participant_timestamp || trade.sip_timestamp;
-      const iso = nsToIso(ts);
-      const day = iso.split('T')[0];
-      if (!dailyData[day]) dailyData[day] = { volume: 0, trades: 0 };
-      dailyData[day].volume += Number(trade.size || 0);
-      dailyData[day].trades += 1;
+    darkPoolTrades.forEach(trade => {
+      // Use participant_timestamp for more accurate date grouping
+      const timestamp = trade.participant_timestamp || trade.t || trade.sip_timestamp;
+      if (!timestamp) return;
+      
+      const tradeDate = new Date(timestamp).toISOString().split('T')[0];
+      if (!dailyData[tradeDate]) {
+        dailyData[tradeDate] = { volume: 0, trades: 0 };
+      }
+      dailyData[tradeDate].volume += trade.size || 0;
+      dailyData[tradeDate].trades += 1;
+    });
+
+    // Calculate averages
+    const days = Object.keys(dailyData).length;
+    console.log(`${ticker}: Daily data summary:`, dailyData);
+    
+    if (days === 0) {
+      console.log(`${ticker}: No daily data found`);
+      return { avgVolume: 0, avgTrades: 0 };
     }
 
-    const days = Object.keys(dailyData).length;
-    if (days === 0) return { avgVolume: 0, avgTrades: 0 };
+    const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
+    const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
 
-    const totalVolume = Object.values(dailyData).reduce((sum, d) => sum + d.volume, 0);
-    const totalTrades = Object.values(dailyData).reduce((sum, d) => sum + d.trades, 0);
+    console.log(`${ticker}: 7-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
 
     return {
       avgVolume: Math.round(totalVolume / days),
@@ -237,34 +228,44 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     };
     
   } catch (error) {
-    console.error(`Error fetching 7-day historical data for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.log(`Timeout fetching 7-day historical data for ${ticker}`);
+    } else {
+      console.error(`Error fetching 7-day historical data for ${ticker}:`, error);
+    }
     return { avgVolume: 0, avgTrades: 0 };
   }
 }
 
-// ------------------------
-// Daily analysis (today)
-// ------------------------
-
 async function performFullDarkPoolAnalysis(date, apiKey) {
   console.log('Starting full dark pool analysis...');
   
+  // Step 1: Get the most active tickers for today
   const activeTickers = await getMostActiveTickers(date, apiKey);
   console.log(`Found ${activeTickers.length} active tickers for analysis`);
   
+  // Step 2: Download dark pool trades for each active ticker
   const allDarkPoolTrades = [];
+  
   for (const ticker of activeTickers) {
     try {
+      console.log(`Analyzing dark pool trades for ${ticker}...`);
       const trades = await getDarkPoolTradesForTicker(ticker, date, apiKey);
       allDarkPoolTrades.push(...trades);
-      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
     } catch (error) {
       console.error(`Error analyzing ${ticker}:`, error);
+      // Continue with other tickers
     }
   }
   
+  // Step 3: Group and summarize by ticker
   const tickerSummary = {};
-  for (const trade of allDarkPoolTrades) {
+  
+  allDarkPoolTrades.forEach(trade => {
     if (!tickerSummary[trade.ticker]) {
       tickerSummary[trade.ticker] = {
         ticker: trade.ticker,
@@ -274,16 +275,27 @@ async function performFullDarkPoolAnalysis(date, apiKey) {
         last_trade: null
       };
     }
-    const entry = tickerSummary[trade.ticker];
-    entry.total_volume += trade.volume;
-    entry.trade_count += 1;
-    if (!entry.first_trade || new Date(trade.timestamp) < new Date(entry.first_trade)) entry.first_trade = trade.timestamp;
-    if (!entry.last_trade || new Date(trade.timestamp) > new Date(entry.last_trade)) entry.last_trade = trade.timestamp;
-  }
+    
+    tickerSummary[trade.ticker].total_volume += trade.volume;
+    tickerSummary[trade.ticker].trade_count += 1;
+    
+    if (!tickerSummary[trade.ticker].first_trade || 
+        new Date(trade.timestamp) < new Date(tickerSummary[trade.ticker].first_trade)) {
+      tickerSummary[trade.ticker].first_trade = trade.timestamp;
+    }
+    
+    if (!tickerSummary[trade.ticker].last_trade || 
+        new Date(trade.timestamp) > new Date(tickerSummary[trade.ticker].last_trade)) {
+      tickerSummary[trade.ticker].last_trade = trade.timestamp;
+    }
+  });
   
+  // Step 4: Convert to array and sort by volume
   const results = Object.values(tickerSummary)
     .sort((a, b) => b.total_volume - a.total_volume)
-    .slice(0, 50);
+    .slice(0, 100); // Top 100 by volume
+  
+  console.log(`Analysis complete: Found ${results.length} tickers with dark pool activity`);
   
   return {
     trades: results,
@@ -291,30 +303,87 @@ async function performFullDarkPoolAnalysis(date, apiKey) {
   };
 }
 
-async function getMostActiveTickers(date, apiKey) {
+// Helper to paginate Polygon trades API using next_url
+async function fetchAllTradesPaginated(baseUrl, apiKey) {
   try {
-    // Use grouped aggregates to find most active tickers by volume for today
-    const url = `https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${date}?adjusted=true&include_otc=false&apiKey=${apiKey}`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) {
-      console.log('getMostActiveTickers failed', resp.status, resp.statusText);
+    let nextUrl = baseUrl.includes('apiKey=') ? baseUrl : `${baseUrl}&apiKey=${apiKey}`;
+    const all = [];
+    let safety = 0;
+    while (nextUrl && safety < 100) {
+      const resp = await fetch(nextUrl, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) {
+        console.log('fetchAllTradesPaginated failed', resp.status, resp.statusText);
+        break;
+      }
+      const data = await resp.json();
+      if (Array.isArray(data.results)) all.push(...data.results);
+      nextUrl = data.next_url || null;
+      safety++;
+    }
+    return all;
+  } catch (e) {
+    console.error('fetchAllTradesPaginated error', e);
+    return [];
+  }
+}
+
+async function getMostActiveTickers(date, apiKey) {
+  console.log('Getting most active tickers for today...');
+  
+  // Get today's trades from Polygon to find most active tickers
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  
+  try {
+    const response = await fetch(
+      `https://api.polygon.io/v3/trades?date=${date}&limit=50000&apiKey=${apiKey}`,
+      { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.log(`Failed to get trades: ${response.status} ${response.statusText}`);
+      // Fallback to top liquid stocks if API fails
       return getFallbackTickers();
     }
-    const data = await resp.json();
-    if (!Array.isArray(data.results)) return getFallbackTickers();
-    const sorted = data.results
-      .filter(r => r && r.T)
-      .sort((a, b) => (b.v || 0) - (a.v || 0))
-      .slice(0, 120) // take top 120, we will later cap to 50 display
-      .map(r => r.T);
-    return sorted.length ? sorted : getFallbackTickers();
-  } catch (e) {
-    console.error('getMostActiveTickers error', e);
+    
+    const data = await response.json();
+    if (!data.results || !Array.isArray(data.results)) {
+      console.log('No trade data available, using fallback tickers');
+      return getFallbackTickers();
+    }
+
+    // Count trades by ticker
+    const tickerCounts = {};
+    data.results.forEach(trade => {
+      if (trade.s && trade.s.length > 0) {
+        tickerCounts[trade.s] = (tickerCounts[trade.s] || 0) + 1;
+      }
+    });
+    
+    // Get top 100 most active tickers
+    const activeTickers = Object.entries(tickerCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 100)
+      .map(([ticker]) => ticker);
+    
+    console.log(`Found ${activeTickers.length} active tickers`);
+    return activeTickers;
+    
+  } catch (error) {
+    console.error('Error getting active tickers:', error);
     return getFallbackTickers();
   }
 }
 
 function getFallbackTickers() {
+  // Fallback to top liquid stocks if we can't get real-time data
   return [
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
     'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
@@ -326,34 +395,39 @@ function getFallbackTickers() {
 
 async function getDarkPoolTradesForTicker(ticker, date, apiKey) {
   try {
-    const startNs = toStartOfDayUtcNs(date);
-    const endNs = toEndOfDayUtcNs(date);
+    // Paginate today's trades for the ticker
+    const baseUrl = `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=50000`;
+    const allResults = await fetchAllTradesPaginated(baseUrl, apiKey);
+    if (!allResults || allResults.length === 0) return [];
 
-    const baseUrl = `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startNs}&timestamp.lte=${endNs}&limit=50000&sort=timestamp&order=asc`;
-    const results = await fetchAllTradesPaginated(baseUrl, apiKey);
-
-    if (!Array.isArray(results) || results.length === 0) return [];
-
-    // Filter dark pool trades (exchange:4 AND trf_id present)
-    const darkPoolTrades = results.filter(trade => 
+    // Filter dark pool trades (exchange = 4 AND trf_id present)
+    const darkPoolTrades = allResults.filter(trade => 
       trade && typeof trade === 'object' && 
       trade.exchange === 4 && 
       trade.trf_id !== undefined
     );
 
+    console.log(`${ticker}: Found ${darkPoolTrades.length} dark pool trades out of ${allResults.length} total trades`);
+
+    // Convert to our format
     return darkPoolTrades.map(trade => ({
       ticker: ticker.toUpperCase(),
       exchange_id: trade.exchange,
       trf_id: trade.trf_id,
-      volume: Number(trade.size || 0),
-      price: Number(trade.price || 0),
-      timestamp: nsToIso(trade.trf_timestamp || trade.participant_timestamp || trade.sip_timestamp),
+      volume: trade.size || 0,
+      price: trade.p || 0,
+      timestamp: trade.t || new Date().toISOString(),
       trade_date: date
     }));
     
   } catch (error) {
-    console.error(`Error fetching dark pool trades for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.log(`Timeout fetching data for ${ticker}`);
+    } else {
+      console.error(`Error fetching dark pool trades for ${ticker}:`, error);
+    }
     return [];
   }
 }
+
 
