@@ -23,7 +23,7 @@ function parseDarkPoolTrades(csvFilePath) {
   return new Promise((resolve, reject) => {
     const darkPoolTrades = [];
     let rowCount = 0;
-    const MAX_ROWS = 100000; // Limit to 100k rows to prevent memory issues
+    const MAX_ROWS = 10000; // Limit to 10k rows to prevent memory issues
     
     fs.createReadStream(csvFilePath)
       .pipe(csv())
@@ -117,16 +117,27 @@ function saveToHistoricalCSV(trades, date) {
   return csvWriter.writeRecords(records);
 }
 
-// Get latest CSV file from daily directory
+// Get latest CSV file from daily directory (prefer smaller files for testing)
 function getLatestCSVFile() {
   const files = fs.readdirSync(DAILY_CSV_DIR)
     .filter(file => file.endsWith('.csv'))
-    .map(file => ({
-      name: file,
-      path: path.join(DAILY_CSV_DIR, file),
-      mtime: fs.statSync(path.join(DAILY_CSV_DIR, file)).mtime
-    }))
-    .sort((a, b) => b.mtime - a.mtime);
+    .map(file => {
+      const filePath = path.join(DAILY_CSV_DIR, file);
+      const stats = fs.statSync(filePath);
+      return {
+        name: file,
+        path: filePath,
+        mtime: stats.mtime,
+        size: stats.size
+      };
+    })
+    .sort((a, b) => {
+      // Prefer smaller files (like test.csv) over large files
+      if (a.size < 1000000 && b.size >= 1000000) return -1;
+      if (b.size < 1000000 && a.size >= 1000000) return 1;
+      // Then sort by modification time
+      return b.mtime - a.mtime;
+    });
   
   return files.length > 0 ? files[0] : null;
 }

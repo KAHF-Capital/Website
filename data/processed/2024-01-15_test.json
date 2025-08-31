@@ -1,0 +1,91 @@
+{
+  "date": "2024-01-15",
+  "source_file": "test.csv",
+  "processed_at": "2025-08-31T07:25:45.802Z",
+  "total_tickers": 9,
+  "total_trades": 10,
+  "total_volume": 11100,
+  "tickers": [
+    {
+      "ticker": "AAPL",
+      "total_volume": 3000,
+      "trade_count": 2,
+      "avg_price": 151.08333333333334,
+      "total_value": 453250,
+      "min_price": 150.25,
+      "max_price": 151.5
+    },
+    {
+      "ticker": "MSFT",
+      "total_volume": 1500,
+      "trade_count": 1,
+      "avg_price": 300.75,
+      "total_value": 451125,
+      "min_price": 300.75,
+      "max_price": 300.75
+    },
+    {
+      "ticker": "AMZN",
+      "total_volume": 1300,
+      "trade_count": 1,
+      "avg_price": 180.25,
+      "total_value": 234325,
+      "min_price": 180.25,
+      "max_price": 180.25
+    },
+    {
+      "ticker": "TSLA",
+      "total_volume": 1200,
+      "trade_count": 1,
+      "avg_price": 250,
+      "total_value": 300000,
+      "min_price": 250,
+      "max_price": 250
+    },
+    {
+      "ticker": "META",
+      "total_volume": 1100,
+      "trade_count": 1,
+      "avg_price": 350.75,
+      "total_value": 385825,
+      "min_price": 350.75,
+      "max_price": 350.75
+    },
+    {
+      "ticker": "NVDA",
+      "total_volume": 900,
+      "trade_count": 1,
+      "avg_price": 500.5,
+      "total_value": 450450,
+      "min_price": 500.5,
+      "max_price": 500.5
+    },
+    {
+      "ticker": "GOOGL",
+      "total_volume": 800,
+      "trade_count": 1,
+      "avg_price": 2800.25,
+      "total_value": 2240200,
+      "min_price": 2800.25,
+      "max_price": 2800.25
+    },
+    {
+      "ticker": "NFLX",
+      "total_volume": 700,
+      "trade_count": 1,
+      "avg_price": 450,
+      "total_value": 315000,
+      "min_price": 450,
+      "max_price": 450
+    },
+    {
+      "ticker": "CRM",
+      "total_volume": 600,
+      "trade_count": 1,
+      "avg_price": 200.5,
+      "total_value": 120300,
+      "min_price": 200.5,
+      "max_price": 200.5
+    }
+  ]
+}

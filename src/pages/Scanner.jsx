@@ -75,6 +75,15 @@ const SafeDownload = () => {
   }
 };
 
+const SafeFileText = () => {
+  try {
+    const { FileText } = require("lucide-react");
+    return <FileText className="h-4 w-4" />;
+  } catch (error) {
+    return <span>📄</span>;
+  }
+};
+
 // Dark Pool Summary Card Component
 const DarkPoolSummaryCard = ({ summary }) => {
   return (
@@ -290,6 +299,13 @@ export default function Scanner() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
               <p className="mt-1 text-gray-600">CSV-based dark pool analysis</p>
+              <a 
+                href="/processor" 
+                className="inline-flex items-center mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                <SafeFileText size={16} className="mr-1" />
+                Process All CSV Files
+              </a>
             </div>
             <div className="flex items-center space-x-3">
               <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
