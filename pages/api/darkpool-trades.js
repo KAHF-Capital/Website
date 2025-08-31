@@ -152,7 +152,7 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7); // Try 7 days first to see if we get data
+    startDate.setDate(startDate.getDate() - 7); // 7 days back
     
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
@@ -181,6 +181,10 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     const tradesWithTrf = allResults.filter(trade => trade.trf_id !== undefined);
     console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length} out of ${allResults.length}`);
     
+    // Check for exchange 4 trades specifically
+    const exchange4Trades = allResults.filter(trade => trade.exchange === 4);
+    console.log(`${ticker}: Exchange 4 trades: ${exchange4Trades.length}`);
+    
     // Filter dark pool trades according to Polygon.io documentation
     // Dark pool trades must have BOTH exchange: 4 AND trf_id field
     const darkPoolTrades = allResults.filter(trade => 
@@ -198,7 +202,10 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     darkPoolTrades.forEach(trade => {
       // Use participant_timestamp for more accurate date grouping
       const timestamp = trade.participant_timestamp || trade.t || trade.sip_timestamp;
-      if (!timestamp) return;
+      if (!timestamp) {
+        console.log(`${ticker}: Trade missing timestamp:`, trade);
+        return;
+      }
       
       const tradeDate = new Date(timestamp).toISOString().split('T')[0];
       if (!dailyData[tradeDate]) {
@@ -211,9 +218,13 @@ async function get7DayDarkPoolHistory(ticker, apiKey) {
     // Calculate averages
     const days = Object.keys(dailyData).length;
     console.log(`${ticker}: Daily data summary:`, dailyData);
+    console.log(`${ticker}: Number of days with data: ${days}`);
     
     if (days === 0) {
-      console.log(`${ticker}: No daily data found`);
+      console.log(`${ticker}: No daily data found - checking if we have any trades at all`);
+      console.log(`${ticker}: Total trades received: ${allResults.length}`);
+      console.log(`${ticker}: Exchange 4 trades: ${exchange4Trades.length}`);
+      console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length}`);
       return { avgVolume: 0, avgTrades: 0 };
     }
 
@@ -301,30 +312,6 @@ async function performFullDarkPoolAnalysis(date, apiKey) {
     trades: results,
     last_updated: new Date().toISOString()
   };
-}
-
-// Helper to paginate Polygon trades API using next_url
-async function fetchAllTradesPaginated(baseUrl, apiKey) {
-  try {
-    let nextUrl = baseUrl.includes('apiKey=') ? baseUrl : `${baseUrl}&apiKey=${apiKey}`;
-    const all = [];
-    let safety = 0;
-    while (nextUrl && safety < 100) {
-      const resp = await fetch(nextUrl, { headers: { 'Accept': 'application/json' } });
-      if (!resp.ok) {
-        console.log('fetchAllTradesPaginated failed', resp.status, resp.statusText);
-        break;
-      }
-      const data = await resp.json();
-      if (Array.isArray(data.results)) all.push(...data.results);
-      nextUrl = data.next_url || null;
-      safety++;
-    }
-    return all;
-  } catch (e) {
-    console.error('fetchAllTradesPaginated error', e);
-    return [];
-  }
 }
 
 async function getMostActiveTickers(date, apiKey) {
@@ -426,6 +413,50 @@ async function getDarkPoolTradesForTicker(ticker, date, apiKey) {
     } else {
       console.error(`Error fetching dark pool trades for ${ticker}:`, error);
     }
+    return [];
+  }
+}
+
+// Helper to paginate Polygon trades API using next_url
+async function fetchAllTradesPaginated(baseUrl, apiKey) {
+  try {
+    let nextUrl = baseUrl.includes('apiKey=') ? baseUrl : `${baseUrl}&apiKey=${apiKey}`;
+    const all = [];
+    let safety = 0;
+    console.log(`Starting pagination for: ${baseUrl}`);
+    
+    while (nextUrl && safety < 100) {
+      console.log(`Fetching page ${safety + 1}: ${nextUrl.substring(0, 100)}...`);
+      const resp = await fetch(nextUrl, { 
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(15000) // 15 second timeout per request
+      });
+      
+      if (!resp.ok) {
+        console.log(`fetchAllTradesPaginated failed: ${resp.status} ${resp.statusText}`);
+        break;
+      }
+      
+      const data = await resp.json();
+      console.log(`Page ${safety + 1}: Got ${data.results?.length || 0} results, next_url: ${data.next_url ? 'yes' : 'no'}`);
+      
+      if (Array.isArray(data.results)) {
+        all.push(...data.results);
+      }
+      
+      nextUrl = data.next_url || null;
+      safety++;
+      
+      // Small delay to avoid rate limits
+      if (nextUrl) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`Pagination complete: ${all.length} total results across ${safety} pages`);
+    return all;
+  } catch (e) {
+    console.error('fetchAllTradesPaginated error:', e);
     return [];
   }
 }
