@@ -1,74 +1,58 @@
 # Daily Workflow - Quick Reference
 
-## 🚀 **Your Daily Routine (5 minutes)**
+## 🚀 **Your Daily Routine (2 minutes)**
 
-### **Step 1: Download & Upload**
-1. Download new CSV files from Polygon.io
-2. Place files in `data/daily/` folder
+### **Step 1: Start Server**
+```bash
+cd Website
+npm run dev
+```
 
-### **Step 2: Process Files**
+### **Step 2: View Results**
+Visit: `http://localhost:3000/scanner`
+
+### **Step 3: Browse Data**
+- Select dates from the dropdown
+- View dark pool activity for each day
+- Tickers are sorted by volume
+
+---
+
+## 📊 **What You See**
+
+### **Date Selector:**
+- Dropdown with all available dates
+- Automatically loads most recent date
+- Easy navigation between trading days
+
+### **Data Display:**
+- Tickers sorted by dark pool volume
+- Trade count per ticker
+- Average price and total value
+- Clean, card-based layout
+
+---
+
+## 🔄 **Data Preparation (One-time)**
+
+### **Process CSV Files:**
 ```bash
 cd Website
 node process-csv.js
 ```
-*This will only process new/modified files automatically*
 
-### **Step 3: View Results**
-```bash
-npm run dev
-```
-Then visit: `http://localhost:3000/processor`
-
----
-
-## 🔄 **Smart File Tracking**
-
-The system remembers what it has processed:
-- ✅ **New files**: Automatically processed
-- ✅ **Modified files**: Reprocessed if changed  
-- ✅ **Unchanged files**: Skipped (saves time)
-- ⚠️ **Force reprocess**: `node process-csv.js --force`
-
----
-
-## 🚀 **Deployment (Optional)**
-
-### **Windows:**
-```bash
-deploy.bat
-```
-
-### **Linux/Mac:**
-```bash
-./deploy.sh
-```
-
-*This automatically processes files and deploys to Vercel*
-
----
-
-## 📊 **What You Get**
-
-### **Summary Files:**
-- `data/processed/{filename}_summary.json`
-- Overall statistics for each CSV file
-
-### **Date Files:**
-- `data/processed/{date}_{filename}.json`
-- Detailed data for each trading date
-
-### **Web Interface:**
-- `/scanner` - Latest data overview
-- `/processor` - Date-specific analysis
+*This creates the JSON files that the web interface displays*
 
 ---
 
 ## 🎯 **File Structure**
 ```
 data/
-├── daily/           # Your CSV files here
-├── processed/       # Results (auto-generated)
-└── processed_files.json  # Tracking file
+├── daily/           # Your CSV files (for processing)
+└── processed/       # JSON results (for viewing)
+    ├── 2024-01-01_filename.json
+    ├── 2024-01-02_filename.json
+    └── filename_summary.json
 ```
 
 ---
@@ -77,33 +61,27 @@ data/
 
 | Command | Purpose |
 |---------|---------|
-| `node process-csv.js` | Process new files |
-| `node process-csv.js --force` | Reprocess all files |
 | `npm run dev` | Start local server |
-| `deploy.bat` | Deploy to Vercel |
+| `node process-csv.js` | Process new CSV files |
+| `node process-csv.js --force` | Reprocess all files |
 
 ---
 
 ## 🔧 **Troubleshooting**
 
-### **Memory Issues:**
-```bash
-node --max-old-space-size=4096 process-csv.js
-```
+### **No Data Showing:**
+- Run `node process-csv.js` first
+- Check `data/processed/` folder has JSON files
+- Verify file naming: `YYYY-MM-DD_filename.json`
 
-### **File Not Processing:**
-- Check CSV format matches requirements
-- Ensure file is in `data/daily/` folder
-- Use `--force` flag to reprocess
-
-### **Web Server Issues:**
+### **Server Issues:**
 - Make sure you're in `Website` directory
 - Run `npm install` if needed
 - Check port 3000 isn't in use
 
 ---
 
-## 📈 **Data Output Example**
+## 📈 **Data Example**
 
 ```json
 {
@@ -111,9 +89,7 @@ node --max-old-space-size=4096 process-csv.js
   "total_volume": 500000,
   "trade_count": 45,
   "avg_price": 150.25,
-  "total_value": 75125000,
-  "min_price": 149.50,
-  "max_price": 151.00
+  "total_value": 75125000
 }
 ```
 
@@ -121,7 +97,7 @@ node --max-old-space-size=4096 process-csv.js
 
 ## 🎉 **That's It!**
 
-Your daily workflow is now:
-1. **Upload CSV** → 2. **Run processor** → 3. **View results**
+Your workflow is now:
+1. **Start server** → 2. **Select date** → 3. **View data**
 
-No more API timeouts, no more waiting, just fast local processing! 🚀
+No processing, no waiting, just instant data viewing! 🚀

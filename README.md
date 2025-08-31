@@ -1,31 +1,28 @@
 # Dark Pool Scanner
 
-A CSV-based dark pool trading analysis tool that processes Polygon.io data files locally and displays results through a web interface.
+A clean, fast dark pool trading data viewer that displays pre-analyzed data from Polygon.io CSV files.
 
 ## 🚀 Features
 
-- **Local CSV Processing**: Process large CSV files without API timeouts
-- **Memory Efficient**: Chunked processing to handle 8-10GB files
-- **Smart File Tracking**: Avoids reprocessing files that haven't changed
-- **Date-based Analysis**: View dark pool activity by specific dates
+- **Pre-analyzed Data**: Displays processed dark pool trading data
+- **Date-based Viewing**: Browse data by specific trading dates
 - **Volume-based Sorting**: Tickers sorted by dark pool volume
-- **Web Interface**: Clean, responsive UI for viewing results
-- **Deployment Ready**: Easy deployment to Vercel
+- **Clean Interface**: Simple, responsive UI for viewing results
+- **Fast Loading**: Instant results from local JSON files
+- **No Processing Overhead**: Just view your pre-analyzed data
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js, React, Tailwind CSS
-- **Backend**: Node.js, CSV parsing
-- **Data Processing**: csv-parser, csv-writer
+- **Backend**: Node.js
+- **Data Storage**: Local JSON files
 - **Deployment**: Vercel
-- **File Management**: Local JSON storage
 
 ## 📋 Prerequisites
 
 - Node.js 18+ 
 - npm or yarn
-- Vercel CLI (for deployment)
-- Polygon.io CSV files
+- Pre-processed dark pool data (JSON files)
 
 ## 🚀 Installation
 
@@ -40,117 +37,97 @@ A CSV-based dark pool trading analysis tool that processes Polygon.io data files
    npm install
    ```
 
-3. **Create data directories**
-   ```bash
-   mkdir -p data/daily data/processed
-   ```
-
-4. **Add your CSV files**
-   - Place your Polygon.io CSV files in `data/daily/`
-   - Files should contain columns: `exchange`, `trf_id`, `ticker`, `size`, `price`, `timestamp`
+3. **Ensure processed data exists**
+   - Processed JSON files should be in `data/processed/`
+   - Files should be named in format: `YYYY-MM-DD_filename.json`
 
 ## 📁 Project Structure
 
 ```
 Website/
 ├── data/
-│   ├── daily/           # Raw CSV files from Polygon.io
-│   └── processed/       # Processed JSON results
+│   └── processed/       # Pre-analyzed JSON results
 ├── pages/
 │   ├── api/            # API routes
-│   ├── scanner.jsx     # Main scanner page
-│   └── processor.js    # CSV processing interface
-├── process-csv.js      # Standalone CSV processor
+│   └── scanner.jsx     # Main scanner page
+├── process-csv.js      # Standalone CSV processor (for data preparation)
 ├── deploy.sh           # Linux/Mac deployment script
 ├── deploy.bat          # Windows deployment script
 └── README.md
 ```
 
-## 📊 CSV File Requirements
-
-Your CSV files should contain these columns:
-- `exchange`: Exchange code (dark pool = '4')
-- `trf_id`: Trade reporting facility ID (required for dark pool trades)
-- `ticker` or `symbol`: Stock symbol
-- `size` or `volume`: Trade volume
-- `price` or `p`: Trade price
-- `timestamp` or `t`: Trade timestamp
-
 ## 🔄 How It Works
 
-1. **CSV Processing**: 
-   - Reads CSV files from `data/daily/`
-   - Identifies dark pool trades (exchange='4' with trf_id)
-   - Groups by date and ticker
-   - Calculates volume, trade count, averages
+1. **Data Preparation**: 
+   - Process CSV files using `node process-csv.js`
+   - Creates JSON files in `data/processed/`
+   - Files are named by date: `YYYY-MM-DD_filename.json`
 
-2. **Data Storage**:
-   - Saves summary JSON files
-   - Creates date-specific JSON files
-   - Tracks processed files to avoid reprocessing
-
-3. **Web Display**:
-   - Loads processed JSON data
+2. **Data Display**:
+   - Web interface loads processed JSON data
    - Displays tickers sorted by volume
    - Shows detailed statistics per ticker
 
+3. **Date Navigation**:
+   - Select different dates from dropdown
+   - View dark pool activity for specific trading days
+
 ## 📅 Daily Workflow
 
-### **Option 1: Manual Processing (Recommended)**
-
-1. **Download new CSV files** from Polygon.io
+### **Data Preparation (One-time setup)**
+1. **Download CSV files** from Polygon.io
 2. **Place files** in `data/daily/` folder
-3. **Process files locally**:
+3. **Process files**:
    ```bash
    cd Website
    node process-csv.js
    ```
-4. **Start web server**:
+
+### **Daily Viewing**
+1. **Start web server**:
    ```bash
    npm run dev
    ```
-5. **View results** at `http://localhost:3000/processor`
+2. **View results** at `http://localhost:3000/scanner`
+3. **Select dates** from dropdown to browse different days
 
-### **Option 2: Automated Deployment**
+### **Deployment (Optional)**
+```bash
+# Windows
+deploy.bat
 
-1. **Download new CSV files** from Polygon.io
-2. **Place files** in `data/daily/` folder
-3. **Run deployment script**:
-   ```bash
-   # Windows
-   deploy.bat
-   
-   # Linux/Mac
-   ./deploy.sh
-   ```
-4. **View live results** at your Vercel URL
-
-### **Smart File Tracking**
-
-The system automatically tracks processed files:
-- **New files**: Automatically processed
-- **Modified files**: Reprocessed if changed
-- **Unchanged files**: Skipped to save time
-- **Force reprocess**: Use `node process-csv.js --force`
+# Linux/Mac
+./deploy.sh
+```
 
 ## 🌐 Web Interface
 
 ### **Scanner Page** (`/scanner`)
-- Shows latest processed data
-- Displays top tickers by volume
-- Simple, clean interface
+- Date selector dropdown
+- Dark pool activity by date
+- Tickers sorted by volume
+- Detailed statistics per ticker
+- Refresh button for latest data
 
-### **Processor Page** (`/processor`)
-- Process all CSV files
-- View data by specific dates
-- Detailed ticker information
-- Processing status and results
+## 📊 Data Output
 
-## 📊 API Endpoints
-
-- `GET /api/darkpool-trades` - Get latest processed data
-- `POST /api/process-all-csv` - Process all CSV files
-- `GET /api/darkpool-by-date?date=YYYY-MM-DD` - Get data for specific date
+### **Date-specific JSON**
+```json
+{
+  "date": "2024-01-01",
+  "tickers": [
+    {
+      "ticker": "AAPL",
+      "total_volume": 500000,
+      "trade_count": 45,
+      "avg_price": 150.25,
+      "total_value": 75125000,
+      "min_price": 149.50,
+      "max_price": 151.00
+    }
+  ]
+}
+```
 
 ## 🚀 Deployment
 
@@ -171,62 +148,28 @@ Navigate to [http://localhost:3000/scanner](http://localhost:3000/scanner)
    vercel --prod
    ```
 
-3. **Automatic deployments** with `deploy.sh` or `deploy.bat`
-
-## 📈 Data Output
-
-### **Summary JSON**
-```json
-{
-  "source_file": "data.csv",
-  "processed_at": "2024-01-01T12:00:00.000Z",
-  "total_dates": 7,
-  "total_tickers": 150,
-  "total_trades": 2500,
-  "total_volume": 15000000,
-  "dates": ["2024-01-01", "2024-01-02"]
-}
-```
-
-### **Date-specific JSON**
-```json
-{
-  "date": "2024-01-01",
-  "tickers": [
-    {
-      "ticker": "AAPL",
-      "total_volume": 500000,
-      "trade_count": 45,
-      "avg_price": 150.25,
-      "total_value": 75125000,
-      "min_price": 149.50,
-      "max_price": 151.00
-    }
-  ]
-}
-```
-
 ## 🔧 Troubleshooting
 
-### **Memory Issues**
-- Use `node --max-old-space-size=4096 process-csv.js`
-- Reduce chunk size in `process-csv.js` (CHUNK_SIZE variable)
-
-### **File Processing Errors**
-- Check CSV format matches requirements
-- Ensure files are in `data/daily/` directory
-- Use `node process-csv.js --force` to reprocess
+### **No Data Available**
+- Ensure CSV files have been processed with `node process-csv.js`
+- Check that JSON files exist in `data/processed/`
+- Verify file naming format: `YYYY-MM-DD_filename.json`
 
 ### **Web Server Issues**
 - Ensure you're in the `Website` directory
 - Run `npm install` if dependencies are missing
 - Check for port conflicts (default: 3000)
 
+### **Data Processing Issues**
+- Use `node process-csv.js --force` to reprocess files
+- Check CSV format matches requirements
+- Ensure files are in `data/daily/` directory
+
 ## 📝 Recent Updates
 
+- **v2.1**: Simplified interface for pre-analyzed data
 - **v2.0**: Complete CSV-based system with file tracking
 - **v1.5**: Memory-efficient chunked processing
-- **v1.0**: Initial Polygon.io API integration
 
 ## 🤝 Contributing
 

@@ -1,26 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { fetchWithTimeout, formatNumber, retry } from "../utils";
+import React, { useState, useEffect } from 'react';
 
-// Safe component imports with fallbacks
-const SafeBadge = ({ children, variant = 'default', className = '', ...props }) => {
-  try {
-    const { Badge } = require("../components/ui/badge");
-    return <Badge variant={variant} className={className} {...props}>{children}</Badge>;
-  } catch (error) {
-    return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`} {...props}>{children}</span>;
-  }
-};
-
-const SafeButton = ({ children, variant = 'default', size = 'default', className = '', ...props }) => {
-  try {
-    const { Button } = require("../components/ui/button");
-    return <Button variant={variant} size={size} className={className} {...props}>{children}</Button>;
-  } catch (error) {
-    return <button className={`inline-flex items-center justify-center rounded-md text-sm font-medium ${className}`} {...props}>{children}</button>;
-  }
-};
-
-// Safe icon imports
+// Safe icon components
 const SafeRefreshCw = () => {
   try {
     const { RefreshCw } = require("lucide-react");
@@ -30,261 +10,138 @@ const SafeRefreshCw = () => {
   }
 };
 
-const SafeAlertTriangle = () => {
+const SafeBarChart3 = () => {
   try {
-    const { AlertTriangle } = require("lucide-react");
-    return <AlertTriangle className="h-4 w-4" />;
+    const { BarChart3 } = require("lucide-react");
+    return <BarChart3 className="h-4 w-4" />;
   } catch (error) {
-    return <span>⚠️</span>;
+    return <span>📊</span>;
   }
 };
 
-const SafeInfo = () => {
+const SafeCalendar = () => {
   try {
-    const { Info } = require("lucide-react");
-    return <Info className="h-4 w-4" />;
+    const { Calendar } = require("lucide-react");
+    return <Calendar className="h-4 w-4" />;
   } catch (error) {
-    return <span>ℹ️</span>;
+    return <span>📅</span>;
   }
-};
-
-const SafeX = () => {
-  try {
-    const { X } = require("lucide-react");
-    return <X className="h-4 w-4" />;
-  } catch (error) {
-    return <span>✕</span>;
-  }
-};
-
-const SafeClock = () => {
-  try {
-    const { Clock } = require("lucide-react");
-    return <Clock className="h-4 w-4" />;
-  } catch (error) {
-    return <span>🕐</span>;
-  }
-};
-
-const SafeDownload = () => {
-  try {
-    const { Download } = require("lucide-react");
-    return <Download className="h-4 w-4" />;
-  } catch (error) {
-    return <span>📥</span>;
-  }
-};
-
-const SafeFileText = () => {
-  try {
-    const { FileText } = require("lucide-react");
-    return <FileText className="h-4 w-4" />;
-  } catch (error) {
-    return <span>📄</span>;
-  }
-};
-
-// Dark Pool Summary Card Component
-const DarkPoolSummaryCard = ({ summary }) => {
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-lg font-bold text-gray-900">{summary.ticker}</h3>
-          <p className="text-sm text-gray-600">Dark Pool Volume</p>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500">{summary.trade_count} trades</div>
-        </div>
-      </div>
-
-      <div className="text-center mb-3">
-        <p className="text-2xl font-bold text-blue-600">{formatNumber(summary.total_volume, 0)}</p>
-        <p className="text-sm text-gray-600">Total Volume</p>
-      </div>
-
-      <div className="border-t pt-3">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-600">Avg Price:</span>
-          <span className="font-medium">${summary.avg_price?.toFixed(2) || '0.00'}</span>
-        </div>
-        <div className="flex justify-between items-center text-sm mt-1">
-          <span className="text-gray-600">Total Value:</span>
-          <span className="font-medium">${formatNumber(summary.total_value, 0)}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Info Modal Component with proper accessibility
-const InfoModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
-      role="dialog" 
-      aria-modal="true"
-      aria-labelledby="dialog-title"
-      aria-describedby="dialog-description"
-    >
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full" role="document">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900" id="dialog-title">Dark Pool Scanner Info</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close dialog"
-            >
-              <SafeX />
-            </button>
-          </div>
-          
-          <div className="space-y-4" id="dialog-description">
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">🌊 What is Dark Pool Trading?</h3>
-              <p className="text-gray-700 text-sm">
-                Dark pools are private exchanges where institutional investors trade large blocks of shares 
-                away from public markets. These trades are not visible to the public until after they're completed.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">📊 Data Details</h3>
-              <ul className="text-gray-700 text-sm space-y-1">
-                <li>• <strong>Daily Volume:</strong> Total dark pool volume for the current trading day</li>
-                <li>• <strong>Trade Count:</strong> Number of individual dark pool trades</li>
-                <li>• <strong>15-min delay:</strong> Data is delayed for regulatory compliance</li>
-                <li>• <strong>90-Day History:</strong> Compare today's activity to 90-day average</li>
-                <li>• <strong>Midnight Reset:</strong> Data resets daily at midnight</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">🔄 Manual Refresh</h3>
-              <p className="text-gray-700 text-sm">
-                The scanner refreshes data when you click the refresh button. Data resets at midnight each day.
-                You can also manually refresh anytime to get the latest dark pool activity.
-              </p>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">💡 Pro Tip</h4>
-              <p className="text-blue-800 text-sm">
-                High dark pool volume often indicates institutional positioning and can be a leading indicator 
-                for significant price movements in the near future. Volume ratios above 2x the 90-day average 
-                suggest unusual institutional activity.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export default function Scanner() {
-  const [darkPoolData, setDarkPoolData] = useState([]);
+  const [darkPoolData, setDarkPoolData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showInfo, setShowInfo] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isCached, setIsCached] = useState(false);
-  const [includeHistory, setIncludeHistory] = useState(false);
-  const [hasHistory, setHasHistory] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [availableDates, setAvailableDates] = useState([]);
 
-  // Fetch dark pool data from CSV analysis
-  const fetchDarkPoolData = async () => {
+  useEffect(() => {
+    loadAvailableDates();
+  }, []);
+
+  useEffect(() => {
+    if (availableDates.length > 0) {
+      // Set the most recent date as default
+      const sortedDates = availableDates.sort().reverse();
+      setSelectedDate(sortedDates[0]);
+      loadDarkPoolData(sortedDates[0]);
+    }
+  }, [availableDates]);
+
+  const loadAvailableDates = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      const response = await fetch('/api/darkpool-trades');
+      const response = await fetch('/api/darkpool-by-date');
       const data = await response.json();
       
       if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-        setError(null);
+        setAvailableDates(data.available_dates || []);
       } else {
-        setError(data.error || 'Unable to load dark pool data');
-        setDarkPoolData([]);
+        setError('Failed to load available dates');
+      }
+    } catch (error) {
+      console.error('Error loading dates:', error);
+      setError('Network error loading dates');
+    }
+  };
+
+  const loadDarkPoolData = async (date) => {
+    if (!date) return;
+    
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/darkpool-by-date?date=${date}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setDarkPoolData(data);
+      } else {
+        setError(data.error || 'Failed to load dark pool data');
       }
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
-      setError('Network error. Please check your connection and try again.');
-      setDarkPoolData([]);
+      setError('Network error fetching data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Manual refresh
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    loadDarkPoolData(date);
+  };
+
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const response = await fetch('/api/darkpool-trades');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-        setError(null);
-      } else {
-        setError(data.error || 'Unable to refresh dark pool data');
-      }
-    } catch (error) {
-      console.error('Error refreshing dark pool data:', error);
-      setError('Network error during refresh. Please try again.');
-    } finally {
-      setIsRefreshing(false);
+    if (selectedDate) {
+      await loadDarkPoolData(selectedDate);
     }
   };
 
-  // Download CSV
-  const downloadCSV = () => {
-    if (!darkPoolData || darkPoolData.length === 0) return;
-
-    const headers = ['Ticker', 'Total Volume', 'Trade Count', '90-Day Avg Volume', '90-Day Avg Trades', 'Volume Ratio', 'Date'];
-    const csvContent = [
-      headers.join(','),
-      ...darkPoolData.map(item => [
-        item.ticker,
-        item.total_volume,
-        item.trade_count,
-        item.avg_90day_volume || 0,
-        item.avg_90day_trades || 0,
-        item.volume_ratio ? item.volume_ratio.toFixed(2) : 0,
-        new Date().toISOString().split('T')[0]
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dark-pool-data-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat().format(num);
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchDarkPoolData();
-  }, []);
+  const DarkPoolSummaryCard = ({ ticker }) => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold text-gray-900">{ticker.ticker}</h3>
+        <span className="text-sm text-gray-600">{ticker.trade_count} trades</span>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-600">Volume:</span>
+          <span className="font-semibold text-gray-900">{formatNumber(ticker.total_volume)}</span>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-600">Avg Price:</span>
+          <span className="font-medium text-gray-900">${ticker.avg_price.toFixed(2)}</span>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-600">Total Value:</span>
+          <span className="font-medium text-gray-900">${formatNumber(ticker.total_value)}</span>
+        </div>
+      </div>
+    </div>
+  );
 
-  if (isLoading) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dark pool scanner...</p>
+        <div className="max-w-md mx-auto text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Data</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={handleRefresh}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -292,130 +149,96 @@ export default function Scanner() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
-              <p className="mt-1 text-gray-600">CSV-based dark pool analysis</p>
-              <a 
-                href="/processor" 
-                className="inline-flex items-center mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-              >
-                <SafeFileText size={16} className="mr-1" />
-                Process All CSV Files
-              </a>
+              <p className="mt-1 text-gray-600">Pre-analyzed dark pool trading data</p>
             </div>
-            <div className="flex items-center space-x-3">
-              <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
-                <SafeInfo />
-                <span>CSV Analysis</span>
-              </SafeBadge>
-              <SafeBadge variant="outline" className="flex items-center space-x-1">
-                <span>{darkPoolData.length} Tickers</span>
-              </SafeBadge>
-              <SafeButton
-                variant="outline"
-                size="sm"
-                onClick={() => setShowInfo(true)}
-                className="flex items-center space-x-1"
-              >
-                <SafeInfo />
-                <span>Info</span>
-              </SafeButton>
-              <SafeButton
-                variant="outline"
-                size="sm"
-                onClick={downloadCSV}
-                disabled={darkPoolData.length === 0}
-                className="flex items-center space-x-1"
-              >
-                <SafeDownload />
-                <span>Download CSV</span>
-              </SafeButton>
-              <SafeButton
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center space-x-1"
-              >
-                <SafeRefreshCw className={isRefreshing ? 'animate-spin' : ''} />
-                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-              </SafeButton>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Info Modal */}
-      <InfoModal isOpen={showInfo} onClose={() => setShowInfo(false)} />
-
-      {/* Error Display */}
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <SafeAlertTriangle />
-              <div className="flex-1 ml-3">
-                <h3 className="text-sm font-medium text-red-800">Service Temporarily Unavailable</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <SafeCalendar className="h-5 w-5 text-gray-600" />
+                <select
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableDates.map((date) => (
+                    <option key={date} value={date}>
+                      {new Date(date).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <SafeButton
-                variant="outline"
-                size="sm"
+              
+              <button
                 onClick={handleRefresh}
-                className="flex items-center space-x-1"
+                disabled={isLoading}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <SafeRefreshCw />
-                <span>Retry</span>
-              </SafeButton>
+                <SafeRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
+              </button>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Status Info */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="text-sm text-gray-500">
-            {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
-          </div>
-        </div>
-
-        {/* Header */}
-        {darkPoolData.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Dark Pool Trades by Volume
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Analyzed from uploaded CSV file
-            </p>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <SafeRefreshCw className="h-8 w-8 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-600">Loading dark pool data...</p>
+            </div>
           </div>
         )}
 
-        {/* Dark Pool Data Grid */}
-        {!error && darkPoolData.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {darkPoolData.map((item, index) => (
-              <DarkPoolSummaryCard key={item.ticker || index} summary={item} />
+        {/* Data Display */}
+        {!isLoading && darkPoolData && (
+          <div className="space-y-6">
+            {darkPoolData.data.map((fileData, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {new Date(fileData.date).toLocaleDateString()} - Dark Pool Activity
+                    </h2>
+                    <p className="text-gray-600 mt-1">
+                      {formatNumber(fileData.total_tickers)} tickers, {formatNumber(fileData.total_trades)} trades
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <SafeBarChart3 className="h-6 w-6" />
+                    <span className="font-semibold">Top by Volume</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {fileData.tickers.map((ticker, tickerIndex) => (
+                    <DarkPoolSummaryCard key={tickerIndex} ticker={ticker} />
+                  ))}
+                </div>
+
+                {fileData.tickers.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No dark pool activity found for this date.</p>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
 
-        {/* No Data Message */}
-        {!error && darkPoolData.length === 0 && (
+        {/* No Data State */}
+        {!isLoading && (!darkPoolData || darkPoolData.data.length === 0) && (
           <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <SafeRefreshCw />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No dark pool activity found</h3>
-            <p className="text-gray-600">
-              No dark pool activity is currently detected. Check back later for new activity.
-            </p>
+            <SafeBarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+            <p className="text-gray-600">Select a different date or check if data has been processed.</p>
           </div>
         )}
       </div>
