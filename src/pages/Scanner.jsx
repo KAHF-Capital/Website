@@ -46,7 +46,27 @@ export default function Scanner() {
       const data = await response.json();
 
       if (response.ok) {
-        setDarkPoolData(data);
+        // Calculate volume ratio and sort by highest to lowest
+        const enhancedData = {
+          ...data,
+          tickers: data.tickers
+            .map(ticker => ({
+              ...ticker,
+              volume_ratio: ticker.avg_7day_volume > 0 
+                ? (ticker.total_volume / ticker.avg_7day_volume).toFixed(2)
+                : 'N/A'
+            }))
+            .sort((a, b) => {
+              // Sort by volume ratio (highest first), fallback to volume if ratio is N/A
+              if (a.volume_ratio === 'N/A' && b.volume_ratio === 'N/A') {
+                return b.total_volume - a.total_volume;
+              }
+              if (a.volume_ratio === 'N/A') return 1;
+              if (b.volume_ratio === 'N/A') return -1;
+              return parseFloat(b.volume_ratio) - parseFloat(a.volume_ratio);
+            })
+        };
+        setDarkPoolData(enhancedData);
       } else {
         setError(data.error || 'Failed to load dark pool data');
       }
@@ -79,6 +99,13 @@ export default function Scanner() {
       </div>
       
       <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-600">Volume Ratio:</span>
+          <span className={`font-bold text-lg ${ticker.volume_ratio !== 'N/A' && parseFloat(ticker.volume_ratio) > 1 ? 'text-green-600' : 'text-gray-900'}`}>
+            {ticker.volume_ratio !== 'N/A' ? `${ticker.volume_ratio}x` : 'N/A'}
+          </span>
+        </div>
+        
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-600">Today's Volume:</span>
           <span className="font-semibold text-gray-900">{formatNumber(ticker.total_volume)}</span>
@@ -166,11 +193,14 @@ export default function Scanner() {
                 <p className="text-gray-600 mt-1">
                   {formatNumber(darkPoolData.total_tickers)} tickers, {formatNumber(darkPoolData.total_volume)} total volume
                 </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Volume Ratio = Today's Volume ÷ 7-Day Average (higher ratios indicate unusual activity)
+                </p>
               </div>
               
               <div className="flex items-center space-x-2 text-blue-600">
-                <SafeBarChart3 className="h-6 w-6" />
-                <span className="font-semibold">Top by Volume</span>
+                <SafeTrendingUp className="h-6 w-6" />
+                <span className="font-semibold">Sorted by Volume Ratio</span>
               </div>
             </div>
 
