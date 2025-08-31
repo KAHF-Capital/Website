@@ -96,12 +96,12 @@ const DarkPoolSummaryCard = ({ summary }) => {
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
 
-      {/* 7-Day Average */}
-      {summary.avg_7day_volume > 0 && (
+      {/* 90-Day Average */}
+      {summary.avg_90day_volume > 0 && (
         <div className="border-t pt-3">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">7-Day Avg:</span>
-            <span className="font-medium">{formatNumber(summary.avg_7day_volume)}</span>
+            <span className="text-gray-600">90-Day Avg:</span>
+            <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
           </div>
           <div className="flex justify-between items-center text-sm mt-1">
             <span className="text-gray-600">Volume Ratio:</span>
@@ -113,31 +113,31 @@ const DarkPoolSummaryCard = ({ summary }) => {
             onClick={() => setShowHistory(!showHistory)}
             className="w-full mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
           >
-            {showHistory ? 'Hide Details' : 'Show 7-Day History'}
+            {showHistory ? 'Hide Details' : 'Show 90-Day History'}
           </button>
         </div>
       )}
 
-      {/* 7-Day History Panel */}
-      {showHistory && summary.avg_7day_volume > 0 && (
+      {/* 90-Day History Panel */}
+      {showHistory && summary.avg_90day_volume > 0 && (
         <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">7-Day Dark Pool History</h4>
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">90-Day Dark Pool History</h4>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Volume:</span>
               <span className="font-medium">{formatNumber(summary.total_volume)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">7-Day Average:</span>
-              <span className="font-medium">{formatNumber(summary.avg_7day_volume)}</span>
+              <span className="text-gray-600">90-Day Average:</span>
+              <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Trades:</span>
               <span className="font-medium">{summary.trade_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">7-Day Avg Trades:</span>
-              <span className="font-medium">{summary.avg_7day_trades}</span>
+              <span className="text-gray-600">90-Day Avg Trades:</span>
+              <span className="font-medium">{summary.avg_90day_trades}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Volume vs Average:</span>
@@ -238,7 +238,7 @@ export default function Scanner() {
       setIsLoading(true);
       setError(null);
       
-      const url = `/api/darkpool-trades?include_history=${includeHistory}`;
+      const url = '/api/darkpool-trades';
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
@@ -246,37 +246,15 @@ export default function Scanner() {
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
       
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        let errorMessage = 'Unable to load dark pool data';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          // If JSON parsing fails, use status text
-          errorMessage = `${response.status}: ${response.statusText}`;
-        }
-        setError(errorMessage);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDarkPoolData(data.trades || []);
+        setLastUpdated(data.last_updated);
+      } else {
+        setError(data.error || 'Unable to load dark pool data');
         setDarkPoolData([]);
-        return;
       }
-      
-      // Try to parse JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('Error parsing JSON response:', parseError);
-        setError('Invalid response format from server');
-        setDarkPoolData([]);
-        return;
-      }
-      
-      setDarkPoolData(data.trades || []);
-      setLastUpdated(data.last_updated);
-      setIsCached(data.cached || false);
-      setHasHistory(data.has_history || false);
-      
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
       if (error.name === 'AbortError') {
@@ -297,39 +275,18 @@ export default function Scanner() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for refresh
       
-      const response = await fetch(`/api/darkpool-trades?refresh=true&include_history=${includeHistory}`, { signal: controller.signal });
+      const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
       clearTimeout(timeoutId);
       
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        let errorMessage = 'Unable to refresh dark pool data';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          // If JSON parsing fails, use status text
-          errorMessage = `${response.status}: ${response.statusText}`;
-        }
-        setError(errorMessage);
-        return;
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDarkPoolData(data.trades || []);
+        setLastUpdated(data.last_updated);
+        setError(null);
+      } else {
+        setError(data.error || 'Unable to refresh dark pool data');
       }
-      
-      // Try to parse JSON response
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('Error parsing JSON response:', parseError);
-        setError('Invalid response format from server');
-        return;
-      }
-      
-      setDarkPoolData(data.trades || []);
-      setLastUpdated(data.last_updated);
-      setIsCached(data.cached || false);
-      setHasHistory(data.has_history || false);
-      setError(null);
-      
     } catch (error) {
       console.error('Error refreshing dark pool data:', error);
       if (error.name === 'AbortError') {
@@ -346,35 +303,18 @@ export default function Scanner() {
   const downloadCSV = () => {
     if (!darkPoolData || darkPoolData.length === 0) return;
 
-    const headers = hasHistory 
-      ? ['Ticker', 'Total Volume', 'Trade Count', '7-Day Avg Volume', '7-Day Avg Trades', 'Volume Ratio', 'First Trade', 'Last Trade', 'Date']
-      : ['Ticker', 'Total Volume', 'Trade Count', 'First Trade', 'Last Trade', 'Date'];
-      
+    const headers = ['Ticker', 'Total Volume', 'Trade Count', '90-Day Avg Volume', '90-Day Avg Trades', 'Volume Ratio', 'Date'];
     const csvContent = [
       headers.join(','),
-      ...darkPoolData.map(item => {
-        const baseData = [
-          item.ticker,
-          item.total_volume,
-          item.trade_count
-        ];
-        
-        if (hasHistory) {
-          baseData.push(
-            item.avg_7day_volume || 0,
-            item.avg_7day_trades || 0,
-            item.volume_ratio ? item.volume_ratio.toFixed(2) : 0
-          );
-        }
-        
-        baseData.push(
-          item.first_trade || '',
-          item.last_trade || '',
-          new Date().toISOString().split('T')[0]
-        );
-        
-        return baseData.join(',');
-      })
+      ...darkPoolData.map(item => [
+        item.ticker,
+        item.total_volume,
+        item.trade_count,
+        item.avg_90day_volume || 0,
+        item.avg_90day_trades || 0,
+        item.volume_ratio ? item.volume_ratio.toFixed(2) : 0,
+        new Date().toISOString().split('T')[0]
+      ].join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -415,11 +355,10 @@ export default function Scanner() {
               <p className="mt-1 text-gray-600">24-hour dark pool trading activity</p>
             </div>
             <div className="flex items-center space-x-3">
-              {isCached && (
-                <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
-                  <span>📦 Cached</span>
-                </SafeBadge>
-              )}
+              <SafeBadge className="flex items-center space-x-1 bg-orange-100 text-orange-800 border-orange-200">
+                <SafeClock />
+                <span>15 min delayed</span>
+              </SafeBadge>
               <SafeBadge variant="outline" className="flex items-center space-x-1">
                 <span>{darkPoolData.length} Tickers</span>
               </SafeBadge>
@@ -441,55 +380,6 @@ export default function Scanner() {
               >
                 <SafeDownload />
                 <span>Download CSV</span>
-              </SafeButton>
-              <SafeButton
-                variant={includeHistory ? "default" : "outline"}
-                size="sm"
-                onClick={async () => {
-                  const newHistoryState = !includeHistory;
-                  setIncludeHistory(newHistoryState);
-                  setIsLoadingHistory(true);
-                  
-                  // Refetch data with new history setting
-                  try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
-                    
-                    const response = await fetch(`/api/darkpool-trades?include_history=${newHistoryState}`, { 
-                      signal: controller.signal 
-                    });
-                    clearTimeout(timeoutId);
-                    
-                    if (!response.ok) {
-                      let errorMessage = 'Unable to load dark pool data';
-                      try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.error || errorMessage;
-                      } catch (parseError) {
-                        errorMessage = `${response.status}: ${response.statusText}`;
-                      }
-                      setError(errorMessage);
-                      return;
-                    }
-                    
-                    const data = await response.json();
-                    setDarkPoolData(data.trades || []);
-                    setLastUpdated(data.last_updated);
-                    setIsCached(data.cached || false);
-                    setHasHistory(data.has_history || false);
-                    setError(null);
-                    
-                  } catch (error) {
-                    console.error('Error fetching data:', error);
-                    setError('Network error. Please try again.');
-                  } finally {
-                    setIsLoadingHistory(false);
-                  }
-                }}
-                disabled={isLoadingHistory}
-                className="flex items-center space-x-1"
-              >
-                <span>📊 {isLoadingHistory ? 'Loading...' : (includeHistory ? 'Hide' : 'Show')} 7-Day Data</span>
               </SafeButton>
               <SafeButton
                 variant="outline"
@@ -539,11 +429,6 @@ export default function Scanner() {
         <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
           <div className="text-sm text-gray-500">
             {lastUpdated && `Last updated: ${new Date(lastUpdated).toLocaleString()}`}
-            {isLoadingHistory && (
-              <div className="mt-2 text-blue-600">
-                🔄 Loading 7-day historical data...
-              </div>
-            )}
           </div>
         </div>
 
@@ -551,10 +436,10 @@ export default function Scanner() {
         {darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Top 100 Tickers by Dark Pool Volume
+              Top 25 Tickers by Dark Pool Volume
             </h2>
             <p className="text-gray-600 mt-1">
-              Today's highest dark pool activity{hasHistory ? ' with 7-day historical comparison' : ''}
+              Today's highest dark pool activity with 90-day historical comparison
             </p>
           </div>
         )}

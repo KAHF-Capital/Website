@@ -25,10 +25,43 @@ export default async function handler(req, res) {
     
     const currentDate = new Date().toISOString().split('T')[0];
     
+    // FORCE REFRESH - Always do fresh analysis when refresh=true
+    if (refresh === 'true') {
+      console.log('FORCE REFRESH: Starting fresh dark pool analysis...');
+      
+      try {
+        const analysis = await performFullDarkPoolAnalysis(currentDate, apiKey);
+        
+        let trades = analysis.trades;
+        
+        // Add historical data if requested
+        if (include_history === 'true') {
+          console.log('Adding historical data to fresh results...');
+          trades = await addHistoricalDataToTrades(trades, apiKey);
+        }
+        
+        return res.status(200).json({
+          date: currentDate,
+          trades: trades,
+          total_tickers: trades.length,
+          last_updated: analysis.last_updated,
+          cached: false,
+          has_history: include_history === 'true'
+        });
+        
+      } catch (error) {
+        console.error('Error during force refresh analysis:', error);
+        return res.status(500).json({
+          error: 'Unable to analyze dark pool data',
+          details: error.message
+        });
+      }
+    }
+
     // Check if we already have today's analysis cached
     const cachedAnalysis = db.getTodayAnalysis(currentDate);
     
-    if (cachedAnalysis && cachedAnalysis.trades.length > 0 && refresh !== 'true') {
+    if (cachedAnalysis && cachedAnalysis.trades.length > 0) {
       console.log('Returning cached analysis for today');
       
       let trades = cachedAnalysis.trades;
@@ -49,7 +82,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // If refresh is requested or no cached data, do the full analysis
+    // If no cached data, do the full analysis
     console.log('Starting full dark pool analysis for today...');
     
     try {
@@ -77,31 +110,6 @@ export default async function handler(req, res) {
       
     } catch (error) {
       console.error('Error during full analysis:', error);
-      
-      // If analysis fails, return cached data if available
-      if (cachedAnalysis && cachedAnalysis.trades.length > 0) {
-        console.log('Analysis failed, returning cached data');
-        
-        let trades = cachedAnalysis.trades;
-        
-        // Add historical data if requested
-        if (include_history === 'true') {
-          console.log('Adding historical data to cached fallback...');
-          trades = await addHistoricalDataToTrades(trades, apiKey);
-        }
-        
-        return res.status(200).json({
-          date: currentDate,
-          trades: trades,
-          total_tickers: trades.length,
-          last_updated: cachedAnalysis.last_updated,
-          cached: true,
-          has_history: include_history === 'true',
-          message: 'Using cached data due to analysis error'
-        });
-      }
-      
-      // If no cached data, return error
       return res.status(500).json({
         error: 'Unable to analyze dark pool data',
         details: error.message
@@ -336,14 +344,13 @@ async function getMostActiveTickers(date, apiKey) {
     
     if (!response.ok) {
       console.log(`Failed to get trades: ${response.status} ${response.statusText}`);
-      // Fallback to top liquid stocks if API fails
-      return getFallbackTickers();
+      throw new Error(`API failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     if (!data.results || !Array.isArray(data.results)) {
-      console.log('No trade data available, using fallback tickers');
-      return getFallbackTickers();
+      console.log('No trade data available');
+      throw new Error('No trade data available from Polygon API');
     }
 
     // Count trades by ticker
@@ -360,24 +367,13 @@ async function getMostActiveTickers(date, apiKey) {
       .slice(0, 100)
       .map(([ticker]) => ticker);
     
-    console.log(`Found ${activeTickers.length} active tickers`);
+    console.log(`Found ${activeTickers.length} active tickers from real data`);
     return activeTickers;
     
   } catch (error) {
     console.error('Error getting active tickers:', error);
-    return getFallbackTickers();
+    throw error; // Don't use fallback, let it fail
   }
-}
-
-function getFallbackTickers() {
-  // Fallback to top liquid stocks if we can't get real-time data
-  return [
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
-    'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
-    'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
-    'SHOP', 'SQ', 'ROKU', 'SPOT', 'UBER', 'LYFT', 'DASH', 'ABNB', 'COIN', 'HOOD',
-    'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'ARKK', 'TQQQ', 'SQQQ', 'UVXY', 'VIXY'
-  ];
 }
 
 async function getDarkPoolTradesForTicker(ticker, date, apiKey) {
@@ -387,14 +383,35 @@ async function getDarkPoolTradesForTicker(ticker, date, apiKey) {
     const allResults = await fetchAllTradesPaginated(baseUrl, apiKey);
     if (!allResults || allResults.length === 0) return [];
 
-    // Filter dark pool trades (exchange = 4 AND trf_id present)
-    const darkPoolTrades = allResults.filter(trade => 
-      trade && typeof trade === 'object' && 
+    console.log(`${ticker}: Total trades fetched: ${allResults.length}`);
+
+    // RELAXED FILTERING - Let's see what we're actually getting
+    // Check all trades, not just dark pool ones
+    const allTrades = allResults.filter(trade => 
+      trade && typeof trade === 'object'
+    );
+
+    console.log(`${ticker}: Valid trades: ${allTrades.length}`);
+
+    // Check what exchanges we have
+    const exchanges = [...new Set(allTrades.map(trade => trade.exchange))];
+    console.log(`${ticker}: Available exchanges:`, exchanges);
+    
+    // Check what trades have trf_id
+    const tradesWithTrf = allTrades.filter(trade => trade.trf_id !== undefined);
+    console.log(`${ticker}: Trades with TRF ID: ${tradesWithTrf.length} out of ${allTrades.length}`);
+    
+    // Check for exchange 4 trades specifically
+    const exchange4Trades = allTrades.filter(trade => trade.exchange === 4);
+    console.log(`${ticker}: Exchange 4 trades: ${exchange4Trades.length}`);
+
+    // Now apply the original dark pool filtering
+    const darkPoolTrades = allTrades.filter(trade => 
       trade.exchange === 4 && 
       trade.trf_id !== undefined
     );
 
-    console.log(`${ticker}: Found ${darkPoolTrades.length} dark pool trades out of ${allResults.length} total trades`);
+    console.log(`${ticker}: Dark pool trades (exchange:4 + trf_id): ${darkPoolTrades.length}`);
 
     // Convert to our format
     return darkPoolTrades.map(trade => ({
