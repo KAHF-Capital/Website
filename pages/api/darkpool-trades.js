@@ -15,29 +15,12 @@ function ensureDirectories() {
   }
 }
 
-// Get the latest processed data
-function getLatestProcessedData() {
+// Get the latest trading day data with 7-day averages
+function getLatestTradingDayWithAverages() {
   try {
-    const files = fs.readdirSync(PROCESSED_DIR)
-      .filter(file => file.endsWith('.json') && file.includes('summary'))
-      .map(file => ({
-        name: file,
-        path: path.join(PROCESSED_DIR, file),
-        mtime: fs.statSync(path.join(PROCESSED_DIR, file)).mtime
-      }))
-      .sort((a, b) => b.mtime - a.mtime);
-
-    if (files.length === 0) {
-      return null;
-    }
-
-    const latestFile = files[0];
-    const data = JSON.parse(fs.readFileSync(latestFile.path, 'utf8'));
-    
-    // Get the corresponding date-specific files
+    // Get all date files (excluding summary files)
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
       .filter(file => file.endsWith('.json') && !file.includes('summary'))
-      .filter(file => file.includes(data.source_file.replace('.csv', '')))
       .map(file => {
         const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
         return {
@@ -46,23 +29,67 @@ function getLatestProcessedData() {
         };
       })
       .filter(file => file.date)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending
 
-    // Load the most recent date's data
-    if (dateFiles.length > 0) {
-      const latestDateFile = dateFiles[0];
-      const dateData = JSON.parse(fs.readFileSync(latestDateFile.path, 'utf8'));
-      return {
-        date: latestDateFile.date,
-        trades: dateData.tickers || [],
-        total_tickers: dateData.total_tickers || 0,
-        total_trades: dateData.total_trades || 0,
-        last_updated: dateData.processed_at || new Date().toISOString(),
-        source_file: dateData.source_file || latestFile.name
-      };
+    if (dateFiles.length === 0) {
+      return null;
     }
 
-    return null;
+    // Get the latest trading day
+    const latestDateFile = dateFiles[0];
+    const latestDateData = JSON.parse(fs.readFileSync(latestDateFile.path, 'utf8'));
+
+    // Calculate 7-day average for each ticker
+    const sevenDaysAgo = new Date(latestDateData.date);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Get all dates within the last 7 days
+    const recentDateFiles = dateFiles
+      .filter(file => {
+        const fileDate = new Date(file.date);
+        return fileDate >= sevenDaysAgo && fileDate <= new Date(latestDateData.date);
+      })
+      .slice(0, 7); // Limit to 7 days
+
+    // Calculate 7-day averages for each ticker
+    const tickerAverages = {};
+    const tickerCounts = {};
+
+    recentDateFiles.forEach(file => {
+      try {
+        const dateData = JSON.parse(fs.readFileSync(file.path, 'utf8'));
+        dateData.tickers.forEach(ticker => {
+          if (!tickerAverages[ticker.ticker]) {
+            tickerAverages[ticker.ticker] = 0;
+            tickerCounts[ticker.ticker] = 0;
+          }
+          tickerAverages[ticker.ticker] += ticker.total_volume;
+          tickerCounts[ticker.ticker]++;
+        });
+      } catch (error) {
+        console.error(`Error reading file ${file.path}:`, error);
+      }
+    });
+
+    // Calculate averages
+    Object.keys(tickerAverages).forEach(ticker => {
+      tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
+    });
+
+    // Add 7-day average to latest day's tickers
+    const enhancedTickers = latestDateData.tickers.map(ticker => ({
+      ...ticker,
+      avg_7day_volume: tickerAverages[ticker.ticker] || 0
+    }));
+
+    return {
+      date: latestDateData.date,
+      total_tickers: latestDateData.total_tickers,
+      total_volume: latestDateData.total_volume,
+      last_updated: latestDateData.processed_at || new Date().toISOString(),
+      tickers: enhancedTickers
+    };
+
   } catch (error) {
     console.error('Error reading processed data:', error);
     return null;
@@ -73,7 +100,7 @@ export default async function handler(req, res) {
   try {
     ensureDirectories();
     
-    const latestData = getLatestProcessedData();
+    const latestData = getLatestTradingDayWithAverages();
     
     if (!latestData) {
       return res.status(404).json({

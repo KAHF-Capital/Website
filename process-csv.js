@@ -174,9 +174,9 @@ function saveProcessedData(dateMap, sourceFile) {
   const summaryPath = path.join(PROCESSED_DIR, `${path.basename(sourceFile, '.csv')}_summary.json`);
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
   
-  // Save detailed data for each date
+  // Save detailed data for each date (using just the date format)
   Object.keys(dateMap).forEach(date => {
-    const datePath = path.join(PROCESSED_DIR, `${date}_${path.basename(sourceFile, '.csv')}.json`);
+    const datePath = path.join(PROCESSED_DIR, `${date}.json`);
     const dateData = {
       date: date,
       source_file: path.basename(sourceFile),

@@ -27,7 +27,7 @@ npm install
 
 ### 2. Create Data Directory
 
-```bash
+   ```bash
 mkdir -p data/daily
 ```
 

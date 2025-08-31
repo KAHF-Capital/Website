@@ -19,12 +19,12 @@ const SafeBarChart3 = () => {
   }
 };
 
-const SafeCalendar = () => {
+const SafeTrendingUp = () => {
   try {
-    const { Calendar } = require("lucide-react");
-    return <Calendar className="h-4 w-4" />;
+    const { TrendingUp } = require("lucide-react");
+    return <TrendingUp className="h-4 w-4" />;
   } catch (error) {
-    return <span>📅</span>;
+    return <span>📈</span>;
   }
 };
 
@@ -32,46 +32,17 @@ export default function Scanner() {
   const [darkPoolData, setDarkPoolData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [availableDates, setAvailableDates] = useState([]);
 
   useEffect(() => {
-    loadAvailableDates();
+    loadDarkPoolData();
   }, []);
 
-  useEffect(() => {
-    if (availableDates.length > 0) {
-      // Set the most recent date as default
-      const sortedDates = availableDates.sort().reverse();
-      setSelectedDate(sortedDates[0]);
-      loadDarkPoolData(sortedDates[0]);
-    }
-  }, [availableDates]);
-
-  const loadAvailableDates = async () => {
-    try {
-      const response = await fetch('/api/darkpool-by-date');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setAvailableDates(data.available_dates || []);
-      } else {
-        setError('Failed to load available dates');
-      }
-    } catch (error) {
-      console.error('Error loading dates:', error);
-      setError('Network error loading dates');
-    }
-  };
-
-  const loadDarkPoolData = async (date) => {
-    if (!date) return;
-    
+  const loadDarkPoolData = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/darkpool-by-date?date=${date}`);
+      const response = await fetch('/api/darkpool-trades');
       const data = await response.json();
 
       if (response.ok) {
@@ -87,19 +58,17 @@ export default function Scanner() {
     }
   };
 
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
-    loadDarkPoolData(date);
-  };
-
   const handleRefresh = async () => {
-    if (selectedDate) {
-      await loadDarkPoolData(selectedDate);
-    }
+    await loadDarkPoolData();
   };
 
   const formatNumber = (num) => {
     return new Intl.NumberFormat().format(num);
+  };
+
+  const formatValue = (num) => {
+    // Remove last 3 decimal points and format
+    return new Intl.NumberFormat().format(Math.round(num / 1000) * 1000);
   };
 
   const DarkPoolSummaryCard = ({ ticker }) => (
@@ -109,10 +78,15 @@ export default function Scanner() {
         <span className="text-sm text-gray-600">{ticker.trade_count} trades</span>
       </div>
       
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Volume:</span>
+          <span className="text-sm text-gray-600">Today's Volume:</span>
           <span className="font-semibold text-gray-900">{formatNumber(ticker.total_volume)}</span>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-600">7-Day Avg:</span>
+          <span className="font-medium text-gray-700">{formatNumber(ticker.avg_7day_volume)}</span>
         </div>
         
         <div className="flex justify-between items-center">
@@ -122,7 +96,7 @@ export default function Scanner() {
         
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-600">Total Value:</span>
-          <span className="font-medium text-gray-900">${formatNumber(ticker.total_value)}</span>
+          <span className="font-medium text-gray-900">${formatValue(ticker.total_value)}</span>
         </div>
       </div>
     </div>
@@ -155,34 +129,19 @@ export default function Scanner() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
-              <p className="mt-1 text-gray-600">Pre-analyzed dark pool trading data</p>
+              <p className="mt-1 text-gray-600">
+                Latest trading day: {darkPoolData ? new Date(darkPoolData.date).toLocaleDateString() : 'Loading...'}
+              </p>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <SafeCalendar className="h-5 w-5 text-gray-600" />
-                <select
-                  value={selectedDate}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {availableDates.map((date) => (
-                    <option key={date} value={date}>
-                      {new Date(date).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <button
-                onClick={handleRefresh}
-                disabled={isLoading}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <SafeRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
-              </button>
-            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SafeRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
+            </button>
           </div>
         </div>
 
@@ -198,47 +157,43 @@ export default function Scanner() {
 
         {/* Data Display */}
         {!isLoading && darkPoolData && (
-          <div className="space-y-6">
-            {darkPoolData.data.map((fileData, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {new Date(fileData.date).toLocaleDateString()} - Dark Pool Activity
-                    </h2>
-                    <p className="text-gray-600 mt-1">
-                      {formatNumber(fileData.total_tickers)} tickers, {formatNumber(fileData.total_trades)} trades
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 text-blue-600">
-                    <SafeBarChart3 className="h-6 w-6" />
-                    <span className="font-semibold">Top by Volume</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {fileData.tickers.map((ticker, tickerIndex) => (
-                    <DarkPoolSummaryCard key={tickerIndex} ticker={ticker} />
-                  ))}
-                </div>
-
-                {fileData.tickers.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No dark pool activity found for this date.</p>
-                  </div>
-                )}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {new Date(darkPoolData.date).toLocaleDateString()} - Dark Pool Activity
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  {formatNumber(darkPoolData.total_tickers)} tickers, {formatNumber(darkPoolData.total_volume)} total volume
+                </p>
               </div>
-            ))}
+              
+              <div className="flex items-center space-x-2 text-blue-600">
+                <SafeBarChart3 className="h-6 w-6" />
+                <span className="font-semibold">Top by Volume</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {darkPoolData.tickers.map((ticker, index) => (
+                <DarkPoolSummaryCard key={ticker.ticker || index} ticker={ticker} />
+              ))}
+            </div>
+
+            {darkPoolData.tickers.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No dark pool activity found for this date.</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* No Data State */}
-        {!isLoading && (!darkPoolData || darkPoolData.data.length === 0) && (
+        {!isLoading && !darkPoolData && (
           <div className="text-center py-12">
             <SafeBarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
-            <p className="text-gray-600">Select a different date or check if data has been processed.</p>
+            <p className="text-gray-600">Please process CSV files first using the command line processor.</p>
           </div>
         )}
       </div>
