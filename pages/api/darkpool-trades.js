@@ -33,7 +33,14 @@ export default async function handler(req, res) {
       if (include_history === 'true' && !cachedAnalysis.has_history) {
         console.log('Adding historical data to cached results...');
         try {
-          trades = await addHistoricalDataToTrades(trades, apiKey);
+          // Use a very short timeout for historical data
+          const historicalPromise = addHistoricalDataToTrades(trades, apiKey);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Historical data timeout')), 15000)
+          );
+          
+          trades = await Promise.race([historicalPromise, timeoutPromise]);
+          
           // Update cache with historical data
           db.saveTodayAnalysis(currentDate, {
             ...cachedAnalysis,
@@ -56,11 +63,16 @@ export default async function handler(req, res) {
       });
     }
 
-    // If refresh is requested, fetch new data from Polygon
+    // If refresh is requested, fetch new data from Polygon with strict timeout
     if (refresh === 'true') {
       console.log('Refreshing dark pool data...');
       try {
-        await refreshTopTickersData(currentDate, apiKey);
+        const refreshPromise = refreshTopTickersData(currentDate, apiKey);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Refresh timeout')), 20000)
+        );
+        
+        await Promise.race([refreshPromise, timeoutPromise]);
       } catch (error) {
         console.error('Error refreshing data:', error);
         // Continue with existing data if refresh fails
@@ -70,16 +82,16 @@ export default async function handler(req, res) {
     // Get all today's dark pool trades grouped by ticker (top 25)
     let trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
     
-    // If no data exists, fetch initial data with timeout
+    // If no data exists, fetch initial data with very strict timeout
     if (trades.length === 0) {
       console.log('No data found, fetching initial data for top tickers...');
       try {
-        await Promise.race([
-          refreshTopTickersData(currentDate, apiKey, true), // limited=true
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Initial data fetch timeout')), 30000)
-          )
-        ]);
+        const initialPromise = refreshTopTickersData(currentDate, apiKey, true);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Initial data fetch timeout')), 15000)
+        );
+        
+        await Promise.race([initialPromise, timeoutPromise]);
         trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
       } catch (error) {
         console.error('Error fetching initial data:', error);
@@ -96,12 +108,17 @@ export default async function handler(req, res) {
       }
     }
 
-    // Only add historical data if explicitly requested
+    // Only add historical data if explicitly requested with strict timeout
     let tradesWithHistory = trades;
     if (include_history === 'true') {
       console.log('Adding historical data...');
       try {
-        tradesWithHistory = await addHistoricalDataToTrades(trades, apiKey);
+        const historicalPromise = addHistoricalDataToTrades(trades, apiKey);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Historical data timeout')), 15000)
+        );
+        
+        tradesWithHistory = await Promise.race([historicalPromise, timeoutPromise]);
       } catch (error) {
         console.error('Error adding historical data:', error);
         // Use trades without historical data if it fails
@@ -153,10 +170,10 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     
     // Get trades from Polygon.io with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout to prevent timeouts
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout to prevent timeouts
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=10000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=5000&apiKey=${apiKey}`,
       { signal: controller.signal }
     );
     
@@ -217,17 +234,17 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30); // Reduced to 30 days to prevent timeouts
+    startDate.setDate(startDate.getDate() - 7); // Reduced to 7 days to prevent timeouts
     
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
     
     // Get historical trades from Polygon.io with shorter timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=10000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=2000&apiKey=${apiKey}`,
       { signal: controller.signal }
     );
     
@@ -271,7 +288,7 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
     const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
 
-    console.log(`${ticker}: 30-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
+    console.log(`${ticker}: 7-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
 
     return {
       avgVolume: Math.round(totalVolume / days),
@@ -292,18 +309,17 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
   try {
     // Focus on the most liquid stocks that are likely to have dark pool activity
     const tickers = limited ? [
-      // Top 10 most liquid stocks for initial load (reduced to prevent timeouts)
-      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM'
+      // Top 5 most liquid stocks for initial load (aggressive optimization)
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'
     ] : [
-      // Top 20 most liquid stocks for complete refresh (reduced to prevent timeouts)
-      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
-      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU'
+      // Top 10 most liquid stocks for complete refresh (aggressive optimization)
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX', 'CRM', 'ADBE'
     ];
 
     console.log(`Refreshing data for ${tickers.length} tickers (limited: ${limited})...`);
 
-    // Process tickers in parallel with concurrency limit
-    const concurrencyLimit = 3; // Process 3 tickers at a time
+    // Process tickers in parallel with strict concurrency limit
+    const concurrencyLimit = 2; // Process only 2 tickers at a time
     const chunks = [];
     for (let i = 0; i < tickers.length; i += concurrencyLimit) {
       chunks.push(tickers.slice(i, i + concurrencyLimit));
@@ -316,7 +332,7 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
         );
         
         // Delay between chunks to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
       } catch (error) {
         console.error(`Error processing chunk:`, error);
@@ -335,8 +351,8 @@ async function addHistoricalDataToTrades(trades, apiKey) {
   try {
     console.log('Adding historical data to trades...');
     
-    // Limit to top 10 tickers to prevent timeouts
-    const limitedTrades = trades.slice(0, 10);
+    // Limit to top 5 tickers to prevent timeouts
+    const limitedTrades = trades.slice(0, 5);
     
     const tradesWithHistory = await Promise.allSettled(
       limitedTrades.map(async (trade) => {
@@ -376,7 +392,7 @@ async function addHistoricalDataToTrades(trades, apiKey) {
     });
 
     // Add remaining trades without historical data
-    const remainingTrades = trades.slice(10).map(trade => ({
+    const remainingTrades = trades.slice(5).map(trade => ({
       ...trade,
       avg_90day_volume: 0,
       avg_90day_trades: 0,

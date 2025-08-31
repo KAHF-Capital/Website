@@ -248,13 +248,15 @@ If you encounter any issues:
 - ✅ Improved error handling and user feedback
 - ✅ Added retry logic with exponential backoff
 - ✅ Enhanced data validation and backup system
-- ✅ Better timeout handling for API calls
+- ✅ Aggressive timeout optimization (5-second API timeouts)
 - ✅ Improved error boundary component
 - ✅ Added comprehensive utility functions
 - ✅ Optimized API performance to prevent 504 timeouts
-- ✅ Reduced historical data period from 90 to 30 days
-- ✅ Implemented concurrency limiting for API calls
+- ✅ Reduced historical data period from 90 to 7 days
+- ✅ Implemented strict concurrency limiting (2 requests at a time)
 - ✅ Added health check endpoint for monitoring
+- ✅ Added fallback API with demo data for timeouts
+- ✅ Reduced trade limits and ticker counts for faster response
 
 ### v1.0.0
 - ✅ Initial release with dark pool scanner

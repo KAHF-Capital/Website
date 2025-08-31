@@ -254,25 +254,29 @@ Expected response:
 
 ### v1.1.0 Performance Improvements
 
-1. **Reduced API Calls**
-   - Limited to top 10 tickers for initial load
-   - Reduced historical data from 90 to 30 days
-   - Implemented concurrency limiting
+1. **Aggressive API Optimization**
+   - Limited to top 5 tickers for initial load
+   - Reduced historical data from 90 to 7 days
+   - Reduced trade limits from 50,000 to 5,000 per request
+   - 5-second timeout for individual API calls
 
-2. **Better Timeout Handling**
-   - 8-second timeout for individual API calls
-   - 30-second timeout for main requests
-   - Graceful fallbacks for failed requests
+2. **Strict Timeout Handling**
+   - 5-second timeout for individual API calls
+   - 20-second timeout for main requests
+   - 15-second timeout for historical data
+   - Fallback API with demo data when timeouts occur
 
-3. **Enhanced Caching**
+3. **Enhanced Caching & Fallbacks**
    - Better cache management
    - Automatic cache invalidation
-   - Reduced redundant API calls
+   - Fallback API with mock data
+   - Graceful degradation when services fail
 
 4. **Error Recovery**
    - Retry logic with exponential backoff
-   - Graceful degradation when services fail
+   - Automatic fallback to demo data
    - Better user feedback for errors
+   - Concurrency limiting (2 requests at a time)
 
 ---
 

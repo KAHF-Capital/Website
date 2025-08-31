@@ -232,14 +232,14 @@ export default function Scanner() {
   const [hasHistory, setHasHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Fetch dark pool data with improved error handling
+  // Fetch dark pool data with improved error handling and fallback
   const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
       const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades', {}, 30000); // 30 second timeout
+        return await fetchWithTimeout('/api/darkpool-trades', {}, 20000); // 20 second timeout
       }, 2, 1000);
       
       const data = await response.json();
@@ -251,6 +251,24 @@ export default function Scanner() {
       
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
+      
+      // Try fallback API if main API times out
+      if (error.status === 408 || error.status === 504 || error.message.includes('timeout')) {
+        try {
+          console.log('Trying fallback API...');
+          const fallbackResponse = await fetchWithTimeout('/api/darkpool-trades-fallback', {}, 5000);
+          const fallbackData = await fallbackResponse.json();
+          
+          setDarkPoolData(fallbackData.trades || []);
+          setLastUpdated(fallbackData.last_updated);
+          setIsCached(false);
+          setHasHistory(fallbackData.has_history || false);
+          setError('Demo data loaded - API timeout detected. Please try refreshing later for real-time data.');
+          return;
+        } catch (fallbackError) {
+          console.error('Fallback API also failed:', fallbackError);
+        }
+      }
       
       let errorMessage = 'Unable to load dark pool data';
       if (error.status === 503) {
@@ -275,7 +293,7 @@ export default function Scanner() {
     setIsRefreshing(true);
     try {
       const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 60000); // 1 minute timeout for refresh
+        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 30000); // 30 second timeout for refresh
       }, 2, 1000);
       
       const data = await response.json();
