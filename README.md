@@ -251,6 +251,10 @@ If you encounter any issues:
 - ✅ Better timeout handling for API calls
 - ✅ Improved error boundary component
 - ✅ Added comprehensive utility functions
+- ✅ Optimized API performance to prevent 504 timeouts
+- ✅ Reduced historical data period from 90 to 30 days
+- ✅ Implemented concurrency limiting for API calls
+- ✅ Added health check endpoint for monitoring
 
 ### v1.0.0
 - ✅ Initial release with dark pool scanner

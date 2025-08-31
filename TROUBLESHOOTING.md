@@ -1,187 +1,279 @@
-# Dark Pool Scanner Troubleshooting Guide
+# Troubleshooting Guide
 
-## 🚀 New Approach (v2.0)
+This guide helps you resolve common issues with the Dark Pool Scanner.
 
-The scanner now uses a **smart caching system** that:
-
-1. **Downloads ALL trades for today** (not just predetermined tickers)
-2. **Finds the most active stocks** with dark pool activity
-3. **Caches results for the entire day** (no more repeated API calls)
-4. **Shows you what's actually trading** instead of guessing
-5. **Optional 30-day historical comparison** (loads on demand)
-
-### How It Works
-
-1. **First visit of the day**: Takes 2-3 minutes to analyze all trades
-2. **Subsequent visits**: Shows cached results instantly
-3. **Manual refresh**: Forces a new analysis (takes 2-3 minutes)
-4. **30-day data**: Click "Show 30-Day Data" to see historical comparisons
-5. **Next day**: Automatically refreshes
-
-### Historical Data Feature
-
-- **Toggle button**: "Show 30-Day Data" in the header
-- **Volume ratios**: Compare today's volume to 30-day average
-- **Color coding**: Green (>2x), Yellow (1-2x), Red (<1x)
-- **On-demand loading**: Only loads when requested (doesn't slow down main page)
-
-## Common Issues and Solutions
+## 🚨 Critical Issues
 
 ### 1. 504 Gateway Timeout Error
 
-**Problem**: The API request times out after 10 minutes, showing a 504 error.
+**Symptoms:**
+- `GET /api/darkpool-trades` returns 504 Gateway Timeout
+- Page loads but no data appears
+- Console shows timeout errors
 
-**Causes**:
-- Polygon API calls are taking too long
-- Too many tickers being processed at once
-- Network connectivity issues
+**Causes:**
+- API requests taking too long to complete
+- Too many concurrent API calls to Polygon.io
+- Large data requests exceeding serverless function limits
 
-**Solutions**:
-- ✅ **Fixed**: New caching system - only analyzes once per day
-- ✅ **Fixed**: Smart ticker discovery - finds most active stocks automatically
-- ✅ **Fixed**: Better error handling - continues with cached data if analysis fails
-- ✅ **Fixed**: Reduced API load - no more repeated calls throughout the day
+**Solutions:**
 
-### 2. JSON Parsing Error
-
-**Problem**: "Unexpected token 'A', "An error o"... is not valid JSON"
-
-**Causes**:
-- API returning error message instead of JSON
-- Network errors causing malformed responses
-- Server returning HTML error pages
-
-**Solutions**:
-- ✅ **Fixed**: Added proper error handling before JSON parsing
-- ✅ **Fixed**: Added try-catch blocks around JSON.parse()
-- ✅ **Fixed**: Better error messages with status codes
-
-### 3. API Key Configuration Issues
-
-**Problem**: "Dark Pool Scanner is currently unavailable"
-
-**Causes**:
-- Missing or invalid Polygon API key
-- Environment variables not set properly
-
-**Solutions**:
-1. **Check your environment setup**:
+#### Immediate Fixes:
+1. **Check API Key Configuration**
    ```bash
-   npm run check-env
+   # Verify your environment variable
+   echo $POLYGON_API_KEY
    ```
 
-2. **Set up environment if needed**:
+2. **Test Health Endpoint**
    ```bash
-   npm run setup
+   curl https://your-domain.com/api/health
    ```
 
-3. **For Vercel deployment**, add environment variable:
-   - Go to your Vercel project settings
-   - Add `POLYGON_API_KEY` with your actual API key
-   - Redeploy the project
+3. **Clear Browser Cache**
+   - Hard refresh the page (Ctrl+F5)
+   - Clear browser cache and cookies
 
-### 4. No Data Available
+#### Long-term Solutions:
+1. **Upgrade Polygon.io Plan**
+   - Free tier: 5 calls/minute
+   - Basic plan: 5 calls/minute
+   - Starter plan: 5 calls/minute
+   - Consider upgrading for higher limits
 
-**Problem**: Scanner shows "No dark pool data available"
+2. **Optimize API Usage**
+   - The app now uses 30-day historical data instead of 90-day
+   - Reduced concurrent API calls to 3 at a time
+   - Implemented better caching
 
-**Causes**:
-- No trades found for the selected tickers
-- API rate limits exceeded
-- Market closed (no recent trades)
+3. **Deploy to Vercel Pro**
+   - Higher serverless function timeout limits
+   - Better performance for API-intensive applications
 
-**Solutions**:
-- Try refreshing the data
-- Check if markets are open
-- Verify your Polygon API plan supports the required endpoints
+### 2. 500 Internal Server Error
 
-## Environment Setup
+**Symptoms:**
+- `GET /api/darkpool-trades` returns 500 Internal Server Error
+- Console shows server error messages
 
-### Development Setup
+**Solutions:**
+1. **Check Server Logs**
+   - View Vercel function logs
+   - Look for specific error messages
 
-1. **Install dependencies**:
+2. **Verify Environment Variables**
+   - Ensure `POLYGON_API_KEY` is set correctly
+   - Check for typos in the API key
+
+3. **Test API Key**
+   ```bash
+   curl "https://api.polygon.io/v3/trades/AAPL?date=2024-01-15&limit=10&apiKey=YOUR_API_KEY"
+   ```
+
+### 3. Chrome Extension Error
+
+**Symptoms:**
+- `Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received`
+
+**Solution:**
+- This error is from a browser extension, not your website
+- Disable browser extensions to isolate the issue
+- The error doesn't affect your website's functionality
+
+## 🔧 Performance Issues
+
+### Slow Loading Times
+
+**Causes:**
+- Large API responses
+- Too many API calls
+- Network latency
+
+**Solutions:**
+1. **Enable Caching**
+   - The app now caches results for better performance
+   - First load may be slow, subsequent loads will be faster
+
+2. **Use Refresh Sparingly**
+   - Only refresh when necessary
+   - Data updates automatically every 15 minutes
+
+3. **Check Network Connection**
+   - Ensure stable internet connection
+   - Try different network if possible
+
+### API Rate Limiting
+
+**Symptoms:**
+- 429 Too Many Requests errors
+- Inconsistent data loading
+
+**Solutions:**
+1. **Reduce Refresh Frequency**
+   - Don't refresh more than once per minute
+   - Let the app use cached data
+
+2. **Upgrade Polygon.io Plan**
+   - Higher rate limits available with paid plans
+
+3. **Monitor Usage**
+   - Check Polygon.io dashboard for usage statistics
+
+## 🛠️ Development Issues
+
+### Local Development Problems
+
+**Common Issues:**
+1. **PowerShell Execution Policy**
+   ```powershell
+   # Run as Administrator
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
+
+2. **Node.js Version**
+   ```bash
+   # Ensure Node.js 18+
+   node --version
+   ```
+
+3. **Missing Dependencies**
    ```bash
    npm install
+   # or
+   yarn install
    ```
 
-2. **Set up environment**:
+### Build Errors
+
+**Solutions:**
+1. **Clear Cache**
    ```bash
-   npm run setup
+   npm run build -- --no-cache
    ```
 
-3. **Verify configuration**:
+2. **Check Dependencies**
    ```bash
-   npm run check-env
+   npm audit fix
    ```
 
-4. **Start development server**:
+3. **Update Packages**
    ```bash
-   npm run dev
+   npm update
    ```
 
-### Production Setup (Vercel)
+## 📊 Monitoring and Debugging
 
-1. **Add environment variable in Vercel**:
-   - Go to Project Settings → Environment Variables
-   - Add `POLYGON_API_KEY` with your actual API key
-   - Deploy to all environments (Production, Preview, Development)
+### Health Check Endpoint
 
-2. **Redeploy the project**:
-   ```bash
-   vercel --prod
-   ```
-
-## API Key Requirements
-
-### Polygon.io API Plan
-
-The dark pool scanner requires a Polygon.io API key with access to:
-- **Trades endpoint** (`/v3/trades/`)
-- **Real-time data** (for current day trades)
-- **Historical data** (for 30-day averages)
-
-**Recommended plans**:
-- **Starter**: Limited to 5 API calls per minute
-- **Developer**: 100 API calls per minute
-- **Professional**: 1000+ API calls per minute
-
-### Getting a Polygon API Key
-
-1. Visit [polygon.io](https://polygon.io)
-2. Sign up for an account
-3. Choose a plan that includes trades data
-4. Copy your API key from the dashboard
-5. Use the key in your environment setup
-
-## Performance Optimizations
-
-### Recent Improvements
-
-1. **Reduced API timeouts**: 10-15 seconds instead of 15-20 seconds
-2. **Fewer tickers**: 25 instead of 50 for refresh, 10 instead of 20 for initial load
-3. **Better error handling**: Continues with existing data if refresh fails
-4. **Improved frontend**: Better error messages and loading states
-
-### Monitoring
-
-Check the browser console and server logs for:
-- API response times
-- Error messages
-- Rate limit warnings
-
-## Support
-
-If you continue to experience issues:
-
-1. **Check the logs**: Look for specific error messages
-2. **Verify API key**: Ensure it's valid and has proper permissions
-3. **Test API directly**: Try calling Polygon API endpoints directly
-4. **Check rate limits**: Ensure you're not exceeding API call limits
-
-## Debug Mode
-
-To enable more detailed logging, add this to your `.env.local`:
-```
-DEBUG=true
+Test the health of your API:
+```bash
+curl https://your-domain.com/api/health
 ```
 
-This will show additional information about API calls and responses.
+Expected response:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "environment": "production",
+  "hasApiKey": true,
+  "apiKeyConfigured": true,
+  "version": "1.1.0"
+}
+```
+
+### Browser Developer Tools
+
+1. **Network Tab**
+   - Monitor API calls
+   - Check response times
+   - Look for failed requests
+
+2. **Console Tab**
+   - View error messages
+   - Check for JavaScript errors
+   - Monitor API responses
+
+3. **Application Tab**
+   - Check localStorage for cached data
+   - Verify environment variables
+
+## 🚀 Deployment Issues
+
+### Vercel Deployment Problems
+
+1. **Environment Variables**
+   - Set `POLYGON_API_KEY` in Vercel dashboard
+   - Redeploy after adding environment variables
+
+2. **Function Timeout**
+   - Vercel free tier: 10 seconds
+   - Vercel pro: 60 seconds
+   - Consider upgrading for longer operations
+
+3. **Build Failures**
+   - Check build logs in Vercel dashboard
+   - Verify all dependencies are installed
+
+### Other Platforms
+
+1. **Netlify**
+   - Set environment variables in Netlify dashboard
+   - Use Netlify functions for API routes
+
+2. **Railway**
+   - Set environment variables in Railway dashboard
+   - Monitor resource usage
+
+## 📞 Getting Help
+
+### Before Asking for Help
+
+1. **Check this troubleshooting guide**
+2. **Test the health endpoint**
+3. **Check browser console for errors**
+4. **Verify your API key is working**
+5. **Try on a different network**
+
+### When to Contact Support
+
+- Health endpoint returns unhealthy status
+- API key is valid but getting 500 errors
+- Build failures that can't be resolved
+- Performance issues after optimization
+
+### Useful Information to Include
+
+- Error messages from browser console
+- Health endpoint response
+- API key status (without sharing the actual key)
+- Browser and operating system
+- Steps to reproduce the issue
+
+## 🔄 Recent Optimizations
+
+### v1.1.0 Performance Improvements
+
+1. **Reduced API Calls**
+   - Limited to top 10 tickers for initial load
+   - Reduced historical data from 90 to 30 days
+   - Implemented concurrency limiting
+
+2. **Better Timeout Handling**
+   - 8-second timeout for individual API calls
+   - 30-second timeout for main requests
+   - Graceful fallbacks for failed requests
+
+3. **Enhanced Caching**
+   - Better cache management
+   - Automatic cache invalidation
+   - Reduced redundant API calls
+
+4. **Error Recovery**
+   - Retry logic with exponential backoff
+   - Graceful degradation when services fail
+   - Better user feedback for errors
+
+---
+
+**Note**: If you continue to experience issues after trying these solutions, please check the main README.md for additional troubleshooting steps.

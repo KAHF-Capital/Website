@@ -239,8 +239,8 @@ export default function Scanner() {
       setError(null);
       
       const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades', {}, 600000); // 10 minute timeout
-      }, 3, 2000);
+        return await fetchWithTimeout('/api/darkpool-trades', {}, 30000); // 30 second timeout
+      }, 2, 1000);
       
       const data = await response.json();
       
@@ -255,8 +255,8 @@ export default function Scanner() {
       let errorMessage = 'Unable to load dark pool data';
       if (error.status === 503) {
         errorMessage = 'Service temporarily unavailable. Please try again later.';
-      } else if (error.status === 408) {
-        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.status === 408 || error.status === 504) {
+        errorMessage = 'Request timed out. The server is taking too long to respond. Please try again in a few minutes.';
       } else if (error.status === 0) {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error.message) {
@@ -275,8 +275,8 @@ export default function Scanner() {
     setIsRefreshing(true);
     try {
       const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 600000); // 10 minute timeout
-      }, 3, 2000);
+        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 60000); // 1 minute timeout for refresh
+      }, 2, 1000);
       
       const data = await response.json();
       
@@ -292,8 +292,8 @@ export default function Scanner() {
       let errorMessage = 'Unable to refresh dark pool data';
       if (error.status === 503) {
         errorMessage = 'Service temporarily unavailable. Please try again later.';
-      } else if (error.status === 408) {
-        errorMessage = 'Refresh timed out. Please try again.';
+      } else if (error.status === 408 || error.status === 504) {
+        errorMessage = 'Refresh timed out. The server is taking too long to respond. Please try again in a few minutes.';
       } else if (error.status === 0) {
         errorMessage = 'Network error during refresh. Please try again.';
       } else if (error.message) {

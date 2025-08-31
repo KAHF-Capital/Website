@@ -29,10 +29,21 @@ export default async function handler(req, res) {
       
       let trades = cachedAnalysis.trades;
       
-      // Add historical data if requested
-      if (include_history === 'true') {
+      // Only add historical data if explicitly requested and not already cached
+      if (include_history === 'true' && !cachedAnalysis.has_history) {
         console.log('Adding historical data to cached results...');
-        trades = await addHistoricalDataToTrades(trades, apiKey);
+        try {
+          trades = await addHistoricalDataToTrades(trades, apiKey);
+          // Update cache with historical data
+          db.saveTodayAnalysis(currentDate, {
+            ...cachedAnalysis,
+            trades: trades,
+            has_history: true
+          });
+        } catch (error) {
+          console.error('Error adding historical data:', error);
+          // Return cached data without historical data if it fails
+        }
       }
       
       return res.status(200).json({
@@ -41,60 +52,90 @@ export default async function handler(req, res) {
         total_tickers: trades.length,
         last_updated: cachedAnalysis.last_updated,
         cached: true,
-        has_history: include_history === 'true'
+        has_history: include_history === 'true' && cachedAnalysis.has_history
       });
     }
 
     // If refresh is requested, fetch new data from Polygon
     if (refresh === 'true') {
       console.log('Refreshing dark pool data...');
-      await refreshTopTickersData(currentDate, apiKey);
+      try {
+        await refreshTopTickersData(currentDate, apiKey);
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+        // Continue with existing data if refresh fails
+      }
     }
 
     // Get all today's dark pool trades grouped by ticker (top 25)
     let trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
     
-    // If no data exists, fetch initial data
+    // If no data exists, fetch initial data with timeout
     if (trades.length === 0) {
       console.log('No data found, fetching initial data for top tickers...');
-      await refreshTopTickersData(currentDate, apiKey, true); // limited=true
-      trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
+      try {
+        await Promise.race([
+          refreshTopTickersData(currentDate, apiKey, true), // limited=true
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Initial data fetch timeout')), 30000)
+          )
+        ]);
+        trades = db.getAllTodayDarkPoolTrades(currentDate).slice(0, 25);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        // Return empty data if initial fetch fails
+        return res.status(200).json({
+          date: currentDate,
+          trades: [],
+          total_tickers: 0,
+          last_updated: new Date().toISOString(),
+          cached: false,
+          has_history: false,
+          message: 'No data available. Please try refreshing.'
+        });
+      }
     }
 
-    // Add 90-day historical data for each ticker
-    const tradesWithHistory = await Promise.all(
-      trades.map(async (trade) => {
-        try {
-          const historicalData = await get90DayDarkPoolHistory(trade.ticker, apiKey);
-          return {
-            ...trade,
-            avg_90day_volume: historicalData.avgVolume,
-            avg_90day_trades: historicalData.avgTrades,
-            volume_ratio: historicalData.avgVolume > 0 ? trade.total_volume / historicalData.avgVolume : 0
-          };
-        } catch (error) {
-          console.error(`Error fetching historical data for ${trade.ticker}:`, error);
-          return {
-            ...trade,
-            avg_90day_volume: 0,
-            avg_90day_trades: 0,
-            volume_ratio: 0
-          };
-        }
-      })
-    );
+    // Only add historical data if explicitly requested
+    let tradesWithHistory = trades;
+    if (include_history === 'true') {
+      console.log('Adding historical data...');
+      try {
+        tradesWithHistory = await addHistoricalDataToTrades(trades, apiKey);
+      } catch (error) {
+        console.error('Error adding historical data:', error);
+        // Use trades without historical data if it fails
+        tradesWithHistory = trades.map(trade => ({
+          ...trade,
+          avg_90day_volume: 0,
+          avg_90day_trades: 0,
+          volume_ratio: 0
+        }));
+      }
+    } else {
+      // Add placeholder historical data
+      tradesWithHistory = trades.map(trade => ({
+        ...trade,
+        avg_90day_volume: 0,
+        avg_90day_trades: 0,
+        volume_ratio: 0
+      }));
+    }
 
     // Cache the results
     db.saveTodayAnalysis(currentDate, {
       trades: tradesWithHistory,
-      last_updated: new Date().toISOString()
+      last_updated: new Date().toISOString(),
+      has_history: include_history === 'true'
     });
 
     return res.status(200).json({
       date: currentDate,
       trades: tradesWithHistory,
       total_tickers: tradesWithHistory.length,
-      last_updated: new Date().toISOString()
+      last_updated: new Date().toISOString(),
+      cached: false,
+      has_history: include_history === 'true'
     });
 
   } catch (error) {
@@ -112,10 +153,10 @@ async function fetchAndStoreDarkPoolTrades(ticker, date, apiKey) {
     
     // Get trades from Polygon.io with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for large data requests
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout to prevent timeouts
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=50000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?date=${date}&limit=10000&apiKey=${apiKey}`,
       { signal: controller.signal }
     );
     
@@ -176,17 +217,17 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 90);
+    startDate.setDate(startDate.getDate() - 30); // Reduced to 30 days to prevent timeouts
     
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    // Get historical trades from Polygon.io
+    // Get historical trades from Polygon.io with shorter timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for 90-day historical data
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     const response = await fetch(
-      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=50000&apiKey=${apiKey}`,
+      `https://api.polygon.io/v3/trades/${ticker}?timestamp.gte=${startDateStr}&timestamp.lte=${endDateStr}&limit=10000&apiKey=${apiKey}`,
       { signal: controller.signal }
     );
     
@@ -230,7 +271,7 @@ async function get90DayDarkPoolHistory(ticker, apiKey) {
     const totalVolume = Object.values(dailyData).reduce((sum, day) => sum + day.volume, 0);
     const totalTrades = Object.values(dailyData).reduce((sum, day) => sum + day.trades, 0);
 
-    console.log(`${ticker}: 90-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
+    console.log(`${ticker}: 30-day average - ${Math.round(totalVolume / days)} volume, ${Math.round(totalTrades / days)} trades per day`);
 
     return {
       avgVolume: Math.round(totalVolume / days),
@@ -251,30 +292,34 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
   try {
     // Focus on the most liquid stocks that are likely to have dark pool activity
     const tickers = limited ? [
-      // Top 20 most liquid stocks for initial load
+      // Top 10 most liquid stocks for initial load (reduced to prevent timeouts)
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM'
+    ] : [
+      // Top 20 most liquid stocks for complete refresh (reduced to prevent timeouts)
       'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
       'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU'
-    ] : [
-      // Top 50 most liquid stocks for complete refresh
-      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'NFLX', 'CRM',
-      'ADBE', 'PYPL', 'INTC', 'ORCL', 'CSCO', 'IBM', 'QCOM', 'AVGO', 'TXN', 'MU',
-      'LRCX', 'KLAC', 'ADI', 'MCHP', 'ASML', 'TSM', 'SMCI', 'PLTR', 'SNOW', 'ZM',
-      'SHOP', 'SQ', 'ROKU', 'SPOT', 'UBER', 'LYFT', 'DASH', 'ABNB', 'COIN', 'HOOD',
-      'SPY', 'QQQ', 'IWM', 'VTI', 'VOO', 'ARKK', 'TQQQ', 'SQQQ', 'UVXY', 'VIXY'
     ];
 
     console.log(`Refreshing data for ${tickers.length} tickers (limited: ${limited})...`);
 
-    // Process each ticker with shorter delays
-    for (const ticker of tickers) {
+    // Process tickers in parallel with concurrency limit
+    const concurrencyLimit = 3; // Process 3 tickers at a time
+    const chunks = [];
+    for (let i = 0; i < tickers.length; i += concurrencyLimit) {
+      chunks.push(tickers.slice(i, i + concurrencyLimit));
+    }
+
+    for (const chunk of chunks) {
       try {
-        await fetchAndStoreDarkPoolTrades(ticker, date, apiKey);
+        await Promise.allSettled(
+          chunk.map(ticker => fetchAndStoreDarkPoolTrades(ticker, date, apiKey))
+        );
         
-        // Shorter delay to prevent timeouts
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Delay between chunks to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
-        console.error(`Error processing ${ticker}:`, error);
+        console.error(`Error processing chunk:`, error);
       }
     }
 
@@ -285,12 +330,16 @@ async function refreshTopTickersData(date, apiKey, limited = false) {
   }
 }
 
+// Optimized function to add historical data with better error handling
 async function addHistoricalDataToTrades(trades, apiKey) {
   try {
     console.log('Adding historical data to trades...');
     
-    const tradesWithHistory = await Promise.all(
-      trades.map(async (trade) => {
+    // Limit to top 10 tickers to prevent timeouts
+    const limitedTrades = trades.slice(0, 10);
+    
+    const tradesWithHistory = await Promise.allSettled(
+      limitedTrades.map(async (trade) => {
         try {
           const historicalData = await get90DayDarkPoolHistory(trade.ticker, apiKey);
           return {
@@ -311,10 +360,38 @@ async function addHistoricalDataToTrades(trades, apiKey) {
       })
     );
 
-    return tradesWithHistory;
+    // Process results and handle rejected promises
+    const processedTrades = tradesWithHistory.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        console.error(`Failed to get historical data for ${limitedTrades[index].ticker}:`, result.reason);
+        return {
+          ...limitedTrades[index],
+          avg_90day_volume: 0,
+          avg_90day_trades: 0,
+          volume_ratio: 0
+        };
+      }
+    });
+
+    // Add remaining trades without historical data
+    const remainingTrades = trades.slice(10).map(trade => ({
+      ...trade,
+      avg_90day_volume: 0,
+      avg_90day_trades: 0,
+      volume_ratio: 0
+    }));
+
+    return [...processedTrades, ...remainingTrades];
   } catch (error) {
     console.error('Error adding historical data to trades:', error);
-    return trades; // Return original trades if historical data fails
+    return trades.map(trade => ({
+      ...trade,
+      avg_90day_volume: 0,
+      avg_90day_trades: 0,
+      volume_ratio: 0
+    }));
   }
 }
 
