@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { fetchWithTimeout, formatNumber, retry } from "../utils";
 
 // Safe component imports with fallbacks
 const SafeBadge = ({ children, variant = 'default', className = '', ...props }) => {
@@ -77,7 +78,6 @@ const SafeDownload = () => {
 // Dark Pool Summary Card Component
 const DarkPoolSummaryCard = ({ summary }) => {
   const [showHistory, setShowHistory] = useState(false);
-  const formatNumber = (num) => num?.toLocaleString() || '0';
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
@@ -92,7 +92,7 @@ const DarkPoolSummaryCard = ({ summary }) => {
       </div>
 
       <div className="text-center mb-3">
-        <p className="text-2xl font-bold text-blue-600">{formatNumber(summary.total_volume)}</p>
+        <p className="text-2xl font-bold text-blue-600">{formatNumber(summary.total_volume, 0)}</p>
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
 
@@ -125,7 +125,7 @@ const DarkPoolSummaryCard = ({ summary }) => {
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Today's Volume:</span>
-              <span className="font-medium">{formatNumber(summary.total_volume)}</span>
+              <span className="font-medium">{formatNumber(summary.total_volume, 0)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">90-Day Average:</span>
@@ -232,68 +232,75 @@ export default function Scanner() {
   const [hasHistory, setHasHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Fetch dark pool data with 10-minute timeout
+  // Fetch dark pool data with improved error handling
   const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const url = '/api/darkpool-trades';
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
-      
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const response = await retry(async () => {
+        return await fetchWithTimeout('/api/darkpool-trades', {}, 600000); // 10 minute timeout
+      }, 3, 2000);
       
       const data = await response.json();
       
-      if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-      } else {
-        setError(data.error || 'Unable to load dark pool data');
-        setDarkPoolData([]);
-      }
+      setDarkPoolData(data.trades || []);
+      setLastUpdated(data.last_updated);
+      setIsCached(data.cached || false);
+      setHasHistory(data.has_history || false);
+      
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
-      if (error.name === 'AbortError') {
-        setError('Request timed out after 10 minutes. Please try again.');
-      } else {
-        setError('Network error. Please check your connection and try again.');
+      
+      let errorMessage = 'Unable to load dark pool data';
+      if (error.status === 503) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+      } else if (error.status === 408) {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.status === 0) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      setError(errorMessage);
       setDarkPoolData([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Manual refresh with 10-minute timeout
+  // Manual refresh with improved error handling
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for refresh
-      
-      const response = await fetch('/api/darkpool-trades?refresh=true', { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const response = await retry(async () => {
+        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 600000); // 10 minute timeout
+      }, 3, 2000);
       
       const data = await response.json();
       
-      if (response.ok) {
-        setDarkPoolData(data.trades || []);
-        setLastUpdated(data.last_updated);
-        setError(null);
-      } else {
-        setError(data.error || 'Unable to refresh dark pool data');
-      }
+      setDarkPoolData(data.trades || []);
+      setLastUpdated(data.last_updated);
+      setError(null);
+      setIsCached(data.cached || false);
+      setHasHistory(data.has_history || false);
+      
     } catch (error) {
       console.error('Error refreshing dark pool data:', error);
-      if (error.name === 'AbortError') {
-        setError('Refresh timed out after 10 minutes. Please try again.');
-      } else {
-        setError('Network error during refresh. Please try again.');
+      
+      let errorMessage = 'Unable to refresh dark pool data';
+      if (error.status === 503) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+      } else if (error.status === 408) {
+        errorMessage = 'Refresh timed out. Please try again.';
+      } else if (error.status === 0) {
+        errorMessage = 'Network error during refresh. Please try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      setError(errorMessage);
     } finally {
       setIsRefreshing(false);
     }
