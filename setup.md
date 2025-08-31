@@ -1,137 +1,152 @@
-# 🚀 Dark Pool Scanner Setup Guide
+# CSV-Based Dark Pool Scanner Setup
 
-## ✅ **What I've Built For You:**
+This guide will help you set up the manual CSV-based dark pool scanner.
 
-### **1. JSON-Based Storage System**
-- **JSON file storage** for dark pool trades (Vercel-compatible)
-- **Automatic data collection** from Polygon.io
-- **15-minute refresh cycle** for real-time updates
-- **Specific data fields**: ticker, exchange_id=4, trf_id, volume, price, timestamp
+## 📁 Directory Structure
 
-### **2. New Scanner Interface**
-- **Shows top 25 tickers by default** (ranked by dark pool volume)
-- **Displays ticker and total daily volume** (no timestamps or IDs)
-- **"15 min delayed" indicator** instead of "Live Data"
-- **24-hour data collection** with manual refresh capability
-- **90-day historical comparison** for each ticker
-- **CSV download** functionality for data export
-- **Daily volume resets at midnight**
+Create the following directory structure in your project:
 
-### **3. Data Structure**
-```json
-{
-  "trades": [
-    {
-      "id": "unique_id",
-      "ticker": "AAPL",
-      "exchange_id": 4,
-      "trf_id": "123",
-      "volume": 1000,
-      "price": 150.25,
-      "timestamp": "2024-01-01T10:00:00Z",
-      "trade_date": "2024-01-01",
-      "created_at": "2024-01-01T10:00:00Z"
-    }
-  ],
-  "last_updated": "2024-01-01T10:00:00Z"
-}
+```
+Website/
+├── data/
+│   ├── daily/          # Upload your daily CSV files here
+│   └── darkpool_history.csv  # Will be created automatically
+├── pages/
+├── src/
+└── ...
 ```
 
-## 🛠️ **What You Need to Do:**
+## 🔧 Setup Instructions
 
-### **Step 1: Install Dependencies**
+### 1. Install Dependencies
+
 ```bash
 cd Website
 npm install
 ```
 
-### **Step 2: Set Up Environment Variables**
-1. **Copy the environment file:**
-   ```bash
-   cp env.example .env.local
-   ```
+### 2. Create Data Directory
 
-2. **Edit `.env.local` and add your Polygon API key:**
-   ```
-   POLYGON_API_KEY=your_actual_polygon_api_key_here
-   ```
+```bash
+mkdir -p data/daily
+```
 
-### **Step 3: Test Locally**
+### 3. Upload Your CSV Files
+
+1. **Download CSV from Polygon.io**
+   - Go to your Polygon.io dashboard
+   - Download the 90-day historical data as CSV
+   - Make sure it includes the following columns:
+     - `ticker` or `symbol`
+     - `exchange`
+     - `trf_id`
+     - `size` or `volume`
+     - `price` or `p`
+     - `timestamp` or `t`
+
+2. **Upload to the daily folder**
+   - Place your CSV file in the `data/daily/` directory
+   - The system will automatically use the most recent file
+
+### 4. Start the Development Server
+
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000/scanner` to see your dark pool scanner!
+### 5. Access the Scanner
 
-### **Step 4: Deploy to Vercel**
-1. **Push your changes to GitHub**
-2. **Vercel will automatically deploy** (if connected)
-3. **Add environment variable in Vercel dashboard:**
-   - Go to your Vercel project
-   - Settings → Environment Variables
-   - Add `POLYGON_API_KEY` with your actual API key
+Navigate to `http://localhost:3000/scanner`
 
-## 📊 **How It Works:**
+## 📊 CSV File Requirements
 
-### **Data Flow:**
-1. **Polygon.io API** → Fetches trade data every 15 minutes
-2. **Filtering** → Only keeps trades with `exchange_id = 4` AND `trf_id` present
-3. **Database Storage** → Saves filtered dark pool trades to SQLite
-4. **Frontend Display** → Shows trades in real-time with auto-refresh
+Your CSV file should have the following columns:
 
-### **API Endpoints:**
-- **`/api/darkpool-trades`** → Get today's top 25 dark pool trades
-- **`/api/refresh-darkpool`** → Manually refresh data from Polygon
+| Column | Required | Description |
+|--------|----------|-------------|
+| `ticker` or `symbol` | Yes | Stock ticker symbol |
+| `exchange` | Yes | Exchange ID (4 for dark pools) |
+| `trf_id` | Yes | Trade reporting facility ID |
+| `size` or `volume` | Yes | Trade volume |
+| `price` or `p` | Yes | Trade price |
+| `timestamp` or `t` | Yes | Trade timestamp |
 
-### **Refresh Schedule:**
-- **Manual refresh** → Click refresh button anytime to get latest data
-- **90-day historical data** → Fetched for each ticker to show activity ratios
-- **Timeout protection** → 15-20 second timeout per API call for large data requests
-- **Midnight reset** → All data resets daily at midnight
+## 🔍 How It Works
 
-## 🎯 **What You'll See:**
+1. **CSV Processing**: The system reads your uploaded CSV file
+2. **Dark Pool Detection**: Filters trades where `exchange = 4` AND `trf_id` is present
+3. **Grouping**: Groups trades by ticker and calculates totals
+4. **Display**: Shows tickers sorted by dark pool volume
 
-### **Scanner Dashboard:**
-- **Header**: Shows "15 min delayed" badge and ticker count
-- **Default View**: Shows top 25 tickers by dark pool volume for the day
-- **90-Day History**: Expandable panels showing historical comparison
-- **CSV Download**: Export current data to CSV file
-- **Cards**: Each card shows:
-  - Ticker symbol
-  - Today's total dark pool volume
-  - Number of trades
-  - 90-day average volume and trade count
-  - Volume ratio (today vs 90-day average)
-  - Resets at midnight each day
+## 📈 Daily Workflow
 
-### **Data Updates:**
-- **Manual**: Click refresh button anytime to get latest data
-- **Historical**: 90-day data fetched for activity ratio calculations
-- **Export**: Download CSV file with current data and historical averages
-- **Midnight reset**: All data resets daily at midnight
+1. **Download CSV**: Get your daily data from Polygon.io
+2. **Upload**: Place the CSV file in `data/daily/`
+3. **Refresh**: Visit the scanner page to see results
+4. **Optional**: Add `?save=true` to the URL to save to historical CSV
 
-## 🔧 **Troubleshooting:**
+## 🚀 Deployment
 
-### **If you see "Service Temporarily Unavailable":**
-1. Check your Polygon API key is set correctly
-2. Verify the API key has the right permissions
-3. Check Vercel environment variables
+### Vercel Deployment
 
-### **If no data appears:**
-1. Wait 15 minutes for first data collection
-2. Check browser console for errors
-3. Verify Polygon API is working
+1. **Upload your CSV files** to the `data/daily/` directory
+2. **Deploy to Vercel**:
+   ```bash
+   vercel --prod
+   ```
 
-### **If storage issues occur:**
-1. The system will automatically create the JSON data file
-2. Check Vercel logs for any errors
-3. Data file will be created in `/tmp` directory on Vercel
+### Local Deployment
 
-## 📈 **Next Steps:**
+1. **Build the project**:
+   ```bash
+   npm run build
+   npm start
+   ```
 
-1. **Test the scanner** with popular tickers like AAPL, TSLA, NVDA
-2. **Monitor the logs** to see data collection working
-3. **Customize the ticker list** in `/api/refresh-darkpool.js` if needed
-4. **Add more features** like historical data or alerts
+## 🔧 Troubleshooting
 
-The system is now ready to show you real dark pool trading activity! 🚀
+### No CSV Files Found
+
+If you see "No CSV files found":
+1. Check that your CSV file is in the `data/daily/` directory
+2. Ensure the file has a `.csv` extension
+3. Verify the file is readable
+
+### No Dark Pool Trades
+
+If no dark pool trades are found:
+1. Check that your CSV has the required columns
+2. Verify that `exchange = 4` for dark pool trades
+3. Ensure `trf_id` is present for dark pool trades
+
+### File Format Issues
+
+If you get parsing errors:
+1. Check that your CSV is properly formatted
+2. Ensure column names match the requirements
+3. Verify there are no encoding issues
+
+## 📝 Example CSV Format
+
+```csv
+ticker,exchange,trf_id,size,price,timestamp
+AAPL,4,201,100,150.25,2024-01-15T10:30:00Z
+MSFT,4,202,200,300.50,2024-01-15T10:31:00Z
+GOOGL,4,203,150,2800.75,2024-01-15T10:32:00Z
+```
+
+## 🎯 Benefits of This Approach
+
+- **No API timeouts**: All processing is local
+- **Fast loading**: Instant results from CSV analysis
+- **Reliable**: No dependency on external API calls
+- **Flexible**: Works with any CSV format from Polygon.io
+- **Offline capable**: Can work without internet connection
+
+## 📞 Support
+
+If you encounter issues:
+1. Check the browser console for error messages
+2. Verify your CSV file format
+3. Ensure all required columns are present
+4. Check file permissions in the data directory

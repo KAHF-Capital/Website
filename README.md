@@ -1,28 +1,28 @@
-# Kahf Capital Website
+# CSV-Based Dark Pool Scanner
 
-A modern web application for dark pool trading analysis and portfolio management.
+A simple, reliable dark pool trading scanner that analyzes CSV files from Polygon.io.
 
 ## 🚀 Features
 
-- **Dark Pool Scanner**: Real-time dark pool trading activity analysis
-- **Portfolio Management**: Track and analyze your investment portfolio
-- **Analytics Dashboard**: Comprehensive trading analytics and insights
-- **Responsive Design**: Modern UI that works on all devices
-- **Real-time Data**: Live market data integration via Polygon.io API
+- **CSV Analysis**: Processes Polygon.io CSV files locally
+- **Dark Pool Detection**: Identifies dark pool trades (exchange = 4 AND trf_id present)
+- **Volume Ranking**: Shows tickers sorted by dark pool volume
+- **Fast Loading**: Instant results from local CSV processing
+- **No API Dependencies**: Works completely offline
+- **Simple Setup**: Just upload CSV files and view results
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14, React 18, Tailwind CSS
 - **Backend**: Next.js API Routes, Node.js
-- **Data Storage**: JSON-based file storage (Vercel-compatible)
-- **External APIs**: Polygon.io for market data
-- **Deployment**: Vercel (recommended)
+- **Data Processing**: CSV parsing and analysis
+- **File Storage**: Local CSV files
 
 ## 📋 Prerequisites
 
 - Node.js 18+ 
 - npm or yarn
-- Polygon.io API key (free tier available)
+- Polygon.io CSV export (90-day historical data)
 
 ## 🔧 Installation
 
@@ -39,144 +39,120 @@ A modern web application for dark pool trading analysis and portfolio management
    yarn install
    ```
 
-3. **Set up environment variables**
+3. **Create data directory**
    ```bash
-   cp env.example .env.local
-   ```
-   
-   Edit `.env.local` and add your Polygon.io API key:
-   ```
-   POLYGON_API_KEY=your_actual_api_key_here
+   mkdir -p data/daily
    ```
 
-4. **Run the development server**
+4. **Upload your CSV file**
+   - Download 90-day historical data from Polygon.io
+   - Place the CSV file in the `data/daily/` directory
+
+5. **Start the development server**
    ```bash
    npm run dev
    # or
    yarn dev
    ```
 
-5. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🔑 Getting a Polygon.io API Key
-
-1. Visit [Polygon.io](https://polygon.io)
-2. Sign up for a free account
-3. Navigate to your API keys section
-4. Copy your API key
-5. Add it to your `.env.local` file
-
-**Note**: The free tier includes:
-- 5 API calls per minute
-- Basic market data access
-- Suitable for development and small-scale usage
+6. **Open your browser**
+   Navigate to [http://localhost:3000/scanner](http://localhost:3000/scanner)
 
 ## 📁 Project Structure
 
 ```
 Website/
-├── pages/                 # Next.js pages and API routes
-│   ├── api/              # API endpoints
+├── data/                 # CSV files directory
+│   ├── daily/           # Upload your daily CSV files here
+│   └── darkpool_history.csv  # Historical data (auto-generated)
+├── pages/               # Next.js pages and API routes
+│   ├── api/            # API endpoints
 │   │   └── darkpool-trades.js
-│   ├── scanner.js        # Scanner page
-│   └── index.js          # Home page
+│   ├── scanner.js      # Scanner page
+│   └── index.js        # Home page
 ├── src/
-│   ├── components/       # Reusable React components
-│   │   ├── ui/          # UI components (buttons, inputs, etc.)
+│   ├── components/     # React components
+│   │   ├── ui/        # UI components
 │   │   └── ErrorBoundary.jsx
-│   ├── pages/           # Page components
+│   ├── pages/         # Page components
 │   │   └── Scanner.jsx
-│   ├── utils.js         # Utility functions
-│   └── index.css        # Global styles
-├── lib/
-│   └── database.js      # Data storage utilities
-├── public/              # Static assets
-├── package.json         # Dependencies and scripts
-├── next.config.js       # Next.js configuration
-├── tailwind.config.js   # Tailwind CSS configuration
-└── README.md           # This file
+│   ├── utils.js       # Utility functions
+│   └── index.css      # Global styles
+├── package.json        # Dependencies and scripts
+├── next.config.js      # Next.js configuration
+├── tailwind.config.js  # Tailwind CSS configuration
+├── SETUP.md           # Detailed setup instructions
+└── README.md          # This file
 ```
+
+## 📊 CSV File Requirements
+
+Your CSV file must include these columns:
+
+| Column | Required | Description |
+|--------|----------|-------------|
+| `ticker` or `symbol` | Yes | Stock ticker symbol |
+| `exchange` | Yes | Exchange ID (4 for dark pools) |
+| `trf_id` | Yes | Trade reporting facility ID |
+| `size` or `volume` | Yes | Trade volume |
+| `price` or `p` | Yes | Trade price |
+| `timestamp` or `t` | Yes | Trade timestamp |
+
+## 🔍 How It Works
+
+1. **CSV Upload**: Place your Polygon.io CSV file in `data/daily/`
+2. **Dark Pool Detection**: System filters trades where `exchange = 4` AND `trf_id` is present
+3. **Data Processing**: Groups trades by ticker and calculates totals
+4. **Display**: Shows tickers sorted by dark pool volume
+
+## 📈 Daily Workflow
+
+1. **Download CSV**: Get your daily data from Polygon.io
+2. **Upload**: Place the CSV file in `data/daily/`
+3. **View Results**: Visit the scanner page to see analysis
+4. **Optional**: Add `?save=true` to URL to save to historical CSV
 
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
 
-1. **Install Vercel CLI**
+1. **Upload CSV files** to the `data/daily/` directory
+2. **Deploy to Vercel**:
    ```bash
-   npm i -g vercel
+   vercel --prod
    ```
-
-2. **Deploy**
-   ```bash
-   vercel
-   ```
-
-3. **Set environment variables**
-   - Go to your Vercel dashboard
-   - Navigate to your project settings
-   - Add `POLYGON_API_KEY` environment variable
 
 ### Other Platforms
 
-The application is compatible with any Node.js hosting platform:
+The application works on any Node.js hosting platform:
 - Netlify
 - Railway
 - DigitalOcean App Platform
 - AWS Amplify
 
-## 🔍 Troubleshooting
+## 🔧 Configuration
 
-### Common Issues
+### Environment Variables
 
-#### 1. "Service temporarily unavailable" Error
-**Cause**: Missing or invalid API key
-**Solution**: 
-- Verify your Polygon.io API key is correct
-- Check that the key is properly set in your environment variables
-- Ensure the key has the necessary permissions
+No environment variables required! The system works completely offline.
 
-#### 2. "Request timed out" Error
-**Cause**: API rate limiting or network issues
-**Solution**:
-- Check your Polygon.io API usage limits
-- Wait a few minutes and try again
-- Verify your internet connection
+### Customization
 
-#### 3. "Internal server error" Error
-**Cause**: Missing function or database corruption
-**Solution**:
-- Check the server logs for detailed error messages
-- Restart the development server
-- Clear the database file (it will be recreated automatically)
+#### Styling
+- Edit `tailwind.config.js` for theme customization
+- Modify `src/index.css` for global styles
 
-#### 4. Chrome Extension Error
-**Note**: The Chrome extension error you mentioned is unrelated to this website. It's from a browser extension, not this application.
-
-### Development Debugging
-
-1. **Enable detailed error messages**
-   ```bash
-   NODE_ENV=development npm run dev
-   ```
-
-2. **Check API responses**
-   - Open browser developer tools
-   - Go to Network tab
-   - Monitor API calls to `/api/darkpool-trades`
-
-3. **View server logs**
-   - Check the terminal where you're running the dev server
-   - Look for error messages and API call logs
+#### CSV Processing
+- Update column mappings in `pages/api/darkpool-trades.js`
+- Modify filtering logic for different CSV formats
 
 ## 📊 API Endpoints
 
 ### GET /api/darkpool-trades
-Fetches dark pool trading data.
+Analyzes the latest CSV file and returns dark pool data.
 
 **Query Parameters:**
-- `refresh` (optional): Set to "true" to force refresh data
-- `include_history` (optional): Set to "true" to include 90-day historical data
+- `save` (optional): Set to "true" to save results to historical CSV
 
 **Response:**
 ```json
@@ -185,40 +161,18 @@ Fetches dark pool trading data.
   "trades": [
     {
       "ticker": "AAPL",
-      "total_volume": 1500000,
+      "total_volume": 2500000,
       "trade_count": 45,
-      "avg_90day_volume": 1200000,
-      "volume_ratio": 1.25
+      "avg_price": 150.25,
+      "total_value": 375625000
     }
   ],
   "total_tickers": 25,
+  "total_trades": 1500,
   "last_updated": "2024-01-15T10:30:00Z",
-  "cached": true
+  "file_processed": "polygon_data_2024-01-15.csv"
 }
 ```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `POLYGON_API_KEY` | Your Polygon.io API key | Yes | - |
-| `NODE_ENV` | Environment mode | No | development |
-
-### Customization
-
-#### Styling
-- Edit `tailwind.config.js` for theme customization
-- Modify `src/index.css` for global styles
-
-#### API Configuration
-- Update timeout values in `src/utils.js`
-- Modify retry logic in API calls
-
-#### Data Storage
-- The application uses JSON file storage for simplicity
-- For production, consider migrating to a proper database
 
 ## 🤝 Contributing
 
@@ -236,31 +190,32 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you encounter any issues:
 
-1. Check the troubleshooting section above
-2. Review the error logs in your browser's developer tools
-3. Check the server logs in your terminal
-4. Create an issue on GitHub with detailed error information
+1. Check the setup guide in `SETUP.md`
+2. Verify your CSV file format
+3. Ensure all required columns are present
+4. Check file permissions in the data directory
+
+## 🎯 Benefits
+
+- **No API timeouts**: All processing is local
+- **Fast loading**: Instant results from CSV analysis
+- **Reliable**: No dependency on external API calls
+- **Flexible**: Works with any CSV format from Polygon.io
+- **Offline capable**: Can work without internet connection
+- **Simple maintenance**: Just upload new CSV files daily
 
 ## 🔄 Recent Updates
 
-### v1.1.0 (Latest)
-- ✅ Fixed missing `addHistoricalDataToTrades` function
-- ✅ Improved error handling and user feedback
-- ✅ Added retry logic with exponential backoff
-- ✅ Enhanced data validation and backup system
-- ✅ Aggressive timeout optimization (5-second API timeouts)
-- ✅ Improved error boundary component
-- ✅ Added comprehensive utility functions
-- ✅ Optimized API performance to prevent 504 timeouts
-- ✅ Reduced historical data period from 90 to 7 days
-- ✅ Implemented strict concurrency limiting (2 requests at a time)
-- ✅ Added health check endpoint for monitoring
-- ✅ Added fallback API with demo data for timeouts
-- ✅ Reduced trade limits and ticker counts for faster response
+### v2.0.0 (Latest)
+- ✅ Complete rewrite to CSV-based system
+- ✅ Removed all API dependencies
+- ✅ Local CSV processing and analysis
+- ✅ Simplified setup and deployment
+- ✅ No more timeout issues
+- ✅ Offline-capable system
+- ✅ Fast, reliable performance
 
-### v1.0.0
-- ✅ Initial release with dark pool scanner
-- ✅ Basic portfolio management
-- ✅ Responsive design
-- ✅ Polygon.io integration
+---
+
+**Note**: This system requires manual CSV uploads from Polygon.io. For automated data collection, consider upgrading to a paid Polygon.io plan with API access.
 

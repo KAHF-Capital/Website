@@ -77,14 +77,12 @@ const SafeDownload = () => {
 
 // Dark Pool Summary Card Component
 const DarkPoolSummaryCard = ({ summary }) => {
-  const [showHistory, setShowHistory] = useState(false);
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-lg font-bold text-gray-900">{summary.ticker}</h3>
-          <p className="text-sm text-gray-600">Today's Dark Pool Volume</p>
+          <p className="text-sm text-gray-600">Dark Pool Volume</p>
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500">{summary.trade_count} trades</div>
@@ -96,58 +94,16 @@ const DarkPoolSummaryCard = ({ summary }) => {
         <p className="text-sm text-gray-600">Total Volume</p>
       </div>
 
-      {/* 90-Day Average */}
-      {summary.avg_90day_volume > 0 && (
-        <div className="border-t pt-3">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">90-Day Avg:</span>
-            <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
-          </div>
-          <div className="flex justify-between items-center text-sm mt-1">
-            <span className="text-gray-600">Volume Ratio:</span>
-            <span className={`font-medium ${summary.volume_ratio > 2 ? 'text-green-600' : summary.volume_ratio > 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-              {summary.volume_ratio.toFixed(1)}x
-            </span>
-          </div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-full mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
-          >
-            {showHistory ? 'Hide Details' : 'Show 90-Day History'}
-          </button>
+      <div className="border-t pt-3">
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-gray-600">Avg Price:</span>
+          <span className="font-medium">${summary.avg_price?.toFixed(2) || '0.00'}</span>
         </div>
-      )}
-
-      {/* 90-Day History Panel */}
-      {showHistory && summary.avg_90day_volume > 0 && (
-        <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">90-Day Dark Pool History</h4>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Today's Volume:</span>
-              <span className="font-medium">{formatNumber(summary.total_volume, 0)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">90-Day Average:</span>
-              <span className="font-medium">{formatNumber(summary.avg_90day_volume)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Today's Trades:</span>
-              <span className="font-medium">{summary.trade_count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">90-Day Avg Trades:</span>
-              <span className="font-medium">{summary.avg_90day_trades}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Volume vs Average:</span>
-              <span className={`font-medium ${summary.volume_ratio > 2 ? 'text-green-600' : summary.volume_ratio > 1 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {summary.volume_ratio > 1 ? '+' : ''}{((summary.volume_ratio - 1) * 100).toFixed(0)}%
-              </span>
-            </div>
-          </div>
+        <div className="flex justify-between items-center text-sm mt-1">
+          <span className="text-gray-600">Total Value:</span>
+          <span className="font-medium">${formatNumber(summary.total_value, 0)}</span>
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -232,93 +188,49 @@ export default function Scanner() {
   const [hasHistory, setHasHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Fetch dark pool data with improved error handling and fallback
+  // Fetch dark pool data from CSV analysis
   const fetchDarkPoolData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades', {}, 20000); // 20 second timeout
-      }, 2, 1000);
-      
+      const response = await fetch('/api/darkpool-trades');
       const data = await response.json();
       
-      setDarkPoolData(data.trades || []);
-      setLastUpdated(data.last_updated);
-      setIsCached(data.cached || false);
-      setHasHistory(data.has_history || false);
-      
+      if (response.ok) {
+        setDarkPoolData(data.trades || []);
+        setLastUpdated(data.last_updated);
+        setError(null);
+      } else {
+        setError(data.error || 'Unable to load dark pool data');
+        setDarkPoolData([]);
+      }
     } catch (error) {
       console.error('Error fetching dark pool data:', error);
-      
-      // Try fallback API if main API times out
-      if (error.status === 408 || error.status === 504 || error.message.includes('timeout')) {
-        try {
-          console.log('Trying fallback API...');
-          const fallbackResponse = await fetchWithTimeout('/api/darkpool-trades-fallback', {}, 5000);
-          const fallbackData = await fallbackResponse.json();
-          
-          setDarkPoolData(fallbackData.trades || []);
-          setLastUpdated(fallbackData.last_updated);
-          setIsCached(false);
-          setHasHistory(fallbackData.has_history || false);
-          setError('Demo data loaded - API timeout detected. Please try refreshing later for real-time data.');
-          return;
-        } catch (fallbackError) {
-          console.error('Fallback API also failed:', fallbackError);
-        }
-      }
-      
-      let errorMessage = 'Unable to load dark pool data';
-      if (error.status === 503) {
-        errorMessage = 'Service temporarily unavailable. Please try again later.';
-      } else if (error.status === 408 || error.status === 504) {
-        errorMessage = 'Request timed out. The server is taking too long to respond. Please try again in a few minutes.';
-      } else if (error.status === 0) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
+      setError('Network error. Please check your connection and try again.');
       setDarkPoolData([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Manual refresh with improved error handling
+  // Manual refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const response = await retry(async () => {
-        return await fetchWithTimeout('/api/darkpool-trades?refresh=true', {}, 30000); // 30 second timeout for refresh
-      }, 2, 1000);
-      
+      const response = await fetch('/api/darkpool-trades');
       const data = await response.json();
       
-      setDarkPoolData(data.trades || []);
-      setLastUpdated(data.last_updated);
-      setError(null);
-      setIsCached(data.cached || false);
-      setHasHistory(data.has_history || false);
-      
+      if (response.ok) {
+        setDarkPoolData(data.trades || []);
+        setLastUpdated(data.last_updated);
+        setError(null);
+      } else {
+        setError(data.error || 'Unable to refresh dark pool data');
+      }
     } catch (error) {
       console.error('Error refreshing dark pool data:', error);
-      
-      let errorMessage = 'Unable to refresh dark pool data';
-      if (error.status === 503) {
-        errorMessage = 'Service temporarily unavailable. Please try again later.';
-      } else if (error.status === 408 || error.status === 504) {
-        errorMessage = 'Refresh timed out. The server is taking too long to respond. Please try again in a few minutes.';
-      } else if (error.status === 0) {
-        errorMessage = 'Network error during refresh. Please try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
+      setError('Network error during refresh. Please try again.');
     } finally {
       setIsRefreshing(false);
     }
@@ -377,12 +289,12 @@ export default function Scanner() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Dark Pool Scanner</h1>
-              <p className="mt-1 text-gray-600">24-hour dark pool trading activity</p>
+              <p className="mt-1 text-gray-600">CSV-based dark pool analysis</p>
             </div>
             <div className="flex items-center space-x-3">
-              <SafeBadge className="flex items-center space-x-1 bg-orange-100 text-orange-800 border-orange-200">
-                <SafeClock />
-                <span>15 min delayed</span>
+              <SafeBadge className="flex items-center space-x-1 bg-green-100 text-green-800 border-green-200">
+                <SafeInfo />
+                <span>CSV Analysis</span>
               </SafeBadge>
               <SafeBadge variant="outline" className="flex items-center space-x-1">
                 <span>{darkPoolData.length} Tickers</span>
@@ -461,10 +373,10 @@ export default function Scanner() {
         {darkPoolData.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Top 25 Tickers by Dark Pool Volume
+              Dark Pool Trades by Volume
             </h2>
             <p className="text-gray-600 mt-1">
-              Today's highest dark pool activity with 90-day historical comparison
+              Analyzed from uploaded CSV file
             </p>
           </div>
         )}
