@@ -56,10 +56,14 @@ const StraddleCalculator = () => {
     if (value.length >= 1) {
       const price = await fetchCurrentPrice(value);
       if (price) {
+        // Round strike price to nearest 5 if under $100, nearest 10 if over $100
+        const strikeIncrement = price < 100 ? 5 : 10;
+        const roundedStrike = Math.round(price / strikeIncrement) * strikeIncrement;
+        
         setInputs(prev => ({ 
           ...prev, 
           currentPrice: price.toFixed(2),
-          strikePrice: price.toFixed(2) // Set ATM strike price
+          strikePrice: roundedStrike.toFixed(2) // Set rounded ATM strike price
         }));
       }
     }
