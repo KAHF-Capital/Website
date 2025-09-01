@@ -21,6 +21,7 @@ const StraddleCalculator = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fetchingOptions, setFetchingOptions] = useState(false);
 
   // Handle URL parameters for pre-filling ticker
   useEffect(() => {
@@ -69,6 +70,19 @@ const StraddleCalculator = () => {
     }
   };
 
+  // Fetch straddle options for a given ticker and expiration date
+  const fetchStraddleOptions = async (ticker, expirationDate) => {
+    try {
+      const response = await fetch(`/api/straddle-options?ticker=${ticker.toUpperCase()}&expiration=${expirationDate}`);
+      if (!response.ok) throw new Error('Failed to fetch straddle options');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching straddle options:', error);
+      return null;
+    }
+  };
+
   // Handle ticker input with auto-price fetch
   const handleTickerChange = async (value) => {
     setInputs(prev => ({ ...prev, ticker: value.toUpperCase() }));
@@ -76,7 +90,38 @@ const StraddleCalculator = () => {
     if (value.length >= 1) {
       const price = await fetchCurrentPrice(value);
       if (price) {
-        setInputs(prev => ({ ...prev, currentPrice: price.toFixed(2) }));
+        setInputs(prev => ({ 
+          ...prev, 
+          currentPrice: price.toFixed(2),
+          strikePrice: price.toFixed(2) // Set ATM strike price
+        }));
+      }
+    }
+  };
+
+  // Handle expiration date change with straddle options fetch
+  const handleExpirationChange = async (value) => {
+    setInputs(prev => ({ ...prev, expirationDate: value }));
+    
+    if (value && inputs.ticker) {
+      setFetchingOptions(true);
+      setError('');
+      
+      try {
+        const straddleData = await fetchStraddleOptions(inputs.ticker, value);
+        if (straddleData && straddleData.totalPremium > 0) {
+          setInputs(prev => ({ 
+            ...prev, 
+            totalPremium: straddleData.totalPremium.toFixed(2),
+            strikePrice: straddleData.strikePrice.toFixed(2)
+          }));
+        } else {
+          setError('No straddle options found for this expiration date. Please try a different date or enter premium manually.');
+        }
+      } catch (error) {
+        setError('Failed to fetch straddle options. Please enter premium manually.');
+      } finally {
+        setFetchingOptions(false);
       }
     }
   };
@@ -237,12 +282,16 @@ const StraddleCalculator = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Expiration Date *
+                          {fetchingOptions && (
+                            <span className="ml-2 text-xs text-green-600">Fetching options...</span>
+                          )}
                         </label>
                         <Input
                           type="date"
                           value={inputs.expirationDate}
-                          onChange={(e) => setInputs(prev => ({ ...prev, expirationDate: e.target.value }))}
+                          onChange={(e) => handleExpirationChange(e.target.value)}
                           className="w-full"
+                          disabled={fetchingOptions}
                         />
                       </div>
                     </div>
@@ -273,6 +322,9 @@ const StraddleCalculator = () => {
                         onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
                         className="w-full"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Premium will be automatically calculated when you select an expiration date
+                      </p>
                     </div>
 
                     <Button
