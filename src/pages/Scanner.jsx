@@ -288,7 +288,11 @@ export default function Scanner() {
             <div className="max-w-6xl mx-auto">
               <div className="text-center mb-8">
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                  {new Date(darkPoolData.date).toLocaleDateString()} - Dark Pool Activity
+                  {new Date(darkPoolData.date + 'T00:00:00').toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'numeric', 
+                    day: 'numeric' 
+                  })} - Dark Pool Activity
                 </h3>
                 <p className="text-base text-gray-600 max-w-2xl mx-auto">
                   {formatNumber(darkPoolData.tickers.length)} tickers, {formatNumber(darkPoolData.total_volume)} total volume
