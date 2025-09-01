@@ -8,31 +8,26 @@ import Footer from './Footer';
 export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const scannerFeatures = [
+  const platformFeatures = [
     {
-      name: "Dark Pool Volume",
-      description: "Track institutional trading activity hidden from public markets",
+      name: "Dark Pool Scanner",
+      description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
       icon: BarChart3,
     },
     {
-      name: "Real-time Analytics",
-      description: "Monitor top tickers by aggregated daily dark pool volume",
+      name: "Volume Analytics",
+      description: "Monitor top tickers by aggregated daily dark pool volume with real-time filtering",
       icon: TrendingUp,
     },
     {
-      name: "Institutional Insights",
-      description: "See what the smart money is trading before it moves the market",
+      name: "Straddle Analysis",
+      description: "Analyze historical profitability of ATM straddle strategies for any ticker",
       icon: Target,
     },
     {
-      name: "Advanced Filtering",
-      description: "Filter by volume, date, and trading patterns for precise analysis",
+      name: "Volatility Arbitrage",
+      description: "Complete workflow from opportunity discovery to strategy analysis",
       icon: Search,
-    },
-    {
-      name: "Straddle Calculator",
-      description: "Analyze historical profitability of ATM straddle strategies",
-      icon: Shield,
     }
   ];
 
@@ -109,25 +104,23 @@ export default function Home() {
             Learn how to trade like the <span className="text-green-600">1%</span>
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Access institutional-grade dark pool analytics and see what the smart money is trading. 
-            Track hidden institutional activity and discover trading opportunities before they move the market - 
-            now available to individual traders for the first time.
+            Discover volatility arbitrage opportunities using institutional-grade dark pool analytics and straddle analysis. 
+            Find what the smart money is trading, then analyze the profitability of volatility strategies - 
+            the complete toolkit for professional volatility trading.
           </p>
-          <div className="flex flex-col gap-4 justify-center">
-            <Link href="/scanner" className="w-full">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/scanner" className="w-full sm:w-auto">
               <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
                 Access Dark Pool Scanner
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>
-            <div className="text-center">
-              <p className="text-sm text-gray-500 mb-2">Plus, analyze straddle profitability with our</p>
-              <Link href="/straddle-calculator">
-                <button className="text-green-600 hover:text-green-700 font-medium underline touch-manipulation">
-                  ATM Straddle Calculator
-                </button>
-              </Link>
-            </div>
+            <Link href="/straddle-calculator" className="w-full sm:w-auto">
+              <button className="w-full bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
+                Straddle Calculator
+                <ArrowRight className="ml-2 h-5 w-5 inline" />
+              </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -136,14 +129,14 @@ export default function Home() {
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Volatility Arbitrage Platform</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Professional-grade analytics and tools for institutional-level trading
+              Complete workflow from dark pool opportunity discovery to straddle strategy analysis
             </p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {scannerFeatures.map((feature, index) => (
+            {platformFeatures.map((feature, index) => (
               <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
