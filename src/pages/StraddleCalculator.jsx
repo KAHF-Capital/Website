@@ -50,6 +50,19 @@ const StraddleCalculator = () => {
     }
   };
 
+  // Fetch available expiration dates for a ticker
+  const fetchAvailableExpirations = async (ticker) => {
+    try {
+      const response = await fetch(`/api/available-expirations?ticker=${ticker}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableExpirations(data.expirations || []);
+      }
+    } catch (error) {
+      console.error('Error fetching available expirations:', error);
+    }
+  };
+
   // Handle ticker input with auto-price fetch
   const handleTickerChange = async (value) => {
     setInputs(prev => ({ ...prev, ticker: value.toUpperCase() }));
@@ -66,6 +79,9 @@ const StraddleCalculator = () => {
           currentPrice: price.toFixed(2),
           strikePrice: roundedStrike.toFixed(2) // Set rounded ATM strike price
         }));
+        
+        // Fetch available expiration dates
+        await fetchAvailableExpirations(value);
       }
     }
   };
@@ -101,8 +117,18 @@ const StraddleCalculator = () => {
           setInputs(prev => ({ 
             ...prev, 
             totalPremium: straddleData.totalPremium.toFixed(2),
-            strikePrice: straddleData.strikePrice.toFixed(2)
+            strikePrice: straddleData.strikePrice.toFixed(2),
+            expirationDate: straddleData.expiration // Use the actual expiration date from API
           }));
+          
+          // Show a message if the expiration date was adjusted
+          if (straddleData.requestedExpiration && straddleData.expiration !== straddleData.requestedExpiration) {
+            setError(
+              <span>
+                Note: Using closest available expiration date {straddleData.expiration} (requested {straddleData.requestedExpiration})
+              </span>
+            );
+          }
         } else {
           setError(
             <span>
@@ -115,7 +141,7 @@ const StraddleCalculator = () => {
               >
                 check Yahoo Finance options
               </a>{' '}
-              to enter premium manually.
+              to enter premium manually. Available expirations: {availableExpirations.slice(0, 3).join(', ')}
             </span>
           );
         }
@@ -213,6 +239,7 @@ const StraddleCalculator = () => {
   const daysToExp = calculateDaysToExpiration();
   const [showStraddleInfo, setShowStraddleInfo] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [availableExpirations, setAvailableExpirations] = useState([]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -373,6 +400,12 @@ const StraddleCalculator = () => {
                     className="w-full"
                           disabled={fetchingOptions}
                   />
+                  {availableExpirations.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Available expirations: {availableExpirations.slice(0, 5).join(', ')}
+                      {availableExpirations.length > 5 && ` and ${availableExpirations.length - 5} more`}
+                    </p>
+                  )}
                 </div>
               </div>
 

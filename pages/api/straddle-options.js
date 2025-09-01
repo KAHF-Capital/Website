@@ -36,14 +36,54 @@ export default async function handler(req, res) {
     const strikeIncrement = 5;
     let atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
 
-    // Use the All Contracts endpoint to find available options contracts
-    // This is much more reliable than guessing ticker symbols
+    // First, get all available expiration dates for this ticker
+    const allContractsResponse = await fetch(
+      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&limit=1000&apiKey=${POLYGON_API_KEY}`
+    );
+
+    if (!allContractsResponse.ok) {
+      throw new Error('Failed to fetch options contracts');
+    }
+
+    const allContractsData = await allContractsResponse.json();
+    const allContracts = allContractsData.results || [];
+
+    if (allContracts.length === 0) {
+      throw new Error('No options contracts found for this ticker');
+    }
+
+    console.log(`Found ${allContracts.length} total contracts for ${ticker}`);
+    console.log(`Available expiration dates:`, [...new Set(allContracts.map(c => c.expiration_date))].slice(0, 10));
+
+    // Find the closest available expiration date to the requested date
+    const requestedDate = new Date(expiration);
+    let closestExpiration = null;
+    let minDateDiff = Infinity;
+
+    for (const contract of allContracts) {
+      if (contract.expiration_date) {
+        const contractDate = new Date(contract.expiration_date);
+        const dateDiff = Math.abs(contractDate - requestedDate);
+        if (dateDiff < minDateDiff) {
+          minDateDiff = dateDiff;
+          closestExpiration = contract.expiration_date;
+        }
+      }
+    }
+
+    if (!closestExpiration) {
+      throw new Error('No valid expiration dates found for this ticker');
+    }
+
+    console.log(`Requested expiration: ${expiration}, Using closest available: ${closestExpiration}`);
+
+    // Now get contracts for the closest available expiration date
     const contractsResponse = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${expiration}&contract_type=call&limit=1000&apiKey=${POLYGON_API_KEY}`
+      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=call&limit=1000&apiKey=${POLYGON_API_KEY}`
     );
 
     if (!contractsResponse.ok) {
-      throw new Error('Failed to fetch options contracts');
+      throw new Error('Failed to fetch call options contracts');
     }
 
     const contractsData = await contractsResponse.json();
@@ -51,7 +91,7 @@ export default async function handler(req, res) {
 
     // Get put contracts for the same expiration
     const putContractsResponse = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${expiration}&contract_type=put&limit=1000&apiKey=${POLYGON_API_KEY}`
+      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=put&limit=1000&apiKey=${POLYGON_API_KEY}`
     );
 
     if (!putContractsResponse.ok) {
@@ -60,6 +100,13 @@ export default async function handler(req, res) {
 
     const putContractsData = await putContractsResponse.json();
     const putContracts = putContractsData.results || [];
+
+    if (callContracts.length === 0 || putContracts.length === 0) {
+      throw new Error(`No options contracts found for ${ticker} expiring ${closestExpiration}`);
+    }
+
+    console.log(`Found ${callContracts.length} call contracts and ${putContracts.length} put contracts for ${closestExpiration}`);
+    console.log(`Available strikes:`, [...new Set(callContracts.map(c => c.strike_price))].slice(0, 10));
 
     // Find the closest ATM options (closest strike to current price)
     let bestCall = null;
@@ -108,7 +155,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ticker,
-      expiration,
+      expiration: closestExpiration,  // Return the actual expiration date used
+      requestedExpiration: expiration, // Keep track of what was requested
       currentPrice,
       strikePrice: foundStrike,
       callPrice,
