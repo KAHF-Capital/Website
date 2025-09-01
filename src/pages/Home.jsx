@@ -58,6 +58,9 @@ export default function Home() {
               <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Scanner
               </Link>
+              <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Straddle Calculator
+              </Link>
             </nav>
             <div className="sm:hidden">
               <button className="p-2 text-gray-900 hover:text-green-600 touch-manipulation" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -84,6 +87,9 @@ export default function Home() {
               </Link>
                 <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Scanner
+                </Link>
+                <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Straddle Calculator
                 </Link>
               </nav>
             </motion.div>

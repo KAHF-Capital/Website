@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Footer from './Footer';
+import { Info } from 'lucide-react';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -34,6 +36,7 @@ export default function Scanner() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
+  const [showScannerInfo, setShowScannerInfo] = useState(false);
 
   useEffect(() => {
     loadDarkPoolData();
@@ -231,20 +234,31 @@ export default function Scanner() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900 mb-2 leading-tight tracking-tight">Dark Pool Scanner</h2>
-              <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">Dark Pool Scanner</h2>
+              <button
+                onClick={() => setShowScannerInfo(!showScannerInfo)}
+                className="p-2 text-gray-500 hover:text-green-600 transition-colors"
+                title="How it works"
+              >
+                <Info className="h-6 w-6" />
+              </button>
             </div>
+            <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
             
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto touch-manipulation"
-            >
-              <SafeRefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Loading...' : 'Refresh Data'}</span>
-            </button>
+            {showScannerInfo && (
+              <div className="mt-4 max-w-2xl bg-green-50 border border-green-200 rounded-lg p-4">
+                <h3 className="font-semibold text-green-800 mb-2">How the Dark Pool Scanner Works:</h3>
+                <div className="text-sm text-green-700 space-y-2">
+                  <p><strong>What are Dark Pools?</strong> Private exchanges where large institutions trade stocks away from public markets, often to avoid price impact.</p>
+                  <p><strong>Volume Ratio:</strong> Compares today's dark pool volume to the 7-day average. Higher ratios indicate unusual institutional activity.</p>
+                  <p><strong>Why It Matters:</strong> Large dark pool activity can signal institutional buying/selling before it becomes public, potentially indicating future price movements.</p>
+                  <p><strong>Filtering:</strong> Shows only stocks ≥$1 with ≥$100M total value to focus on significant activity.</p>
+                  <p><strong>Data Source:</strong> Analyzes pre-processed dark pool trading data from institutional sources.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -317,6 +331,9 @@ export default function Scanner() {
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
