@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
+import { TrendingUp, Target, BarChart3, Shield, CheckCircle, Menu, X } from 'lucide-react';
 import Footer from './Footer';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LearningModules() {
   const [activeStrategy, setActiveStrategy] = useState("long-straddle");
   const [activeTab, setActiveTab] = useState("overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   const strategies = {
@@ -257,8 +259,39 @@ export default function LearningModules() {
                 Straddle Calculator
               </Link>
             </nav>
+            <div className="sm:hidden">
+              <button className="p-2 text-gray-900 hover:text-green-600 touch-manipulation" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
         </div>
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="sm:hidden overflow-hidden"
+            >
+              <nav className="flex flex-col items-center space-y-1 p-3 border-t border-gray-200">
+                <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Home
+                </Link>
+                <Link href="/learning" className="text-green-600 font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Learning Modules
+                </Link>
+                <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Scanner
+                </Link>
+                <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  Straddle Calculator
+                </Link>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Main Content */}

@@ -36,83 +36,74 @@ export default async function handler(req, res) {
     const strikeIncrement = 5;
     let atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
 
-    // Format the expiration date for options ticker
+    // First, get available options contracts for this ticker and expiration
+    // We'll use the contract overview endpoint to find valid contracts
     const expDate = new Date(expiration);
     const expFormatted = expDate.toISOString().slice(0, 10).replace(/-/g, '');
-
-    // Construct options tickers for call and put
-    const callTicker = `${ticker}${expFormatted}C${atmStrike.toString().padStart(8, '0')}`;
-    const putTicker = `${ticker}${expFormatted}P${atmStrike.toString().padStart(8, '0')}`;
-
-    // Fetch both call and put option data
-    const [callResponse, putResponse] = await Promise.all([
-      fetch(`https://api.polygon.io/v1/open-close/${callTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
-      fetch(`https://api.polygon.io/v1/open-close/${putTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
-    ]);
+    
+    // Try to find ATM options by testing different strikes
+    const strikesToTry = [];
+    for (let i = -10; i <= 10; i += 5) {
+      const testStrike = atmStrike + i;
+      if (testStrike > 0) {
+        strikesToTry.push(testStrike);
+      }
+    }
 
     let callPrice = 0;
     let putPrice = 0;
+    let foundStrike = atmStrike;
 
-    if (callResponse.ok) {
-      const callData = await callResponse.json();
-      callPrice = callData.close || 0;
-    }
+    // Try to find valid options contracts
+    for (const strike of strikesToTry) {
+      const callTicker = `${ticker}${expFormatted}C${strike.toString().padStart(8, '0')}`;
+      const putTicker = `${ticker}${expFormatted}P${strike.toString().padStart(8, '0')}`;
 
-    if (putResponse.ok) {
-      const putData = await putResponse.json();
-      putPrice = putData.close || 0;
+      try {
+        // First check if the contract exists using contract overview
+        const [callContractResponse, putContractResponse] = await Promise.all([
+          fetch(`https://api.polygon.io/v3/reference/options/contracts/${callTicker}?apiKey=${POLYGON_API_KEY}`),
+          fetch(`https://api.polygon.io/v3/reference/options/contracts/${putTicker}?apiKey=${POLYGON_API_KEY}`)
+        ]);
+
+        if (callContractResponse.ok && putContractResponse.ok) {
+          // Contracts exist, now get pricing data
+          const [callResponse, putResponse] = await Promise.all([
+            fetch(`https://api.polygon.io/v1/open-close/${callTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
+            fetch(`https://api.polygon.io/v1/open-close/${putTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
+          ]);
+
+          if (callResponse.ok && putResponse.ok) {
+            const callData = await callResponse.json();
+            const putData = await putResponse.json();
+            
+            callPrice = callData.close || 0;
+            putPrice = putData.close || 0;
+            
+            if (callPrice > 0 && putPrice > 0) {
+              foundStrike = strike;
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.log(`Skipping strike ${strike}: ${error.message}`);
+        continue;
+      }
     }
 
     const totalPremium = callPrice + putPrice;
-
-    // If exact ATM options not found, try to find closest strikes
-    if (totalPremium === 0) {
-      // Try strikes within ±$5 of ATM
-      const strikesToTry = [];
-      for (let i = -5; i <= 5; i += strikeIncrement) {
-        const testStrike = atmStrike + i;
-        if (testStrike > 0) {
-          strikesToTry.push(testStrike);
-        }
-      }
-
-      for (const strike of strikesToTry) {
-        const testCallTicker = `${ticker}${expFormatted}C${strike.toString().padStart(8, '0')}`;
-        const testPutTicker = `${ticker}${expFormatted}P${strike.toString().padStart(8, '0')}`;
-
-        const [testCallResponse, testPutResponse] = await Promise.all([
-          fetch(`https://api.polygon.io/v1/open-close/${testCallTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
-          fetch(`https://api.polygon.io/v1/open-close/${testPutTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
-        ]);
-
-        if (testCallResponse.ok && testPutResponse.ok) {
-          const testCallData = await testCallResponse.json();
-          const testPutData = await testPutResponse.json();
-          
-          const testCallPrice = testCallData.close || 0;
-          const testPutPrice = testPutData.close || 0;
-          const testTotalPremium = testCallPrice + testPutPrice;
-
-          if (testTotalPremium > 0) {
-            callPrice = testCallPrice;
-            putPrice = testPutPrice;
-            atmStrike = strike;
-            break;
-          }
-        }
-      }
-    }
 
     return res.status(200).json({
       ticker,
       expiration,
       currentPrice,
-      strikePrice: atmStrike,
+      strikePrice: foundStrike,
       callPrice,
       putPrice,
       totalPremium: callPrice + putPrice,
-      callTicker: `${ticker}${expFormatted}C${atmStrike.toString().padStart(8, '0')}`,
-      putTicker: `${ticker}${expFormatted}P${atmStrike.toString().padStart(8, '0')}`
+      callTicker: `${ticker}${expFormatted}C${foundStrike.toString().padStart(8, '0')}`,
+      putTicker: `${ticker}${expFormatted}P${foundStrike.toString().padStart(8, '0')}`
     });
 
   } catch (error) {
