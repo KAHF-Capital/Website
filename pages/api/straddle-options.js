@@ -36,61 +36,73 @@ export default async function handler(req, res) {
     const strikeIncrement = 5;
     let atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
 
-    // First, get available options contracts for this ticker and expiration
-    // We'll use the contract overview endpoint to find valid contracts
-    const expDate = new Date(expiration);
-    const expFormatted = expDate.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    // Try to find ATM options by testing different strikes
-    const strikesToTry = [];
-    for (let i = -10; i <= 10; i += 5) {
-      const testStrike = atmStrike + i;
-      if (testStrike > 0) {
-        strikesToTry.push(testStrike);
+    // Use the All Contracts endpoint to find available options contracts
+    // This is much more reliable than guessing ticker symbols
+    const contractsResponse = await fetch(
+      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${expiration}&contract_type=call&limit=1000&apiKey=${POLYGON_API_KEY}`
+    );
+
+    if (!contractsResponse.ok) {
+      throw new Error('Failed to fetch options contracts');
+    }
+
+    const contractsData = await contractsResponse.json();
+    const callContracts = contractsData.results || [];
+
+    // Get put contracts for the same expiration
+    const putContractsResponse = await fetch(
+      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${expiration}&contract_type=put&limit=1000&apiKey=${POLYGON_API_KEY}`
+    );
+
+    if (!putContractsResponse.ok) {
+      throw new Error('Failed to fetch put options contracts');
+    }
+
+    const putContractsData = await putContractsResponse.json();
+    const putContracts = putContractsData.results || [];
+
+    // Find the closest ATM options (closest strike to current price)
+    let bestCall = null;
+    let bestPut = null;
+    let minStrikeDiff = Infinity;
+
+    for (const callContract of callContracts) {
+      for (const putContract of putContracts) {
+        if (callContract.strike_price === putContract.strike_price) {
+          const strikeDiff = Math.abs(callContract.strike_price - currentPrice);
+          if (strikeDiff < minStrikeDiff) {
+            minStrikeDiff = strikeDiff;
+            bestCall = callContract;
+            bestPut = putContract;
+          }
+        }
       }
     }
+
+    if (!bestCall || !bestPut) {
+      throw new Error('No matching call and put contracts found for this expiration');
+    }
+
+    // Now get the pricing data using the actual contract tickers
+    const [callResponse, putResponse] = await Promise.all([
+      fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
+      fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
+    ]);
 
     let callPrice = 0;
     let putPrice = 0;
-    let foundStrike = atmStrike;
 
-    // Try to find valid options contracts
-    for (const strike of strikesToTry) {
-      const callTicker = `${ticker}${expFormatted}C${strike.toString().padStart(8, '0')}`;
-      const putTicker = `${ticker}${expFormatted}P${strike.toString().padStart(8, '0')}`;
-
-      try {
-        // First check if the contract exists using contract overview
-        const [callContractResponse, putContractResponse] = await Promise.all([
-          fetch(`https://api.polygon.io/v3/reference/options/contracts/${callTicker}?apiKey=${POLYGON_API_KEY}`),
-          fetch(`https://api.polygon.io/v3/reference/options/contracts/${putTicker}?apiKey=${POLYGON_API_KEY}`)
-        ]);
-
-        if (callContractResponse.ok && putContractResponse.ok) {
-          // Contracts exist, now get pricing data
-          const [callResponse, putResponse] = await Promise.all([
-            fetch(`https://api.polygon.io/v1/open-close/${callTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
-            fetch(`https://api.polygon.io/v1/open-close/${putTicker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
-          ]);
-
-          if (callResponse.ok && putResponse.ok) {
-            const callData = await callResponse.json();
-            const putData = await putResponse.json();
-            
-            callPrice = callData.close || 0;
-            putPrice = putData.close || 0;
-            
-            if (callPrice > 0 && putPrice > 0) {
-              foundStrike = strike;
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        console.log(`Skipping strike ${strike}: ${error.message}`);
-        continue;
-      }
+    if (callResponse.ok) {
+      const callData = await callResponse.json();
+      callPrice = callData.close || 0;
     }
+
+    if (putResponse.ok) {
+      const putData = await putResponse.json();
+      putPrice = putData.close || 0;
+    }
+
+    const foundStrike = bestCall.strike_price;
 
     const totalPremium = callPrice + putPrice;
 
@@ -102,8 +114,8 @@ export default async function handler(req, res) {
       callPrice,
       putPrice,
       totalPremium: callPrice + putPrice,
-      callTicker: `${ticker}${expFormatted}C${foundStrike.toString().padStart(8, '0')}`,
-      putTicker: `${ticker}${expFormatted}P${foundStrike.toString().padStart(8, '0')}`
+      callTicker: bestCall.ticker,  // Use actual contract ticker from API
+      putTicker: bestPut.ticker     // Use actual contract ticker from API
     });
 
   } catch (error) {
