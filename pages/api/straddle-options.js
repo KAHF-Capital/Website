@@ -32,8 +32,8 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Stock price not found' });
     }
 
-    // Find the closest ATM strike price (round to nearest $5 if under $100, nearest $10 if over $100)
-    const strikeIncrement = currentPrice < 100 ? 5 : 10;
+    // Find the closest ATM strike price (round to nearest $5 for all prices)
+    const strikeIncrement = 5;
     let atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
 
     // Format the expiration date for options ticker
