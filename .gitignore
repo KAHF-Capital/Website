@@ -29,3 +29,4 @@ yarn-error.log*
 # OS
 Thumbs.db
 
+/data/daily

@@ -56,6 +56,7 @@ export default function Scanner() {
                 ? (ticker.total_volume / ticker.avg_7day_volume).toFixed(2)
                 : 'N/A'
             }))
+            .filter(ticker => ticker.avg_price >= 1 && ticker.total_value >= 100000000) // Filter out penny stocks and low value trades
             .sort((a, b) => {
               // Sort by volume ratio (highest first), fallback to volume if ratio is N/A
               if (a.volume_ratio === 'N/A' && b.volume_ratio === 'N/A') {
@@ -191,10 +192,13 @@ export default function Scanner() {
                   {new Date(darkPoolData.date).toLocaleDateString()} - Dark Pool Activity
                 </h2>
                 <p className="text-gray-600 mt-1">
-                  {formatNumber(darkPoolData.total_tickers)} tickers, {formatNumber(darkPoolData.total_volume)} total volume
+                  {formatNumber(darkPoolData.tickers.length)} tickers, {formatNumber(darkPoolData.total_volume)} total volume
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   Volume Ratio = Today's Volume ÷ 7-Day Average (higher ratios indicate unusual activity)
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Filtered: ≥$1 stocks with ≥$100M total value
                 </p>
               </div>
               
