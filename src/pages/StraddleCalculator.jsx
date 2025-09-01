@@ -69,6 +69,23 @@ const StraddleCalculator = () => {
     }
   };
 
+  // Convert date to Yahoo Finance timestamp format
+  const getYahooFinanceDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00');
+    return Math.floor(date.getTime() / 1000);
+  };
+
+  // Generate Yahoo Finance options URL with date and straddle parameters
+  const getYahooFinanceUrl = (ticker, expirationDate) => {
+    const baseUrl = `https://finance.yahoo.com/quote/${ticker}/options`;
+    if (expirationDate) {
+      const timestamp = getYahooFinanceDate(expirationDate);
+      return `${baseUrl}/?date=${timestamp}&straddle=true`;
+    }
+    return baseUrl;
+  };
+
   // Handle expiration date change with straddle options fetch
   const handleExpirationChange = async (value) => {
     setInputs(prev => ({ ...prev, expirationDate: value }));
@@ -90,7 +107,7 @@ const StraddleCalculator = () => {
             <span>
               No straddle options found for this expiration date. Please try a different date or{' '}
               <a 
-                href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`} 
+                href={getYahooFinanceUrl(inputs.ticker, value)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-green-600 hover:text-green-800 underline font-medium"
@@ -106,7 +123,7 @@ const StraddleCalculator = () => {
           <span>
             Failed to fetch straddle options. Please{' '}
             <a 
-              href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`} 
+              href={getYahooFinanceUrl(inputs.ticker, value)} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-green-600 hover:text-green-800 underline font-medium"
@@ -352,17 +369,17 @@ const StraddleCalculator = () => {
                   onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
                   className="w-full"
                 />
-                                             <p className="text-xs text-gray-500 mt-1">
-                         Premium will be automatically calculated when you select an expiration date.{' '}
-                         <a 
-                           href={`https://finance.yahoo.com/quote/${inputs.ticker || 'AAPL'}/options`} 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           className="text-green-600 hover:text-green-800 underline"
-                         >
-                           View options on Yahoo Finance
-                         </a>
-                       </p>
+                                                                                           <p className="text-xs text-gray-500 mt-1">
+                          Premium will be automatically calculated when you select an expiration date.{' '}
+                          <a 
+                            href={getYahooFinanceUrl(inputs.ticker || 'AAPL', inputs.expirationDate)} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-green-600 hover:text-green-800 underline"
+                          >
+                            View options on Yahoo Finance
+                          </a>
+                        </p>
               </div>
 
               <Button

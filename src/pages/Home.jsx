@@ -1,33 +1,33 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, Target, Shield, ArrowRight, BookOpen, Menu, X } from 'lucide-react';
+import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
 
 export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const strategies = [
+  const scannerFeatures = [
     {
-      name: "Long Straddle",
-      description: "Profit from high volatility movements in either direction",
-      icon: TrendingUp,
-    },
-    {
-      name: "Short Straddle",
-      description: "Capitalize on low volatility and time decay",
-      icon: Target,
-    },
-    {
-      name: "Iron Condor",
-      description: "Generate income in sideways markets with defined risk",
+      name: "Dark Pool Volume",
+      description: "Track institutional trading activity hidden from public markets",
       icon: BarChart3,
     },
     {
-      name: "Reverse Iron Condor",
-      description: "Benefit from breakout moves with limited risk",
-      icon: Shield,
+      name: "Real-time Analytics",
+      description: "Monitor top tickers by aggregated daily dark pool volume",
+      icon: TrendingUp,
+    },
+    {
+      name: "Institutional Insights",
+      description: "See what the smart money is trading before it moves the market",
+      icon: Target,
+    },
+    {
+      name: "Advanced Filtering",
+      description: "Filter by volume, date, and trading patterns for precise analysis",
+      icon: Search,
     }
   ];
 
@@ -104,14 +104,14 @@ export default function Home() {
             Learn how to trade like the <span className="text-green-600">1%</span>
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Access institutional-grade volatility trading strategies and dark pool analytics. 
-            Learn the same techniques hedge funds use to profit from market volatility - 
+            Access institutional-grade dark pool analytics and see what the smart money is trading. 
+            Track hidden institutional activity and discover trading opportunities before they move the market - 
             now available to individual traders for the first time.
           </p>
           <div className="flex flex-col gap-4 justify-center">
-            <Link href="/learning" className="w-full">
+            <Link href="/scanner" className="w-full">
               <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                View Learning Modules
+                Access Dark Pool Scanner
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>
@@ -119,37 +119,28 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trading Strategies */}
+      {/* Dark Pool Scanner Features */}
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Institutional Trading Strategies</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Dark Pool Scanner Features</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Four core volatility arbitrage strategies used by professional traders
+              Professional-grade analytics to track institutional trading activity
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            {strategies.map((strategy, index) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {scannerFeatures.map((feature, index) => (
               <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                    <strategy.icon className="h-6 w-6 text-green-600" />
+                    <feature.icon className="h-6 w-6 text-green-600" />
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-3">{strategy.name}</h4>
-                  <p className="text-gray-600 text-base leading-relaxed">{strategy.description}</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
+                  <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
                 </div>
               </div>
             ))}
-          </div>
-          
-          <div className="text-center">
-            <Link href="/learning">
-              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                <BookOpen className="mr-2 h-5 w-5 inline" />
-                Learn More
-              </button>
-            </Link>
           </div>
         </div>
       </section>
