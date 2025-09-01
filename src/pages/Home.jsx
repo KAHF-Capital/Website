@@ -28,6 +28,11 @@ export default function Home() {
       name: "Advanced Filtering",
       description: "Filter by volume, date, and trading patterns for precise analysis",
       icon: Search,
+    },
+    {
+      name: "Straddle Calculator",
+      description: "Analyze historical profitability of ATM straddle strategies",
+      icon: Shield,
     }
   ];
 
@@ -45,7 +50,7 @@ export default function Home() {
               />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Education</p>
+                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
@@ -115,17 +120,25 @@ export default function Home() {
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>
+            <div className="text-center">
+              <p className="text-sm text-gray-500 mb-2">Plus, analyze straddle profitability with our</p>
+              <Link href="/straddle-calculator">
+                <button className="text-green-600 hover:text-green-700 font-medium underline touch-manipulation">
+                  ATM Straddle Calculator
+                </button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Dark Pool Scanner Features */}
+      {/* Platform Features */}
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Dark Pool Scanner Features</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Professional-grade analytics to track institutional trading activity
+              Professional-grade analytics and tools for institutional-level trading
             </p>
           </div>
           

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { ArrowLeft, TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
+import { TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
 import Footer from './Footer';
 
 export default function LearningModules() {
@@ -229,25 +229,34 @@ export default function LearningModules() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
+      <header className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-                                          <Link href="/">
-                <button className="text-gray-900 hover:text-green-600 p-2 flex items-center touch-manipulation">
-                  <ArrowLeft className="h-5 w-5 mr-2" />
-                  <span className="font-medium">Back</span>
-                </button>
-              </Link>
-              <div className="flex items-center space-x-3">
-                <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
-                  alt="KAHF Capital Logo" 
-                  className="h-8 w-auto"
-                />
-                <span className="text-gray-900 font-semibold text-base">Learning Modules</span>
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
+                alt="KAHF Capital Logo" 
+                className="h-10 w-auto"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
+                <p className="text-gray-600 text-sm">Volatility Trading Education</p>
               </div>
             </div>
+            <nav className="hidden sm:flex space-x-8">
+              <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Home
+              </Link>
+              <Link href="/learning" className="text-green-600 font-medium">
+                Learning Modules
+              </Link>
+              <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Scanner
+              </Link>
+              <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Straddle Calculator
+              </Link>
+            </nav>
           </div>
         </div>
       </header>
