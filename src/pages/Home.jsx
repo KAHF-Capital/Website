@@ -106,7 +106,7 @@ export default function Home() {
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
             Discover volatility arbitrage opportunities using institutional-grade dark pool analytics and straddle analysis. 
             Find what the smart money is trading, then analyze the profitability of volatility strategies - 
-            the complete toolkit for professional volatility trading.
+            available to individual traders for the first time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/scanner" className="w-full sm:w-auto">
@@ -129,14 +129,14 @@ export default function Home() {
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Volatility Arbitrage Platform</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Complete workflow from dark pool opportunity discovery to straddle strategy analysis
+              Professional-grade analytics and tools for institutional-level trading
             </p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {platformFeatures.map((feature, index) => (
+            {scannerFeatures.map((feature, index) => (
               <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
