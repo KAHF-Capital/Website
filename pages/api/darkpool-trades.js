@@ -42,15 +42,15 @@ function getLatestTradingDayWithAverages() {
     // Use the filename date instead of the date inside the JSON file
     const filenameDate = latestDateFile.date;
 
-    // Calculate 7-day average for each ticker
-    const sevenDaysAgo = new Date(latestDateData.date);
+    // Calculate 7-day average for each ticker using the filename date
+    const sevenDaysAgo = new Date(filenameDate);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // Get all dates within the last 7 days
     const recentDateFiles = dateFiles
       .filter(file => {
         const fileDate = new Date(file.date);
-        return fileDate >= sevenDaysAgo && fileDate <= new Date(latestDateData.date);
+        return fileDate >= sevenDaysAgo && fileDate <= new Date(filenameDate);
       })
       .slice(0, 7); // Limit to 7 days
 
