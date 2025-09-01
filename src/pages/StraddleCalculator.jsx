@@ -193,191 +193,193 @@ const StraddleCalculator = () => {
               <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <h2 className="text-2xl font-semibold mb-6 text-gray-800">Strategy Parameters</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock Ticker *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g., AAPL"
-                  value={inputs.ticker}
-                  onChange={(e) => handleTickerChange(e.target.value)}
-                  className="w-full"
-                />
-              </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Stock Ticker *
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g., AAPL"
+                        value={inputs.ticker}
+                        onChange={(e) => handleTickerChange(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Stock Price
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Current price"
-                  value={inputs.currentPrice}
-                  onChange={(e) => setInputs(prev => ({ ...prev, currentPrice: e.target.value }))}
-                  className="w-full"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Current Stock Price
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Current price"
+                        value={inputs.currentPrice}
+                        onChange={(e) => setInputs(prev => ({ ...prev, currentPrice: e.target.value }))}
+                        className="w-full"
+                      />
+                    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Execution Date *
-                  </label>
-                  <Input
-                    type="date"
-                    value={inputs.executionDate}
-                    onChange={(e) => setInputs(prev => ({ ...prev, executionDate: e.target.value }))}
-                    className="w-full"
-                  />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Execution Date *
+                        </label>
+                        <Input
+                          type="date"
+                          value={inputs.executionDate}
+                          onChange={(e) => setInputs(prev => ({ ...prev, executionDate: e.target.value }))}
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Expiration Date *
+                        </label>
+                        <Input
+                          type="date"
+                          value={inputs.expirationDate}
+                          onChange={(e) => setInputs(prev => ({ ...prev, expirationDate: e.target.value }))}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Strike Price (ATM) *
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Strike price"
+                        value={inputs.strikePrice}
+                        onChange={(e) => setInputs(prev => ({ ...prev, strikePrice: e.target.value }))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Total Premium (Call + Put) *
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Combined premium"
+                        value={inputs.totalPremium}
+                        onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={analyzeHistoricalData}
+                      disabled={loading}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
+                    >
+                      {loading ? 'Analyzing...' : 'Calculate Profitability'}
+                    </Button>
+                  </div>
+
+                  {error && (
+                    <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                      {error}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expiration Date *
-                  </label>
-                  <Input
-                    type="date"
-                    value={inputs.expirationDate}
-                    onChange={(e) => setInputs(prev => ({ ...prev, expirationDate: e.target.value }))}
-                    className="w-full"
-                  />
-                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Strike Price (ATM) *
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Strike price"
-                  value={inputs.strikePrice}
-                  onChange={(e) => setInputs(prev => ({ ...prev, strikePrice: e.target.value }))}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Total Premium (Call + Put) *
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Combined premium"
-                  value={inputs.totalPremium}
-                  onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
-                  className="w-full"
-                />
-              </div>
-
-              <Button
-                onClick={analyzeHistoricalData}
-                disabled={loading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
-              >
-                {loading ? 'Analyzing...' : 'Calculate Profitability'}
-              </Button>
-            </div>
-
-            {error && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-          </div>
 
               {/* Results Section */}
               <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <h2 className="text-2xl font-semibold mb-6 text-gray-800">Analysis Results</h2>
-            
-            {breakevens && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-3">Breakeven Points</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      ${breakevens.upper.toFixed(2)}
+                  
+                  {breakevens && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium text-gray-700 mb-3">Breakeven Points</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">
+                            ${breakevens.upper.toFixed(2)}
+                          </div>
+                          <div className="text-sm text-green-700">
+                            +{breakevens.upperPct.toFixed(2)}%
+                          </div>
+                          <div className="text-xs text-gray-600">Upper Breakeven</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                          <div className="text-2xl font-bold text-red-600">
+                            ${breakevens.lower.toFixed(2)}
+                          </div>
+                          <div className="text-sm text-red-700">
+                            {breakevens.lowerPct.toFixed(2)}%
+                          </div>
+                          <div className="text-xs text-gray-600">Lower Breakeven</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm text-green-700">
-                      +{breakevens.upperPct.toFixed(2)}%
+                  )}
+
+                  {daysToExp > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium text-gray-700 mb-2">Strategy Details</h3>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">
+                          Days to Expiration: <span className="font-semibold">{daysToExp} days</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600">Upper Breakeven</div>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">
-                      ${breakevens.lower.toFixed(2)}
+                  )}
+
+                  {results && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-700 mb-3">Historical Analysis</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                          <span className="text-sm text-gray-600">Moves Above Upper Breakeven:</span>
+                          <Badge variant="success" className="bg-green-600">
+                            {results.aboveUpper} ({results.aboveUpperPct.toFixed(1)}%)
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                          <span className="text-sm text-gray-600">Moves Below Lower Breakeven:</span>
+                          <Badge variant="destructive" className="bg-red-600">
+                            {results.belowLower} ({results.belowLowerPct.toFixed(1)}%)
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                          <span className="text-sm text-gray-600">Total Profitable Moves:</span>
+                          <Badge variant="default" className="bg-blue-600">
+                            {results.totalProfitable} ({results.profitableRate.toFixed(1)}%)
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="text-sm text-gray-600">Total Data Points:</span>
+                          <span className="font-semibold">{results.totalSamples}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h4 className="font-medium text-yellow-800 mb-2">Profitability Summary</h4>
+                        <p className="text-sm text-yellow-700">
+                          Based on historical data, this straddle strategy would have been profitable 
+                          <span className="font-semibold"> {results.profitableRate.toFixed(1)}% </span>
+                          of the time over {results.totalSamples} historical periods.
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-sm text-red-700">
-                      {breakevens.lowerPct.toFixed(2)}%
+                  )}
+
+                  {!results && !loading && (
+                    <div className="text-center text-gray-500 py-8">
+                      <p>Enter your strategy parameters and click "Calculate Profitability" to see the analysis.</p>
                     </div>
-                    <div className="text-xs text-gray-600">Lower Breakeven</div>
-                  </div>
+                  )}
                 </div>
               </div>
-            )}
-
-            {daysToExp > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-2">Strategy Details</h3>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600">
-                    Days to Expiration: <span className="font-semibold">{daysToExp} days</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {results && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-700 mb-3">Historical Analysis</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm text-gray-600">Moves Above Upper Breakeven:</span>
-                    <Badge variant="success" className="bg-green-600">
-                      {results.aboveUpper} ({results.aboveUpperPct.toFixed(1)}%)
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                    <span className="text-sm text-gray-600">Moves Below Lower Breakeven:</span>
-                    <Badge variant="destructive" className="bg-red-600">
-                      {results.belowLower} ({results.belowLowerPct.toFixed(1)}%)
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <span className="text-sm text-gray-600">Total Profitable Moves:</span>
-                    <Badge variant="default" className="bg-blue-600">
-                      {results.totalProfitable} ({results.profitableRate.toFixed(1)}%)
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-sm text-gray-600">Total Data Points:</span>
-                    <span className="font-semibold">{results.totalSamples}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <h4 className="font-medium text-yellow-800 mb-2">Profitability Summary</h4>
-                  <p className="text-sm text-yellow-700">
-                    Based on historical data, this straddle strategy would have been profitable 
-                    <span className="font-semibold"> {results.profitableRate.toFixed(1)}% </span>
-                    of the time over {results.totalSamples} historical periods.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {!results && !loading && (
-              <div className="text-center text-gray-500 py-8">
-                <p>Enter your strategy parameters and click "Calculate Profitability" to see the analysis.</p>
-              </div>
-            )}
-          </div>
 
               {/* Chart Section */}
               <div className="lg:col-span-1">
