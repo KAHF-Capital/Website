@@ -101,12 +101,10 @@ export default function Home() {
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight tracking-tight">
-            Learn how to trade like the <span className="text-green-600">1%</span>
+            Trade like the <span className="text-green-600">1%.</span>
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Discover volatility arbitrage opportunities using institutional-grade dark pool analytics and straddle analysis. 
-            Find what the smart money is trading, then analyze the profitability of volatility strategies - 
-            available to individual traders for the first time.
+            Peek behind the curtain, and exploit unpriced volatility.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/scanner" className="w-full sm:w-auto">
