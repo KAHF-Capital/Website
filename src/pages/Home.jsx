@@ -136,7 +136,7 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {scannerFeatures.map((feature, index) => (
+            {platformFeatures.map((feature, index) => (
               <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
