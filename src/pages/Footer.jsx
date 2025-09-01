@@ -69,7 +69,7 @@ export default function Footer() {
                 alt="KAHF Capital Logo" 
                 className="h-8 w-auto"
               />
-              <span className="text-gray-300">© 2024 KAHF Capital. All rights reserved.</span>
+              <span className="text-gray-300">© 2025 KAHF Capital LLC. All rights reserved.</span>
             </div>
             <div className="text-sm text-gray-400">
               <p>This website is not affiliated with any financial institution or regulatory body.</p>

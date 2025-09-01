@@ -38,6 +38,9 @@ function getLatestTradingDayWithAverages() {
     // Get the latest trading day
     const latestDateFile = dateFiles[0];
     const latestDateData = JSON.parse(fs.readFileSync(latestDateFile.path, 'utf8'));
+    
+    // Use the filename date instead of the date inside the JSON file
+    const filenameDate = latestDateFile.date;
 
     // Calculate 7-day average for each ticker
     const sevenDaysAgo = new Date(latestDateData.date);
@@ -83,7 +86,7 @@ function getLatestTradingDayWithAverages() {
     }));
 
     return {
-      date: latestDateData.date,
+      date: filenameDate, // Use filename date instead of JSON date
       total_tickers: latestDateData.total_tickers,
       total_volume: latestDateData.total_volume,
       last_updated: latestDateData.processed_at || new Date().toISOString(),
