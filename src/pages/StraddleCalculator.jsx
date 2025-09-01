@@ -5,6 +5,8 @@ import { Badge } from '../components/ui/badge';
 import { Select } from '../components/ui/select';
 import StraddleChart from '../components/StraddleChart';
 import { Info } from 'lucide-react';
+import Link from 'next/link';
+import Footer from './Footer';
 
 const StraddleCalculator = () => {
   const [inputs, setInputs] = useState({
@@ -19,6 +21,18 @@ const StraddleCalculator = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Handle URL parameters for pre-filling ticker
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tickerParam = urlParams.get('ticker');
+      if (tickerParam) {
+        setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
+        handleTickerChange(tickerParam);
+      }
+    }
+  }, []);
 
   // Calculate days to expiration
   const calculateDaysToExpiration = () => {
@@ -107,43 +121,78 @@ const StraddleCalculator = () => {
   const [showStraddleInfo, setShowStraddleInfo] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <h1 className="text-4xl font-bold text-gray-900">
-              ATM Straddle Profitability Calculator
-            </h1>
-            <button
-              onClick={() => setShowStraddleInfo(!showStraddleInfo)}
-              className="p-2 text-gray-500 hover:text-green-600 transition-colors"
-              title="How it works"
-            >
-              <Info className="h-6 w-6" />
-            </button>
-          </div>
-          <p className="text-lg text-gray-600">
-            Analyze historical profitability of At-The-Money straddle strategies
-          </p>
-          
-          {showStraddleInfo && (
-            <div className="mt-4 max-w-2xl mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="font-semibold text-green-800 mb-2">How the Straddle Calculator Works:</h3>
-              <div className="text-sm text-green-700 space-y-2">
-                <p><strong>What is a Straddle?</strong> A straddle is an options strategy where you buy both a call and put option at the same strike price and expiration date.</p>
-                <p><strong>Profit Potential:</strong> You profit when the stock moves significantly in either direction (up or down) beyond your breakeven points.</p>
-                <p><strong>Breakeven Points:</strong> Upper breakeven = Strike Price + Total Premium, Lower breakeven = Strike Price - Total Premium.</p>
-                <p><strong>Historical Analysis:</strong> The calculator analyzes past price movements to show how often this strategy would have been profitable.</p>
-                <p><strong>Risk:</strong> You lose money if the stock stays between the breakeven points (time decay and low volatility).</p>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
+                alt="KAHF Capital Logo" 
+                className="h-10 w-auto"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
+                <p className="text-gray-600 text-sm">Volatility Trading Education</p>
               </div>
             </div>
-          )}
+            <nav className="hidden sm:flex space-x-8">
+              <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Home
+              </Link>
+              <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Learning Modules
+              </Link>
+              <Link href="/scanner" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Scanner
+              </Link>
+              <Link href="/straddle-calculator" className="text-green-600 font-medium">
+                Straddle Calculator
+              </Link>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">ATM Straddle Profitability Calculator</h2>
+              <button
+                onClick={() => setShowStraddleInfo(!showStraddleInfo)}
+                className="p-2 text-gray-500 hover:text-green-600 transition-colors"
+                title="How it works"
+              >
+                <Info className="h-6 w-6" />
+              </button>
+            </div>
+            <p className="text-lg text-gray-600">Analyze historical profitability of At-The-Money straddle strategies</p>
+            
+            {showStraddleInfo && (
+              <div className="mt-4 max-w-2xl bg-green-50 border border-green-200 rounded-lg p-4">
+                <h3 className="font-semibold text-green-800 mb-2">How the Straddle Calculator Works:</h3>
+                <div className="text-sm text-green-700 space-y-2">
+                  <p><strong>What is a Straddle?</strong> A straddle is an options strategy where you buy both a call and put option at the same strike price and expiration date.</p>
+                  <p><strong>Profit Potential:</strong> You profit when the stock moves significantly in either direction (up or down) beyond your breakeven points.</p>
+                  <p><strong>Breakeven Points:</strong> Upper breakeven = Strike Price + Total Premium, Lower breakeven = Strike Price - Total Premium.</p>
+                  <p><strong>Historical Analysis:</strong> The calculator analyzes past price movements to show how often this strategy would have been profitable.</p>
+                  <p><strong>Risk:</strong> You lose money if the stock stays between the breakeven points (time decay and low volatility).</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Input Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Strategy Parameters</h2>
+        <div className="bg-gray-50 py-12 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Input Section */}
+              <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
+                <div className="p-6">
+                  <h2 className="text-2xl font-semibold mb-6 text-gray-800">Strategy Parameters</h2>
             
             <div className="space-y-4">
               <div>
@@ -242,9 +291,10 @@ const StraddleCalculator = () => {
             )}
           </div>
 
-          {/* Results Section */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Analysis Results</h2>
+              {/* Results Section */}
+              <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
+                <div className="p-6">
+                  <h2 className="text-2xl font-semibold mb-6 text-gray-800">Analysis Results</h2>
             
             {breakevens && (
               <div className="mb-6">
@@ -329,11 +379,20 @@ const StraddleCalculator = () => {
             )}
           </div>
 
-          {/* Chart Section */}
-          <div className="lg:col-span-1">
-            <StraddleChart results={results} breakevens={breakevens} />
+              {/* Chart Section */}
+              <div className="lg:col-span-1">
+                <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
+                  <div className="p-6">
+                    <StraddleChart results={results} breakevens={breakevens} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );

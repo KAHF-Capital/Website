@@ -144,6 +144,14 @@ export default function Scanner() {
             <span className="font-medium text-gray-900">${formatValue(ticker.total_value)}</span>
           </div>
         </div>
+        
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
+            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+              Analyze {ticker.ticker} Straddle
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -226,6 +234,9 @@ export default function Scanner() {
               <Link href="/scanner" className="text-green-600 font-medium">
                 Scanner
               </Link>
+              <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                Straddle Calculator
+              </Link>
             </nav>
           </div>
         </div>
@@ -254,8 +265,7 @@ export default function Scanner() {
                   <p><strong>What are Dark Pools?</strong> Private exchanges where large institutions trade stocks away from public markets, often to avoid price impact.</p>
                   <p><strong>Volume Ratio:</strong> Compares today's dark pool volume to the 7-day average. Higher ratios indicate unusual institutional activity.</p>
                   <p><strong>Why It Matters:</strong> Large dark pool activity can signal institutional buying/selling before it becomes public, potentially indicating future price movements.</p>
-                  <p><strong>Filtering:</strong> Shows only stocks ≥$1 with ≥$100M total value to focus on significant activity.</p>
-                  <p><strong>Data Source:</strong> Analyzes pre-processed dark pool trading data from institutional sources.</p>
+                  <p><strong>Data Source:</strong> Analyzes daily dark pool trading data identified from Securities Information Processors (SIPs).</p>
                 </div>
               </div>
             )}
