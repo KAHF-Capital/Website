@@ -1,3 +1,5 @@
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -9,32 +11,26 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ticker symbol is required' });
   }
 
+  if (!POLYGON_API_KEY) {
+    return res.status(500).json({ error: 'Polygon API key not configured' });
+  }
+
   try {
-    // Using Alpha Vantage API (free tier)
-    const apiKey = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
-    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`;
-    
-    const response = await fetch(url);
+    // Using Polygon.io API for consistency with straddle options
+    const response = await fetch(
+      `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch stock price');
+    }
+
     const data = await response.json();
+    const price = data.results[0]?.c || 0;
 
-    if (data['Error Message']) {
-      return res.status(400).json({ error: 'Invalid ticker symbol' });
-    }
-
-    if (data['Note']) {
-      // API limit reached, return mock data for demo
-      return res.status(200).json({ 
-        price: Math.random() * 200 + 50, // Random price between 50-250
-        note: 'Using demo data due to API limit'
-      });
-    }
-
-    const quote = data['Global Quote'];
-    if (!quote || !quote['05. price']) {
+    if (!price) {
       return res.status(404).json({ error: 'Stock price not found' });
     }
-
-    const price = parseFloat(quote['05. price']);
 
     res.status(200).json({ price });
   } catch (error) {

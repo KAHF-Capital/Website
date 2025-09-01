@@ -23,40 +23,6 @@ const StraddleCalculator = () => {
   const [error, setError] = useState('');
   const [fetchingOptions, setFetchingOptions] = useState(false);
 
-  // Handle URL parameters for pre-filling ticker
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tickerParam = urlParams.get('ticker');
-      if (tickerParam) {
-        setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
-        handleTickerChange(tickerParam);
-      }
-    }
-  }, []);
-
-  // Calculate days to expiration
-  const calculateDaysToExpiration = () => {
-    if (!inputs.executionDate || !inputs.expirationDate) return 0;
-    const execDate = new Date(inputs.executionDate);
-    const expDate = new Date(inputs.expirationDate);
-    return Math.floor((expDate - execDate) / (1000 * 60 * 60 * 24));
-  };
-
-  // Calculate breakeven points
-  const calculateBreakevens = () => {
-    if (!inputs.strikePrice || !inputs.totalPremium) return null;
-    const strike = parseFloat(inputs.strikePrice);
-    const premium = parseFloat(inputs.totalPremium);
-    
-    return {
-      upper: strike + premium,
-      lower: strike - premium,
-      upperPct: ((strike + premium - strike) / strike) * 100,
-      lowerPct: ((strike - premium - strike) / strike) * 100
-    };
-  };
-
   // Fetch current stock price
   const fetchCurrentPrice = async (ticker) => {
     try {
@@ -124,6 +90,40 @@ const StraddleCalculator = () => {
         setFetchingOptions(false);
       }
     }
+  };
+
+  // Handle URL parameters for pre-filling ticker
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tickerParam = urlParams.get('ticker');
+      if (tickerParam) {
+        setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
+        handleTickerChange(tickerParam);
+      }
+    }
+  }, []);
+
+  // Calculate days to expiration
+  const calculateDaysToExpiration = () => {
+    if (!inputs.executionDate || !inputs.expirationDate) return 0;
+    const execDate = new Date(inputs.executionDate);
+    const expDate = new Date(inputs.expirationDate);
+    return Math.floor((expDate - execDate) / (1000 * 60 * 60 * 24));
+  };
+
+  // Calculate breakeven points
+  const calculateBreakevens = () => {
+    if (!inputs.strikePrice || !inputs.totalPremium) return null;
+    const strike = parseFloat(inputs.strikePrice);
+    const premium = parseFloat(inputs.totalPremium);
+    
+    return {
+      upper: strike + premium,
+      lower: strike - premium,
+      upperPct: ((strike + premium - strike) / strike) * 100,
+      lowerPct: ((strike - premium - strike) / strike) * 100
+    };
   };
 
   // Analyze historical data
