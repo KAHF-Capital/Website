@@ -82,10 +82,36 @@ const StraddleCalculator = () => {
             strikePrice: straddleData.strikePrice.toFixed(2)
           }));
         } else {
-          setError('No straddle options found for this expiration date. Please try a different date or enter premium manually.');
+          setError(
+            <span>
+              No straddle options found for this expiration date. Please try a different date or{' '}
+              <a 
+                href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-800 underline font-medium"
+              >
+                check Yahoo Finance options
+              </a>{' '}
+              to enter premium manually.
+            </span>
+          );
         }
       } catch (error) {
-        setError('Failed to fetch straddle options. Please enter premium manually.');
+        setError(
+          <span>
+            Failed to fetch straddle options. Please{' '}
+            <a 
+              href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-green-600 hover:text-green-800 underline font-medium"
+            >
+              check Yahoo Finance options
+            </a>{' '}
+            to enter premium manually.
+          </span>
+        );
       } finally {
         setFetchingOptions(false);
       }
@@ -322,9 +348,17 @@ const StraddleCalculator = () => {
                         onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
                         className="w-full"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Premium will be automatically calculated when you select an expiration date
-                      </p>
+                                             <p className="text-xs text-gray-500 mt-1">
+                         Premium will be automatically calculated when you select an expiration date.{' '}
+                         <a 
+                           href={`https://finance.yahoo.com/quote/${inputs.ticker || 'AAPL'}/options`} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-green-600 hover:text-green-800 underline"
+                         >
+                           View options on Yahoo Finance
+                         </a>
+                       </p>
                     </div>
 
                     <Button
@@ -336,11 +370,11 @@ const StraddleCalculator = () => {
                     </Button>
                   </div>
 
-                  {error && (
-                    <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                      {error}
-                    </div>
-                  )}
+                                     {error && (
+                     <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                       {typeof error === 'string' ? error : error}
+                     </div>
+                   )}
                 </div>
               </div>
 
