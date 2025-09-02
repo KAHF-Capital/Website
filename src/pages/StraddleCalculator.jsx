@@ -57,32 +57,40 @@ const StraddleCalculator = () => {
       if (response.ok) {
         const data = await response.json();
         setAvailableExpirations(data.expirations || []);
+      } else {
+        console.warn('Failed to fetch available expirations:', response.status);
       }
     } catch (error) {
       console.error('Error fetching available expirations:', error);
+      // Don't set error state here as it's not critical for main functionality
     }
   };
 
   // Handle ticker input with auto-price fetch
   const handleTickerChange = async (value) => {
-    setInputs(prev => ({ ...prev, ticker: value.toUpperCase() }));
-    
-    if (value.length >= 1) {
-      const price = await fetchCurrentPrice(value);
-      if (price) {
-        // Round strike price to nearest 5 for all prices
-        const strikeIncrement = 5;
-        const roundedStrike = Math.round(price / strikeIncrement) * strikeIncrement;
-        
-        setInputs(prev => ({ 
-          ...prev, 
-          currentPrice: price.toFixed(2),
-          strikePrice: roundedStrike.toFixed(2) // Set rounded ATM strike price
-        }));
-        
-        // Fetch available expiration dates
-        await fetchAvailableExpirations(value);
+    try {
+      setInputs(prev => ({ ...prev, ticker: value.toUpperCase() }));
+      
+      if (value.length >= 1) {
+        const price = await fetchCurrentPrice(value);
+        if (price) {
+          // Round strike price to nearest 5 for all prices
+          const strikeIncrement = 5;
+          const roundedStrike = Math.round(price / strikeIncrement) * strikeIncrement;
+          
+          setInputs(prev => ({ 
+            ...prev, 
+            currentPrice: price.toFixed(2),
+            strikePrice: roundedStrike.toFixed(2) // Set rounded ATM strike price
+          }));
+          
+          // Fetch available expiration dates
+          await fetchAvailableExpirations(value);
+        }
       }
+    } catch (error) {
+      console.error('Error in handleTickerChange:', error);
+      setError('Failed to fetch ticker data: ' + error.message);
     }
   };
 
@@ -168,15 +176,22 @@ const StraddleCalculator = () => {
 
   // Handle URL parameters for pre-filling ticker
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tickerParam = urlParams.get('ticker');
-      if (tickerParam) {
-        setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
-        handleTickerChange(tickerParam);
+    const initializeTicker = async () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tickerParam = urlParams.get('ticker');
+        if (tickerParam) {
+          setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
+          await handleTickerChange(tickerParam);
+        }
       }
-    }
-  }, []);
+    };
+
+    initializeTicker().catch(error => {
+      console.error('Error initializing ticker:', error);
+      setError('Failed to initialize ticker from URL parameters');
+    });
+  }, []); // Empty dependency array is fine since this only runs once on mount
 
   // Calculate days to expiration
   const calculateDaysToExpiration = () => {
