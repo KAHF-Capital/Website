@@ -41,79 +41,60 @@ export default async function handler(req, res) {
     const strikeIncrement = 5;
     let atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
 
-    // First, get all available expiration dates for this ticker
-    const allContractsResponse = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&limit=1000&apiKey=${POLYGON_API_KEY}`
-    );
+         // Get all options contracts for this ticker in a single API call
+     const contractsResponse = await fetch(
+       `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&limit=1000&apiKey=${POLYGON_API_KEY}`
+     );
 
-    if (!allContractsResponse.ok) {
-      throw new Error('Failed to fetch options contracts');
-    }
+     if (!contractsResponse.ok) {
+       throw new Error('Failed to fetch options contracts');
+     }
 
-    const allContractsData = await allContractsResponse.json();
-    const allContracts = allContractsData.results || [];
+     const contractsData = await contractsResponse.json();
+     const allContracts = contractsData.results || [];
 
-    if (allContracts.length === 0) {
-      throw new Error('No options contracts found for this ticker');
-    }
+     if (allContracts.length === 0) {
+       throw new Error('No options contracts found for this ticker');
+     }
 
-    console.log(`Found ${allContracts.length} total contracts for ${ticker}`);
-    console.log(`Available expiration dates:`, [...new Set(allContracts.map(c => c.expiration_date))].slice(0, 10));
+     console.log(`Found ${allContracts.length} total contracts for ${ticker}`);
+     console.log(`Available expiration dates:`, [...new Set(allContracts.map(c => c.expiration_date))].slice(0, 10));
 
-    // Find the closest available expiration date to the requested date
-    const requestedDate = new Date(expiration);
-    let closestExpiration = null;
-    let minDateDiff = Infinity;
+     // Find the closest available expiration date to the requested date
+     const requestedDate = new Date(expiration);
+     let closestExpiration = null;
+     let minDateDiff = Infinity;
 
-    console.log(`Looking for expiration closest to: ${expiration}`);
-    console.log(`Available expirations:`, allContracts.map(c => c.expiration_date).filter(Boolean).slice(0, 10));
+     console.log(`Looking for expiration closest to: ${expiration}`);
+     console.log(`Available expirations:`, allContracts.map(c => c.expiration_date).filter(Boolean).slice(0, 10));
 
-    for (const contract of allContracts) {
-      if (contract.expiration_date) {
-        const contractDate = new Date(contract.expiration_date);
-        const dateDiff = Math.abs(contractDate - requestedDate);
-        if (dateDiff < minDateDiff) {
-          minDateDiff = dateDiff;
-          closestExpiration = contract.expiration_date;
-        }
-      }
-    }
+     for (const contract of allContracts) {
+       if (contract.expiration_date) {
+         const contractDate = new Date(contract.expiration_date);
+         const dateDiff = Math.abs(contractDate - requestedDate);
+         if (dateDiff < minDateDiff) {
+           minDateDiff = dateDiff;
+           closestExpiration = contract.expiration_date;
+         }
+       }
+     }
 
-    if (!closestExpiration) {
-      throw new Error('No valid expiration dates found for this ticker');
-    }
+     if (!closestExpiration) {
+       throw new Error('No valid expiration dates found for this ticker');
+     }
 
-    console.log(`Requested expiration: ${expiration}, Using closest available: ${closestExpiration}`);
-    console.log(`Current stock price: ${currentPrice}, Target ATM strike: ${atmStrike}`);
+     console.log(`Requested expiration: ${expiration}, Using closest available: ${closestExpiration}`);
+     console.log(`Current stock price: ${currentPrice}, Target ATM strike: ${atmStrike}`);
 
-    // Now get contracts for the closest available expiration date
-    console.log(`Fetching call contracts for ${ticker} expiring ${closestExpiration}...`);
-    const contractsResponse = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=call&limit=1000&apiKey=${POLYGON_API_KEY}`
-    );
+     // Filter contracts by expiration date and type from the single response
+     const callContracts = allContracts.filter(c => 
+       c.expiration_date === closestExpiration && c.contract_type === 'call'
+     );
+     const putContracts = allContracts.filter(c => 
+       c.expiration_date === closestExpiration && c.contract_type === 'put'
+     );
 
-    if (!contractsResponse.ok) {
-      console.error(`Call contracts request failed: ${contractsResponse.status} - ${contractsResponse.statusText}`);
-      throw new Error('Failed to fetch call options contracts');
-    }
-
-    const contractsData = await contractsResponse.json();
-    const callContracts = contractsData.results || [];
-    console.log(`Found ${callContracts.length} call contracts for ${closestExpiration}`);
-
-    // Get put contracts for the same expiration
-    console.log(`Fetching put contracts for ${ticker} expiring ${closestExpiration}...`);
-    const putContractsResponse = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=put&limit=1000&apiKey=${POLYGON_API_KEY}`
-    );
-
-    if (!putContractsResponse.ok) {
-      console.error(`Put contracts request failed: ${putContractsResponse.status} - ${putContractsResponse.statusText}`);
-      throw new Error('Failed to fetch put options contracts');
-    }
-
-    const putContractsData = await putContractsResponse.json();
-    const putContracts = putContractsData.results || [];
+     console.log(`Found ${callContracts.length} call contracts and ${putContracts.length} put contracts for ${closestExpiration}`);
     console.log(`Found ${putContracts.length} put contracts for ${closestExpiration}`);
 
     if (callContracts.length === 0 || putContracts.length === 0) {
