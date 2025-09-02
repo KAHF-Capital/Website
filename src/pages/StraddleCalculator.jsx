@@ -13,7 +13,6 @@ const StraddleCalculator = () => {
   const [inputs, setInputs] = useState({
     ticker: '',
     currentPrice: '',
-    executionDate: '',
     expirationDate: '',
     strikePrice: '',
     totalPremium: ''
@@ -137,6 +136,18 @@ const StraddleCalculator = () => {
               </span>
             );
           }
+          
+          // Show which execution date was used
+          if (straddleData.executionDate) {
+            console.log(`Using execution date: ${straddleData.executionDate} for expiration: ${straddleData.expiration}`);
+            
+            // Show a helpful message about the execution date
+            setError(
+              <span>
+                Execution date: {straddleData.executionDate} | Expiration: {straddleData.expiration}
+              </span>
+            );
+          }
         } else {
           setError(
             <span>
@@ -193,12 +204,21 @@ const StraddleCalculator = () => {
     });
   }, []); // Empty dependency array is fine since this only runs once on mount
 
-  // Calculate days to expiration
+  // Calculate days to expiration (from execution date to expiration)
   const calculateDaysToExpiration = () => {
-    if (!inputs.executionDate || !inputs.expirationDate) return 0;
-    const execDate = new Date(inputs.executionDate);
+    if (!inputs.expirationDate) return 0;
+    
+    // If we have results from the API, use the execution date from there
+    if (results && results.executionDate) {
+      const execDate = new Date(results.executionDate);
+      const expDate = new Date(inputs.expirationDate);
+      return Math.floor((expDate - execDate) / (1000 * 60 * 60 * 24));
+    }
+    
+    // Otherwise, estimate from today
+    const today = new Date();
     const expDate = new Date(inputs.expirationDate);
-    return Math.floor((expDate - execDate) / (1000 * 60 * 60 * 24));
+    return Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
   };
 
   // Calculate breakeven points
@@ -360,6 +380,9 @@ const StraddleCalculator = () => {
               <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-6">
             <h2 className="text-2xl font-semibold mb-6 text-gray-800">Strategy Parameters</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Execution date is automatically set to the last trading day. You only need to select the expiration date.
+            </p>
             
             <div className="space-y-4">
               <div>
@@ -389,39 +412,26 @@ const StraddleCalculator = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Execution Date *
-                  </label>
-                  <Input
-                    type="date"
-                    value={inputs.executionDate}
-                    onChange={(e) => setInputs(prev => ({ ...prev, executionDate: e.target.value }))}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expiration Date *
-                          {fetchingOptions && (
-                            <span className="ml-2 text-xs text-green-600">Fetching options...</span>
-                          )}
-                  </label>
-                  <Input
-                    type="date"
-                    value={inputs.expirationDate}
-                          onChange={(e) => handleExpirationChange(e.target.value)}
-                    className="w-full"
-                          disabled={fetchingOptions}
-                  />
-                  {availableExpirations.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Available expirations: {availableExpirations.slice(0, 5).join(', ')}
-                      {availableExpirations.length > 5 && ` and ${availableExpirations.length - 5} more`}
-                    </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Expiration Date *
+                  {fetchingOptions && (
+                    <span className="ml-2 text-xs text-green-600">Fetching options...</span>
                   )}
-                </div>
+                </label>
+                <Input
+                  type="date"
+                  value={inputs.expirationDate}
+                  onChange={(e) => handleExpirationChange(e.target.value)}
+                  className="w-full"
+                  disabled={fetchingOptions}
+                />
+                {availableExpirations.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Available expirations: {availableExpirations.slice(0, 5).join(', ')}
+                    {availableExpirations.length > 5 && ` and ${availableExpirations.length - 5} more`}
+                  </p>
+                )}
               </div>
 
               <div>

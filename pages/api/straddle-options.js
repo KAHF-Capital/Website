@@ -76,6 +76,7 @@ export default async function handler(req, res) {
     }
 
     console.log(`Requested expiration: ${expiration}, Using closest available: ${closestExpiration}`);
+    console.log(`Current stock price: ${currentPrice}, Target ATM strike: ${atmStrike}`);
 
     // Now get contracts for the closest available expiration date
     const contractsResponse = await fetch(
@@ -130,10 +131,45 @@ export default async function handler(req, res) {
       throw new Error('No matching call and put contracts found for this expiration');
     }
 
-    // Now get the pricing data using the actual contract tickers
+    // Get today's date and find the last trading day
+    const today = new Date();
+    let lastTradingDay = null;
+    
+    // Try today first, then go backwards to find the last trading day
+    for (let i = 0; i <= 5; i++) {
+      const testDate = new Date(today);
+      testDate.setDate(testDate.getDate() - i);
+      const testDateStr = testDate.toISOString().slice(0, 10);
+      
+      try {
+        // Test if we can get stock data for this date (to verify it's a trading day)
+        const stockTestResponse = await fetch(
+          `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+        );
+        if (stockTestResponse.ok) {
+          const stockTestData = await stockTestResponse.json();
+          if (stockTestData.results && stockTestData.results.length > 0) {
+            lastTradingDay = testDateStr;
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`No stock data for ${testDateStr}, trying next day`);
+        continue;
+      }
+    }
+    
+    if (!lastTradingDay) {
+      throw new Error('Could not find recent trading data');
+    }
+    
+    console.log(`Using last trading day: ${lastTradingDay} as execution date`);
+    
+    // Now get the options pricing data for the user's selected expiration date
+    // We'll use the most recent available options data (usually from the last trading day)
     const [callResponse, putResponse] = await Promise.all([
-      fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
-      fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${expiration}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
+      fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
+      fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
     ]);
 
     let callPrice = 0;
@@ -157,6 +193,7 @@ export default async function handler(req, res) {
       ticker,
       expiration: closestExpiration,  // Return the actual expiration date used
       requestedExpiration: expiration, // Keep track of what was requested
+      executionDate: lastTradingDay,  // The date we're using as execution date (last trading day)
       currentPrice,
       strikePrice: foundStrike,
       callPrice,
