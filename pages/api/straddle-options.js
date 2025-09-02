@@ -163,31 +163,38 @@ export default async function handler(req, res) {
       throw new Error('No matching call and put contracts found for this expiration');
     }
 
-    // Get today's date and find the last trading day
+    // Calculate the last trading day (previous weekday)
     const currentDate = new Date();
     let lastTradingDay = null;
     
-    // Try today first, then go backwards to find the last trading day
-    for (let i = 0; i <= 5; i++) {
+    // Start from yesterday and go backwards until we find a weekday (Monday = 1, Sunday = 0)
+    for (let i = 1; i <= 7; i++) {
       const testDate = new Date(currentDate);
       testDate.setDate(testDate.getDate() - i);
-      const testDateStr = testDate.toISOString().slice(0, 10);
       
-      try {
-        // Test if we can get stock data for this date (to verify it's a trading day)
-        const stockTestResponse = await fetch(
-          `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
-        );
-        if (stockTestResponse.ok) {
-          const stockTestData = await stockTestResponse.json();
-          if (stockTestData.results && stockTestData.results.length > 0) {
-            lastTradingDay = testDateStr;
-            break;
+      // Check if it's a weekday (Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5)
+      const dayOfWeek = testDate.getDay();
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const testDateStr = testDate.toISOString().slice(0, 10);
+        console.log(`Testing potential trading day: ${testDateStr} (${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]})`);
+        
+        try {
+          // Test if we can get stock data for this date to verify it's actually a trading day
+          const stockTestResponse = await fetch(
+            `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+          );
+          if (stockTestResponse.ok) {
+            const stockTestData = await stockTestResponse.json();
+            if (stockTestData.results && stockTestData.results.length > 0) {
+              lastTradingDay = testDateStr;
+              console.log(`Found valid trading day: ${lastTradingDay}`);
+              break;
+            }
           }
+        } catch (error) {
+          console.log(`No stock data for ${testDateStr}, trying next day`);
+          continue;
         }
-      } catch (error) {
-        console.log(`No stock data for ${testDateStr}, trying next day`);
-        continue;
       }
     }
     
