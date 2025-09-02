@@ -10,23 +10,23 @@ export default function Home() {
 
   const platformFeatures = [
     {
+      name: "Learning Modules",
+      description: "Master volatility trading strategies with comprehensive educational content and real-world examples",
+      icon: Target,
+    },
+    {
       name: "Dark Pool Scanner",
       description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
       icon: BarChart3,
     },
     {
-      name: "Volume Analytics",
-      description: "Monitor top tickers by aggregated daily dark pool volume with real-time filtering",
+      name: "Straddle Calculator",
+      description: "Analyze historical profitability of ATM straddle strategies for any ticker with advanced analytics",
       icon: TrendingUp,
     },
     {
-      name: "Straddle Analysis",
-      description: "Analyze historical profitability of ATM straddle strategies for any ticker",
-      icon: Target,
-    },
-    {
-      name: "Volatility Arbitrage",
-      description: "Complete workflow from opportunity discovery to strategy analysis",
+      name: "VolAlert Pro",
+      description: "Get real-time SMS alerts on dark pool activity spikes and unusual volume patterns",
       icon: Search,
     }
   ];
@@ -150,9 +150,9 @@ export default function Home() {
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Available Tools & Services</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Professional-grade analytics and tools for institutional-level trading
+              Everything you need to trade volatility like the professionals
             </p>
           </div>
           

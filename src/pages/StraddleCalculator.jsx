@@ -290,7 +290,7 @@ const StraddleCalculator = () => {
               />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">VolAlert Pro - SMS Alert System</p>
+                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
