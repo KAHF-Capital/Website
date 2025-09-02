@@ -17,18 +17,10 @@ export default async function handler(req, res) {
 
   try {
     // First, get the current stock price to determine ATM strike
-    // Try to get today's data first, fallback to previous close
-    const today = new Date().toISOString().slice(0, 10);
+    // Get stock price using the most recent available data
     let stockResponse = await fetch(
-      `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${today}/${today}?adjusted=true&apiKey=${POLYGON_API_KEY}`
+      `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
     );
-    
-    if (!stockResponse.ok) {
-      // Fallback to previous close
-      stockResponse = await fetch(
-        `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
-      );
-    }
 
     if (!stockResponse.ok) {
       throw new Error('Failed to fetch stock price');
@@ -181,7 +173,7 @@ export default async function handler(req, res) {
         try {
           // Test if we can get stock data for this date to verify it's actually a trading day
           const stockTestResponse = await fetch(
-            `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+            `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${testDateStr}/${testDateStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`
           );
           if (stockTestResponse.ok) {
             const stockTestData = await stockTestResponse.json();
