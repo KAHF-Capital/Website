@@ -139,15 +139,9 @@ const StraddleCalculator = () => {
             );
           }
           
-          // Show which execution date was used
+          // Log execution date for debugging (but don't show to user)
           if (straddleData.executionDate) {
             console.log(`Using execution date: ${straddleData.executionDate} for expiration: ${straddleData.expiration}`);
-            
-            setError(
-              <span>
-                Execution date: {straddleData.executionDate} | Expiration: {straddleData.expiration}
-              </span>
-            );
           }
         } else if (straddleData && straddleData.totalPremium === 0) {
           // API returned data but with 0 premiums - likely pricing data issue
