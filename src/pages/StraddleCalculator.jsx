@@ -143,13 +143,28 @@ const StraddleCalculator = () => {
           if (straddleData.executionDate) {
             console.log(`Using execution date: ${straddleData.executionDate} for expiration: ${straddleData.expiration}`);
             
-            // Show a helpful message about the execution date
             setError(
               <span>
                 Execution date: {straddleData.executionDate} | Expiration: {straddleData.expiration}
               </span>
             );
           }
+        } else if (straddleData && straddleData.totalPremium === 0) {
+          // API returned data but with 0 premiums - likely pricing data issue
+          setError(
+            <span>
+              Options contracts found but pricing data unavailable. This usually means no recent trading data. Please{' '}
+              <a 
+                href={getYahooFinanceUrl(inputs.ticker, value)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-800 underline font-medium"
+              >
+                check Yahoo Finance options
+              </a>{' '}
+              to enter premium manually. Strike: {straddleData.strikePrice}, Expiration: {straddleData.expiration}
+            </span>
+          );
         } else {
           setError(
             <span>

@@ -124,20 +124,25 @@ export default async function handler(req, res) {
 
     console.log(`Found ${callContracts.length} call contracts and ${putContracts.length} put contracts for ${closestExpiration}`);
     console.log(`Available strikes:`, [...new Set(callContracts.map(c => c.strike_price))].slice(0, 10));
+    console.log(`Current price: ${currentPrice}, Target ATM strike: ${atmStrike}`);
 
     // Find the closest ATM options (closest strike to current price)
     let bestCall = null;
     let bestPut = null;
     let minStrikeDiff = Infinity;
 
+    console.log(`Looking for matching call/put contracts at same strike price...`);
+    
     for (const callContract of callContracts) {
       for (const putContract of putContracts) {
         if (callContract.strike_price === putContract.strike_price) {
           const strikeDiff = Math.abs(callContract.strike_price - currentPrice);
+          console.log(`Found matching strike: ${callContract.strike_price} (diff from current: ${strikeDiff})`);
           if (strikeDiff < minStrikeDiff) {
             minStrikeDiff = strikeDiff;
             bestCall = callContract;
             bestPut = putContract;
+            console.log(`New best match - Strike: ${callContract.strike_price}, Call: ${callContract.ticker}, Put: ${putContract.ticker}`);
           }
         }
       }
@@ -185,33 +190,71 @@ export default async function handler(req, res) {
     // We'll use the most recent available options data (usually from the last trading day)
     console.log(`Fetching options data for call: ${bestCall.ticker} and put: ${bestPut.ticker} on date: ${lastTradingDay}`);
     
-    const [callResponse, putResponse] = await Promise.all([
-      fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
-      fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
-    ]);
-
+    // Try multiple pricing endpoints for better data availability
     let callPrice = 0;
     let putPrice = 0;
-
-    if (callResponse.ok) {
-      const callData = await callResponse.json();
-      callPrice = callData.close || 0;
-      console.log(`Call options data:`, callData);
-    } else {
-      console.error(`Call options request failed:`, callResponse.status, callResponse.statusText);
+    
+    // First try open/close data
+    try {
+      const callResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      if (callResponse.ok) {
+        const callData = await callResponse.json();
+        callPrice = callData.close || 0;
+        console.log(`Call options data (open/close):`, callData);
+      }
+    } catch (error) {
+      console.log(`Open/close call data failed:`, error.message);
     }
-
-    if (putResponse.ok) {
-      const putData = await putResponse.json();
-      putPrice = putData.close || 0;
-      console.log(`Put options data:`, callData);
-    } else {
-      console.error(`Put options request failed:`, putResponse.status, putResponse.statusText);
+    
+    try {
+      const putResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      if (putResponse.ok) {
+        const putData = await putResponse.json();
+        putPrice = putData.close || 0;
+        console.log(`Put options data (open/close):`, putData);
+      }
+    } catch (error) {
+      console.log(`Open/close put data failed:`, error.message);
+    }
+    
+    // If we still don't have pricing data, try previous close endpoint
+    if (callPrice === 0) {
+      try {
+        const callPrevResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+        if (callPrevResponse.ok) {
+          const callPrevData = await callPrevResponse.json();
+          callPrice = callPrevData.results?.[0]?.c || 0;
+          console.log(`Call options data (prev close):`, callPrevData);
+        }
+      } catch (error) {
+        console.log(`Prev close call data failed:`, error.message);
+      }
+    }
+    
+    if (putPrice === 0) {
+      try {
+        const putPrevResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+        if (putPrevResponse.ok) {
+          const putPrevData = await putPrevResponse.json();
+          putPrice = putPrevData.results?.[0]?.c || 0;
+          console.log(`Put options data (prev close):`, putPrevData);
+        }
+      } catch (error) {
+        console.log(`Prev close put data failed:`, error.message);
+      }
     }
 
     const foundStrike = bestCall.strike_price;
-
     const totalPremium = callPrice + putPrice;
+
+    console.log(`Final pricing - Call: ${callPrice}, Put: ${putPrice}, Total: ${totalPremium}`);
+    console.log(`Strike: ${foundStrike}, Current Price: ${currentPrice}`);
+
+    // Check if we actually got valid pricing data
+    if (callPrice === 0 || putPrice === 0) {
+      console.warn(`Missing pricing data - Call: ${callPrice}, Put: ${putPrice}`);
+      console.warn(`This might be due to no trading data available for ${lastTradingDay}`);
+    }
 
     return res.status(200).json({
       ticker,
