@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from './Footer';
-import { Info, Menu, X } from 'lucide-react';
+import { Info, Menu, X, Bell, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Safe icon components
@@ -171,10 +171,10 @@ export default function Scanner() {
                   alt="KAHF Capital Logo" 
                   className="h-10 w-auto"
                 />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                  <p className="text-gray-600 text-sm">Volatility Trading Education</p>
-                </div>
+                              <div>
+                <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
+                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
+              </div>
               </div>
               <nav className="hidden sm:flex space-x-8">
                 <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
@@ -223,7 +223,7 @@ export default function Scanner() {
               />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Education</p>
+                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
@@ -290,6 +290,28 @@ export default function Scanner() {
               </button>
             </div>
             <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
+            
+            {/* VolAlert Pro CTA */}
+            <div className="mt-6 mb-6 p-6 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-center sm:text-left">
+                  <h3 className="text-xl font-bold text-green-800 mb-2">Get Real-Time SMS Alerts</h3>
+                  <p className="text-green-700">Never miss dark pool activity again. Subscribe to VolAlert Pro for instant notifications.</p>
+                </div>
+                <a 
+                  href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0"
+                >
+                  <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center">
+                    <Bell className="mr-2 h-5 w-5" />
+                    Subscribe to VolAlert Pro
+                    <Zap className="ml-2 h-5 w-5" />
+                  </button>
+                </a>
+              </div>
+            </div>
             
             {showScannerInfo && (
               <div className="mt-4 max-w-2xl bg-green-50 border border-green-200 rounded-lg p-4">

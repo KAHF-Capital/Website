@@ -17,19 +17,32 @@ export default async function handler(req, res) {
 
   try {
     // First, get the current stock price to determine ATM strike
-    const stockResponse = await fetch(
-      `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+    // Try to get today's data first, fallback to previous close
+    const today = new Date().toISOString().slice(0, 10);
+    let stockResponse = await fetch(
+      `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${today}/${today}?adjusted=true&apiKey=${POLYGON_API_KEY}`
     );
+    
+    if (!stockResponse.ok) {
+      // Fallback to previous close
+      stockResponse = await fetch(
+        `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`
+      );
+    }
 
     if (!stockResponse.ok) {
       throw new Error('Failed to fetch stock price');
     }
 
     const stockData = await stockResponse.json();
-    const currentPrice = stockData.results[0]?.c || 0;
+    console.log('Stock data response:', JSON.stringify(stockData, null, 2));
+    
+    const currentPrice = stockData.results && stockData.results.length > 0 ? stockData.results[0].c : 0;
+    console.log('Extracted current price:', currentPrice);
 
     if (!currentPrice) {
-      return res.status(404).json({ error: 'Stock price not found' });
+      console.error('No stock price found in response:', stockData);
+      return res.status(404).json({ error: 'Stock price not found', response: stockData });
     }
 
     // Find the closest ATM strike price (round to nearest $5 for all prices)
@@ -59,6 +72,9 @@ export default async function handler(req, res) {
     const requestedDate = new Date(expiration);
     let closestExpiration = null;
     let minDateDiff = Infinity;
+
+    console.log(`Looking for expiration closest to: ${expiration}`);
+    console.log(`Available expirations:`, allContracts.map(c => c.expiration_date).filter(Boolean).slice(0, 10));
 
     for (const contract of allContracts) {
       if (contract.expiration_date) {
@@ -167,6 +183,8 @@ export default async function handler(req, res) {
     
     // Now get the options pricing data for the user's selected expiration date
     // We'll use the most recent available options data (usually from the last trading day)
+    console.log(`Fetching options data for call: ${bestCall.ticker} and put: ${bestPut.ticker} on date: ${lastTradingDay}`);
+    
     const [callResponse, putResponse] = await Promise.all([
       fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`),
       fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`)
@@ -178,11 +196,17 @@ export default async function handler(req, res) {
     if (callResponse.ok) {
       const callData = await callResponse.json();
       callPrice = callData.close || 0;
+      console.log(`Call options data:`, callData);
+    } else {
+      console.error(`Call options request failed:`, callResponse.status, callResponse.statusText);
     }
 
     if (putResponse.ok) {
       const putData = await putResponse.json();
       putPrice = putData.close || 0;
+      console.log(`Put options data:`, callData);
+    } else {
+      console.error(`Put options request failed:`, putResponse.status, putResponse.statusText);
     }
 
     const foundStrike = bestCall.strike_price;

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Menu, X } from 'lucide-react';
+import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Menu, X, Bell, Smartphone, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
 
@@ -10,24 +10,24 @@ export default function Home() {
 
   const platformFeatures = [
     {
-      name: "Dark Pool Scanner",
-      description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
+      name: "Real-Time SMS Alerts",
+      description: "Get instant notifications on your phone when dark pool activity spikes or unusual volume patterns emerge",
+      icon: Bell,
+    },
+    {
+      name: "Dark Pool Intelligence",
+      description: "Track institutional trading activity hidden from public markets with automated alerts",
       icon: BarChart3,
     },
     {
-      name: "Volume Analytics",
-      description: "Monitor top tickers by aggregated daily dark pool volume with real-time filtering",
+      name: "Volume Pattern Detection",
+      description: "AI-powered analysis identifies unusual trading patterns before they become public",
       icon: TrendingUp,
     },
     {
-      name: "Straddle Analysis",
-      description: "Analyze historical profitability of ATM straddle strategies for any ticker",
-      icon: Target,
-    },
-    {
-      name: "Volatility Arbitrage",
-      description: "Complete workflow from opportunity discovery to strategy analysis",
-      icon: Search,
+      name: "Mobile-First Experience",
+      description: "Never miss an opportunity with push notifications and mobile-optimized alerts",
+      icon: Smartphone,
     }
   ];
 
@@ -45,7 +45,7 @@ export default function Home() {
               />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
+                <p className="text-gray-600 text-sm">VolAlert Pro - SMS Alert System</p>
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
@@ -101,21 +101,27 @@ export default function Home() {
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight tracking-tight">
-            Trade like the <span className="text-green-600">1%.</span>
+            Get <span className="text-green-600">Real-Time Alerts</span> on Your Phone
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Peek behind the curtain, and exploit unpriced volatility.
+            VolAlert Pro delivers instant SMS notifications when dark pool activity spikes, giving you the edge to act before the market moves.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/scanner" className="w-full sm:w-auto">
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                Access Dark Pool Scanner
-                <ArrowRight className="ml-2 h-5 w-5 inline" />
+            <a 
+              href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-full sm:w-auto"
+            >
+              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation flex items-center justify-center">
+                <Zap className="mr-2 h-5 w-5" />
+                Subscribe to VolAlert Pro
+                <ArrowRight className="ml-2 h-5 w-5" />
               </button>
-            </Link>
-            <Link href="/straddle-calculator" className="w-full sm:w-auto">
+            </a>
+            <Link href="/scanner" className="w-full sm:w-auto">
               <button className="w-full bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                Straddle Calculator
+                Try Free Scanner
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>
@@ -127,9 +133,9 @@ export default function Home() {
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Why Choose VolAlert Pro?</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Professional-grade analytics and tools for institutional-level trading
+              Professional-grade SMS alerts that keep you ahead of institutional moves
             </p>
           </div>
           
@@ -146,6 +152,27 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-12 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready to Get the Edge?</h3>
+          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            Join traders who are already receiving real-time alerts on dark pool activity and unusual volume patterns.
+          </p>
+          <a 
+            href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            <button className="bg-green-600 hover:bg-green-700 text-white px-10 py-4 text-xl rounded-lg font-semibold touch-manipulation flex items-center mx-auto">
+              <Bell className="mr-3 h-6 w-6" />
+              Start Getting Alerts Today
+              <ArrowRight className="ml-3 h-6 w-6" />
+            </button>
+          </a>
         </div>
       </section>
 
