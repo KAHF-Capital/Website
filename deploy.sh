@@ -72,3 +72,4 @@ echo "   - Processed CSV files: $(find data/daily -name "*.csv" | wc -l)"
 echo "   - Generated JSON files: $PROCESSED_COUNT"
 echo "   - Deployment: Successful"
 
+
