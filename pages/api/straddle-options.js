@@ -208,33 +208,35 @@ export default async function handler(req, res) {
     // We'll use the most recent available options data (usually from the last trading day)
     console.log(`Fetching options data for call: ${bestCall.ticker} and put: ${bestPut.ticker} on date: ${lastTradingDay}`);
     
-    // Get options pricing data using the most reliable endpoint
+    // Get options pricing data using the correct /v1/open-close endpoint
     let callPrice = 0;
     let putPrice = 0;
     
-    // Use the /v2/aggs/ticker/{ticker}/prev endpoint which gets the most recent available data
-    // This is more reliable than trying specific dates that might not have data
+    // Use the /v1/open-close/{optionsTicker}/{date} endpoint as per Polygon.io documentation
+    // This gets the daily OHLC data for options contracts on the last trading day
     try {
-      const callResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      const callResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
       if (callResponse.ok) {
         const callData = await callResponse.json();
-        callPrice = callData.results?.[0]?.c || 0;
-        console.log(`Call options data (prev close):`, callData);
+        callPrice = callData.close || 0;
+        console.log(`Call options data (open/close):`, callData);
       } else {
         console.warn(`Call options request failed: ${callResponse.status} - ${callResponse.statusText}`);
+        console.warn(`Tried to fetch: /v1/open-close/${bestCall.ticker}/${lastTradingDay}`);
       }
     } catch (error) {
       console.log(`Call options data fetch failed:`, error.message);
     }
     
     try {
-      const putResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      const putResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
       if (putResponse.ok) {
         const putData = await putResponse.json();
-        putPrice = putData.results?.[0]?.c || 0;
-        console.log(`Put options data (prev close):`, putData);
+        putPrice = putData.close || 0;
+        console.log(`Put options data (open/close):`, putData);
       } else {
         console.warn(`Put options request failed: ${putResponse.status} - ${putResponse.statusText}`);
+        console.warn(`Tried to fetch: /v1/open-close/${bestPut.ticker}/${lastTradingDay}`);
       }
     } catch (error) {
       console.log(`Put options data fetch failed:`, error.message);
