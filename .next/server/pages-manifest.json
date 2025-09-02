@@ -1,9 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/scanner": "pages/scanner.js",
-  "/processor": "pages/processor.js",
-  "/api/darkpool-by-date": "pages/api/darkpool-by-date.js",
-  "/api/process-all-csv": "pages/api/process-all-csv.js"
-}
+{"/_app":"pages/_app.js","/api/available-expirations":"pages/api/available-expirations.js","/api/darkpool-by-date":"pages/api/darkpool-by-date.js","/api/darkpool-trades":"pages/api/darkpool-trades.js","/api/stock-price":"pages/api/stock-price.js","/api/straddle-analysis":"pages/api/straddle-analysis.js","/_error":"pages/_error.js","/api/straddle-options":"pages/api/straddle-options.js","/confirmation":"pages/confirmation.html","/":"pages/index.html","/payment":"pages/payment.html","/learning":"pages/learning.html","/scanner":"pages/scanner.html","/straddle-calculator":"pages/straddle-calculator.html","/_document":"pages/_document.js","/404":"pages/404.html"}

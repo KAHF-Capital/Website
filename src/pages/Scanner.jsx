@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from './Footer';
-import { Info, Menu, X, Bell, Zap } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import Header from '../components/Header';
+import { Info, Bell, Zap } from 'lucide-react';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -38,7 +38,6 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     loadDarkPoolData();
@@ -161,43 +160,7 @@ export default function Scanner() {
   if (error) {
     return (
       <div className="min-h-screen bg-white">
-        {/* Header */}
-        <header className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-50">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
-                  alt="KAHF Capital Logo" 
-                  className="h-10 w-auto"
-                />
-                              <div>
-                <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
-              </div>
-              </div>
-              <nav className="hidden sm:flex space-x-8">
-                <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
-                  Home
-                </Link>
-                <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
-                  Learning Modules
-                </Link>
-                <Link href="/scanner" className="text-green-600 font-medium">
-                  Scanner
-                </Link>
-                <a 
-                  href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-gray-900 hover:text-green-600 transition-colors font-medium"
-                >
-                  My Subscriptions
-                </a>
-              </nav>
-            </div>
-          </div>
-        </header>
+        <Header />
 
         <div className="bg-gray-50 py-12 px-4">
           <div className="max-w-6xl mx-auto text-center">
@@ -219,86 +182,8 @@ export default function Scanner() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png" 
-                alt="KAHF Capital Logo" 
-                className="h-10 w-auto"
-              />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
-              </div>
-            </div>
-            <nav className="hidden sm:flex space-x-8">
-              <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
-                Home
-              </Link>
-              <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
-                Learning Modules
-              </Link>
-              <Link href="/scanner" className="text-green-600 font-medium">
-                Scanner
-              </Link>
-              <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
-                Straddle Calculator
-              </Link>
-              <a 
-                href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-gray-900 hover:text-green-600 transition-colors font-medium"
-              >
-                My Subscriptions
-              </a>
-            </nav>
-            <div className="sm:hidden">
-              <button className="p-2 text-gray-900 hover:text-green-600 touch-manipulation" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="sm:hidden overflow-hidden"
-            >
-              <nav className="flex flex-col items-center space-y-1 p-3 border-t border-gray-200">
-                <Link href="/" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
-                  Home
-                </Link>
-                <Link href="/learning" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
-                  Learning Modules
-                </Link>
-                <Link href="/scanner" className="text-green-600 font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
-                  Scanner
-                </Link>
-                <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
-                  Straddle Calculator
-                </Link>
-                <a 
-                  href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  My Subscriptions
-                </a>
-              </nav>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
+      <Header />
+          
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
