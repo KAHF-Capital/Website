@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Menu, X, Bell, Smartphone, Zap } from 'lucide-react';
+import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Menu, X, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Footer from './Footer';
 
@@ -10,24 +10,24 @@ export default function Home() {
 
   const platformFeatures = [
     {
-      name: "Real-Time SMS Alerts",
-      description: "Get instant notifications on your phone when dark pool activity spikes or unusual volume patterns emerge",
-      icon: Bell,
-    },
-    {
-      name: "Dark Pool Intelligence",
-      description: "Track institutional trading activity hidden from public markets with automated alerts",
+      name: "Dark Pool Scanner",
+      description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
       icon: BarChart3,
     },
     {
-      name: "Volume Pattern Detection",
-      description: "AI-powered analysis identifies unusual trading patterns before they become public",
+      name: "Volume Analytics",
+      description: "Monitor top tickers by aggregated daily dark pool volume with real-time filtering",
       icon: TrendingUp,
     },
     {
-      name: "Mobile-First Experience",
-      description: "Never miss an opportunity with push notifications and mobile-optimized alerts",
-      icon: Smartphone,
+      name: "Straddle Analysis",
+      description: "Analyze historical profitability of ATM straddle strategies for any ticker",
+      icon: Target,
+    },
+    {
+      name: "Volatility Arbitrage",
+      description: "Complete workflow from opportunity discovery to strategy analysis",
+      icon: Search,
     }
   ];
 
@@ -61,9 +61,14 @@ export default function Home() {
               <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Straddle Calculator
               </Link>
-              <Link href="/mysubscriptions" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+              <a 
+                href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-gray-900 hover:text-green-600 transition-colors font-medium"
+              >
                 My Subscriptions
-              </Link>
+              </a>
             </nav>
             <div className="sm:hidden">
               <button className="p-2 text-gray-900 hover:text-green-600 touch-manipulation" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -94,9 +99,15 @@ export default function Home() {
                 <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Straddle Calculator
                 </Link>
-                <Link href="/mysubscriptions" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                <a 
+                  href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
                   My Subscriptions
-                </Link>
+                </a>
               </nav>
             </motion.div>
           )}
@@ -107,10 +118,10 @@ export default function Home() {
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight tracking-tight">
-            Get <span className="text-green-600">Real-Time Alerts</span> on Your Phone
+            Trade like the <span className="text-green-600">1%.</span>
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            VolAlert Pro delivers instant SMS notifications when dark pool activity spikes, giving you the edge to act before the market moves.
+            Peek behind the curtain, and exploit unpriced volatility.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a 
@@ -139,9 +150,9 @@ export default function Home() {
       <section className="py-12 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Why Choose VolAlert Pro?</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Platform Features</h3>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Professional-grade SMS alerts that keep you ahead of institutional moves
+              Professional-grade analytics and tools for institutional-level trading
             </p>
           </div>
           
@@ -161,26 +172,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-12 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready to Get the Edge?</h3>
-          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join traders who are already receiving real-time alerts on dark pool activity and unusual volume patterns.
-          </p>
-          <a 
-            href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
-            <button className="bg-green-600 hover:bg-green-700 text-white px-10 py-4 text-xl rounded-lg font-semibold touch-manipulation flex items-center mx-auto">
-              <Bell className="mr-3 h-6 w-6" />
-              Start Getting Alerts Today
-              <ArrowRight className="ml-3 h-6 w-6" />
-            </button>
-          </a>
-        </div>
-      </section>
+
 
       {/* Footer */}
       <Footer />
