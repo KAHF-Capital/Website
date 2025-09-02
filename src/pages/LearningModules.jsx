@@ -242,7 +242,7 @@ export default function LearningModules() {
               />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-                <p className="text-gray-600 text-sm">Volatility Trading Platform</p>
+                <p className="text-gray-600 text-sm">VolAlert Pro - SMS Alert System</p>
               </div>
             </div>
             <nav className="hidden sm:flex space-x-8">
@@ -257,6 +257,9 @@ export default function LearningModules() {
               </Link>
               <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
                 Straddle Calculator
+              </Link>
+              <Link href="/mysubscriptions" className="text-gray-900 hover:text-green-600 transition-colors font-medium">
+                My Subscriptions
               </Link>
             </nav>
             <div className="sm:hidden">
@@ -287,6 +290,9 @@ export default function LearningModules() {
                 </Link>
                 <Link href="/straddle-calculator" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
                   Straddle Calculator
+                </Link>
+                <Link href="/mysubscriptions" className="text-gray-900 hover:text-green-600 transition-colors font-medium w-full text-center py-3 rounded-md hover:bg-gray-100 touch-manipulation" onClick={() => setIsMobileMenuOpen(false)}>
+                  My Subscriptions
                 </Link>
               </nav>
             </motion.div>
