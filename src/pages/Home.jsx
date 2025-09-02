@@ -26,7 +26,7 @@ export default function Home() {
     },
     {
       name: "VolAlert Pro",
-      description: "Get real-time SMS alerts on dark pool activity spikes and unusual volume patterns",
+      description: "Get real-time SMS alerts on volatility opportunities",
       icon: Search,
     }
   ];
