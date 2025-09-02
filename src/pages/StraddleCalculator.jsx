@@ -96,7 +96,9 @@ const StraddleCalculator = () => {
   // Convert date to Yahoo Finance timestamp format
   const getYahooFinanceDate = (dateString) => {
     if (!dateString) return '';
-    const date = new Date(dateString + 'T00:00:00');
+    // Create date at midnight in local timezone, not UTC
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
     return Math.floor(date.getTime() / 1000);
   };
 
