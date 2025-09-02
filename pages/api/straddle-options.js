@@ -148,12 +148,12 @@ export default async function handler(req, res) {
     }
 
     // Get today's date and find the last trading day
-    const today = new Date();
+    const currentDate = new Date();
     let lastTradingDay = null;
     
     // Try today first, then go backwards to find the last trading day
     for (let i = 0; i <= 5; i++) {
-      const testDate = new Date(today);
+      const testDate = new Date(currentDate);
       testDate.setDate(testDate.getDate() - i);
       const testDateStr = testDate.toISOString().slice(0, 10);
       
