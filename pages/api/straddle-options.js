@@ -95,28 +95,34 @@ export default async function handler(req, res) {
     console.log(`Current stock price: ${currentPrice}, Target ATM strike: ${atmStrike}`);
 
     // Now get contracts for the closest available expiration date
+    console.log(`Fetching call contracts for ${ticker} expiring ${closestExpiration}...`);
     const contractsResponse = await fetch(
       `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=call&limit=1000&apiKey=${POLYGON_API_KEY}`
     );
 
     if (!contractsResponse.ok) {
+      console.error(`Call contracts request failed: ${contractsResponse.status} - ${contractsResponse.statusText}`);
       throw new Error('Failed to fetch call options contracts');
     }
 
     const contractsData = await contractsResponse.json();
     const callContracts = contractsData.results || [];
+    console.log(`Found ${callContracts.length} call contracts for ${closestExpiration}`);
 
     // Get put contracts for the same expiration
+    console.log(`Fetching put contracts for ${ticker} expiring ${closestExpiration}...`);
     const putContractsResponse = await fetch(
       `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date=${closestExpiration}&contract_type=put&limit=1000&apiKey=${POLYGON_API_KEY}`
     );
 
     if (!putContractsResponse.ok) {
+      console.error(`Put contracts request failed: ${putContractsResponse.status} - ${putContractsResponse.statusText}`);
       throw new Error('Failed to fetch put options contracts');
     }
 
     const putContractsData = await putContractsResponse.json();
     const putContracts = putContractsData.results || [];
+    console.log(`Found ${putContracts.length} put contracts for ${closestExpiration}`);
 
     if (callContracts.length === 0 || putContracts.length === 0) {
       throw new Error(`No options contracts found for ${ticker} expiring ${closestExpiration}`);
@@ -149,6 +155,11 @@ export default async function handler(req, res) {
     }
 
     if (!bestCall || !bestPut) {
+      console.error('Contract matching failed:');
+      console.error('- Available call strikes:', callContracts.map(c => c.strike_price).slice(0, 10));
+      console.error('- Available put strikes:', putContracts.map(c => c.strike_price).slice(0, 10));
+      console.error('- Current price:', currentPrice);
+      console.error('- Target ATM strike:', atmStrike);
       throw new Error('No matching call and put contracts found for this expiration');
     }
 
@@ -190,58 +201,36 @@ export default async function handler(req, res) {
     // We'll use the most recent available options data (usually from the last trading day)
     console.log(`Fetching options data for call: ${bestCall.ticker} and put: ${bestPut.ticker} on date: ${lastTradingDay}`);
     
-    // Try multiple pricing endpoints for better data availability
+    // Get options pricing data using the most reliable endpoint
     let callPrice = 0;
     let putPrice = 0;
     
-    // First try open/close data
+    // Use the /v2/aggs/ticker/{ticker}/prev endpoint which gets the most recent available data
+    // This is more reliable than trying specific dates that might not have data
     try {
-      const callResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      const callResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
       if (callResponse.ok) {
         const callData = await callResponse.json();
-        callPrice = callData.close || 0;
-        console.log(`Call options data (open/close):`, callData);
+        callPrice = callData.results?.[0]?.c || 0;
+        console.log(`Call options data (prev close):`, callData);
+      } else {
+        console.warn(`Call options request failed: ${callResponse.status} - ${callResponse.statusText}`);
       }
     } catch (error) {
-      console.log(`Open/close call data failed:`, error.message);
+      console.log(`Call options data fetch failed:`, error.message);
     }
     
     try {
-      const putResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
+      const putResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
       if (putResponse.ok) {
         const putData = await putResponse.json();
-        putPrice = putData.close || 0;
-        console.log(`Put options data (open/close):`, putData);
+        putPrice = putData.results?.[0]?.c || 0;
+        console.log(`Put options data (prev close):`, putData);
+      } else {
+        console.warn(`Put options request failed: ${putResponse.status} - ${putResponse.statusText}`);
       }
     } catch (error) {
-      console.log(`Open/close put data failed:`, error.message);
-    }
-    
-    // If we still don't have pricing data, try previous close endpoint
-    if (callPrice === 0) {
-      try {
-        const callPrevResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (callPrevResponse.ok) {
-          const callPrevData = await callPrevResponse.json();
-          callPrice = callPrevData.results?.[0]?.c || 0;
-          console.log(`Call options data (prev close):`, callPrevData);
-        }
-      } catch (error) {
-        console.log(`Prev close call data failed:`, error.message);
-      }
-    }
-    
-    if (putPrice === 0) {
-      try {
-        const putPrevResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (putPrevResponse.ok) {
-          const putPrevData = await putPrevResponse.json();
-          putPrice = putPrevData.results?.[0]?.c || 0;
-          console.log(`Put options data (prev close):`, putPrevData);
-        }
-      } catch (error) {
-        console.log(`Prev close put data failed:`, error.message);
-      }
+      console.log(`Put options data fetch failed:`, error.message);
     }
 
     const foundStrike = bestCall.strike_price;
