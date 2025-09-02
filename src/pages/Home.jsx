@@ -157,17 +157,57 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {platformFeatures.map((feature, index) => (
-              <div key={index} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
-                <div className="p-6">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                    <feature.icon className="h-6 w-6 text-green-600" />
+            {platformFeatures.map((feature, index) => {
+              const getFeatureLink = (featureName) => {
+                switch (featureName) {
+                  case 'Learning Modules':
+                    return '/learning';
+                  case 'Dark Pool Scanner':
+                    return '/scanner';
+                  case 'Straddle Calculator':
+                    return '/straddle-calculator';
+                  case 'VolAlert Pro':
+                    return 'https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01';
+                  default:
+                    return '#';
+                }
+              };
+
+              const isExternalLink = feature.name === 'VolAlert Pro';
+              const featureLink = getFeatureLink(feature.name);
+
+              if (isExternalLink) {
+                return (
+                  <a 
+                    key={index} 
+                    href={featureLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg cursor-pointer"
+                  >
+                    <div className="p-6">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                        <feature.icon className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
+                      <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
+                    </div>
+                  </a>
+                );
+              }
+
+              return (
+                <Link key={index} href={featureLink} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg cursor-pointer">
+                  <div className="p-6">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                      <feature.icon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
+                    <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
-                  <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
