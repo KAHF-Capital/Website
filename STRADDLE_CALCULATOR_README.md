@@ -10,6 +10,7 @@ The straddle calculator has been completely redesigned to provide a seamless and
 - **Auto-population**: Strike price, premium, and other details are automatically calculated
 - **Quick expiration selection**: Clickable buttons for the next 5 available expiration dates
 - **Progressive enhancement**: Results appear as soon as data is loaded
+- **Manual fallback**: When API fails, users can enter premium manually with helpful guidance
 
 ### 2. **Better Error Handling**
 - **User-friendly messages**: Clear explanations instead of technical errors
@@ -56,6 +57,13 @@ The straddle calculator has been completely redesigned to provide a seamless and
 1. **Enter Ticker**: Type any valid stock symbol (e.g., AAPL, TSLA, SPY)
 2. **Select Expiration**: Choose from available expiration dates or use quick-select buttons
 3. **View Results**: Strategy details, breakeven points, and historical analysis appear automatically
+
+### Manual Input Fallback
+When the API doesn't provide pricing data:
+1. **Manual Premium Entry**: A blue section appears allowing you to enter the total premium manually
+2. **Yahoo Finance Link**: Direct link to the ticker's options page for easy reference
+3. **Calculate**: Click "Calculate with Manual Premium" to proceed with your entered data
+4. **Results**: Full analysis is provided based on your manual input
 
 ### Advanced Features
 - **URL Parameters**: Pre-fill ticker via URL query parameter (`?ticker=AAPL`)
@@ -106,8 +114,9 @@ The calculator requires the following environment variables:
 
 ### Common Issues
 1. **"No options contracts found"**: Verify the ticker symbol is correct
-2. **"Pricing data unavailable"**: Try a different expiration date
+2. **"Pricing data unavailable"**: Use the manual premium entry feature or try a different expiration date
 3. **"API limit reached"**: Wait for rate limit reset or check API key
+4. **Missing strike price**: When using manual input, strike price may show as "N/A" but analysis still works
 
 ### Fallback Behavior
 - When external APIs fail, the calculator provides mock data for demonstration

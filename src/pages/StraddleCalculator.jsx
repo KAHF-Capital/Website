@@ -12,7 +12,8 @@ import Footer from './Footer';
 const StraddleCalculator = () => {
   const [inputs, setInputs] = useState({
     ticker: '',
-    expirationDate: ''
+    expirationDate: '',
+    manualPremium: ''
   });
 
   const [strategy, setStrategy] = useState(null);
@@ -21,6 +22,7 @@ const StraddleCalculator = () => {
   const [error, setError] = useState('');
   const [availableExpirations, setAvailableExpirations] = useState([]);
   const [showStraddleInfo, setShowStraddleInfo] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
 
   // Fetch available expiration dates for a ticker
   const fetchAvailableExpirations = async (ticker) => {
@@ -48,6 +50,7 @@ const StraddleCalculator = () => {
     setStrategy(null);
     setResults(null);
     setError('');
+    setShowManualInput(false);
     
     if (ticker.length >= 1) {
       try {
@@ -82,35 +85,19 @@ const StraddleCalculator = () => {
         // Auto-analyze historical data
         await analyzeHistoricalData(data);
       } else {
+        setShowManualInput(true);
         setError(
           <span>
             Options found but pricing data unavailable. This usually means no recent trading activity. 
-            Please try a different expiration date or check{' '}
-            <a 
-              href={`https://finance.yahoo.com/quote/${ticker}/options?date=${Math.floor(new Date(expirationDate).getTime() / 1000)}`}
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-green-600 hover:text-green-800 underline font-medium"
-            >
-              Yahoo Finance options
-            </a>{' '}
-            for manual entry.
+            Please try a different expiration date or enter the premium manually below.
           </span>
         );
       }
     } catch (error) {
+      setShowManualInput(true);
       setError(
         <span>
-          Unable to fetch options data. Please verify the ticker symbol and try again, or{' '}
-          <a 
-            href={`https://finance.yahoo.com/quote/${ticker}/options`}
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-green-600 hover:text-green-800 underline font-medium"
-          >
-            check Yahoo Finance
-          </a>{' '}
-          for available options.
+          Unable to fetch options data. Please verify the ticker symbol and try again, or enter the premium manually below.
         </span>
       );
     } finally {
@@ -124,10 +111,44 @@ const StraddleCalculator = () => {
     setStrategy(null);
     setResults(null);
     setError('');
+    setShowManualInput(false);
     
     if (value && inputs.ticker) {
       await fetchStrategyData(inputs.ticker, value);
     }
+  };
+
+  // Handle manual premium input
+  const handleManualPremiumSubmit = async () => {
+    if (!inputs.ticker || !inputs.expirationDate || !inputs.manualPremium) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    const premium = parseFloat(inputs.manualPremium);
+    if (isNaN(premium) || premium <= 0) {
+      setError('Please enter a valid premium amount');
+      return;
+    }
+
+    // Create strategy data from manual input
+    const manualStrategy = {
+      ticker: inputs.ticker,
+      expiration: inputs.expirationDate,
+      currentPrice: 0, // We'll estimate this
+      strikePrice: 0, // We'll estimate this
+      totalPremium: premium,
+      callPrice: premium / 2, // Estimate split between call and put
+      putPrice: premium / 2,
+      daysToExpiration: Math.ceil((new Date(inputs.expirationDate) - new Date()) / (1000 * 60 * 60 * 24))
+    };
+
+    setStrategy(manualStrategy);
+    setError('');
+    setShowManualInput(false);
+    
+    // Analyze historical data
+    await analyzeHistoricalData(manualStrategy);
   };
 
   // Analyze historical data
@@ -162,14 +183,14 @@ const StraddleCalculator = () => {
   const calculateBreakevens = () => {
     if (!strategy) return null;
     
-    const strike = strategy.strikePrice;
+    const strike = strategy.strikePrice || 100; // Default to 100 if no strike price
     const premium = strategy.totalPremium;
     
     return {
       upper: strike + premium,
       lower: strike - premium,
-      upperPct: ((premium / strike) * 100).toFixed(2),
-      lowerPct: ((-premium / strike) * 100).toFixed(2)
+      upperPct: strike > 0 ? ((premium / strike) * 100).toFixed(2) : '0.00',
+      lowerPct: strike > 0 ? ((-premium / strike) * 100).toFixed(2) : '0.00'
     };
   };
 
@@ -297,6 +318,56 @@ const StraddleCalculator = () => {
                         {typeof error === 'string' ? error : error}
                       </div>
                     )}
+
+                    {showManualInput && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 className="text-sm font-medium text-blue-800 mb-3">Manual Premium Entry</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Total Premium (Call + Put) *
+                            </label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="e.g., 5.50"
+                              value={inputs.manualPremium}
+                              onChange={(e) => setInputs(prev => ({ ...prev, manualPremium: e.target.value }))}
+                              className="w-full"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Enter the combined premium for both call and put options
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={handleManualPremiumSubmit}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              Calculate with Manual Premium
+                            </Button>
+                            <Button
+                              onClick={() => setShowManualInput(false)}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <div className="text-xs text-blue-700">
+                            <p className="mb-1">Need help finding the premium?</p>
+                            <a 
+                              href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline font-medium"
+                            >
+                              View options on Yahoo Finance →
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -314,7 +385,7 @@ const StraddleCalculator = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center p-3 bg-blue-50 rounded-lg">
                           <div className="text-lg font-bold text-blue-600">
-                            ${strategy.strikePrice}
+                            {strategy.strikePrice > 0 ? `$${strategy.strikePrice}` : 'N/A'}
                           </div>
                           <div className="text-xs text-blue-700">Strike Price</div>
                         </div>
@@ -356,7 +427,7 @@ const StraddleCalculator = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
-                            <span>Current Price: ${strategy.currentPrice}</span>
+                            <span>Current Price: {strategy.currentPrice > 0 ? `$${strategy.currentPrice}` : 'N/A'}</span>
                           </div>
                         </div>
                       </div>
