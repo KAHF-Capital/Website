@@ -80,18 +80,27 @@ async function fetchHistoricalData(ticker, daysToExpiration) {
 function calculatePriceMovements(historicalPrices, daysToExpiration) {
   const movements = [];
   
+  // Ensure we have enough data points
+  if (historicalPrices.length < daysToExpiration + 1) {
+    return movements;
+  }
+  
   for (let i = 0; i < historicalPrices.length - daysToExpiration; i++) {
     const startPrice = historicalPrices[i].price;
     const endPrice = historicalPrices[i + daysToExpiration].price;
-    const percentMove = (endPrice - startPrice) / startPrice;
     
-    movements.push({
-      startDate: historicalPrices[i].date,
-      endDate: historicalPrices[i + daysToExpiration].date,
-      startPrice,
-      endPrice,
-      percentMove
-    });
+    // Only include valid price data
+    if (startPrice > 0 && endPrice > 0) {
+      const percentMove = (endPrice - startPrice) / startPrice;
+      
+      movements.push({
+        startDate: historicalPrices[i].date,
+        endDate: historicalPrices[i + daysToExpiration].date,
+        startPrice,
+        endPrice,
+        percentMove
+      });
+    }
   }
   
   return movements;
@@ -101,13 +110,22 @@ function calculatePriceMovements(historicalPrices, daysToExpiration) {
 function generateMockHistoricalData(daysToExpiration) {
   const movements = [];
   const basePrice = 100;
-  const volatility = 0.02; // 2% daily volatility
+  const volatility = 0.015; // 1.5% daily volatility (more realistic)
+  const samples = Math.min(200, Math.max(50, 365 - daysToExpiration)); // Adaptive sample size
   
-  for (let i = 0; i < 100; i++) {
-    // Simulate random price movements
+  for (let i = 0; i < samples; i++) {
+    // Simulate more realistic price movements with mean reversion
     let cumulativeMove = 0;
+    let currentPrice = basePrice;
+    
     for (let day = 0; day < daysToExpiration; day++) {
-      cumulativeMove += (Math.random() - 0.5) * volatility * 2;
+      // Random walk with slight mean reversion
+      const randomMove = (Math.random() - 0.5) * volatility * 2;
+      const meanReversion = (basePrice - currentPrice) * 0.001; // Slight pull toward base price
+      const dailyMove = randomMove + meanReversion;
+      
+      cumulativeMove += dailyMove;
+      currentPrice = currentPrice * (1 + dailyMove);
     }
     
     movements.push({
@@ -128,7 +146,13 @@ function analyzeHistoricalProfitability(historicalData, upperBreakevenPct, lower
   let belowLowerCount = 0;
   let totalValidSamples = 0;
   
-  historicalData.forEach(movement => {
+  // Filter out extreme outliers (more than 50% moves in either direction)
+  const filteredData = historicalData.filter(movement => {
+    const absMove = Math.abs(movement.percentMove);
+    return absMove <= 0.5; // Filter out moves > 50%
+  });
+  
+  filteredData.forEach(movement => {
     const percentMove = movement.percentMove;
     
     if (percentMove > upperBreakevenPct) {
@@ -143,6 +167,11 @@ function analyzeHistoricalProfitability(historicalData, upperBreakevenPct, lower
   const totalProfitable = aboveUpperCount + belowLowerCount;
   const profitableRate = totalValidSamples > 0 ? (totalProfitable / totalValidSamples) * 100 : 0;
   
+  // Calculate additional metrics
+  const avgMove = filteredData.reduce((sum, m) => sum + Math.abs(m.percentMove), 0) / filteredData.length;
+  const maxMove = Math.max(...filteredData.map(m => Math.abs(m.percentMove)));
+  const minMove = Math.min(...filteredData.map(m => Math.abs(m.percentMove)));
+  
   return {
     aboveUpper: aboveUpperCount,
     belowLower: belowLowerCount,
@@ -152,6 +181,10 @@ function analyzeHistoricalProfitability(historicalData, upperBreakevenPct, lower
     aboveUpperPct: totalValidSamples > 0 ? (aboveUpperCount / totalValidSamples) * 100 : 0,
     belowLowerPct: totalValidSamples > 0 ? (belowLowerCount / totalValidSamples) * 100 : 0,
     upperBreakevenPct: upperBreakevenPct * 100,
-    lowerBreakevenPct: lowerBreakevenPct * 100
+    lowerBreakevenPct: lowerBreakevenPct * 100,
+    avgMove: avgMove * 100,
+    maxMove: maxMove * 100,
+    minMove: minMove * 100,
+    dataQuality: totalValidSamples >= 100 ? 'high' : totalValidSamples >= 50 ? 'medium' : 'low'
   };
 }

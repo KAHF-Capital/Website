@@ -5,5 +5,12 @@
     "status": "completed",
     "trades_found": 46205709,
     "dates_processed": 1
+  },
+  "2025-09-03.csv": {
+    "hash": "10072230113_2288912640000",
+    "processed_at": "2025-09-05T01:44:07.014Z",
+    "status": "completed",
+    "trades_found": 43510218,
+    "dates_processed": 1
   }
 }

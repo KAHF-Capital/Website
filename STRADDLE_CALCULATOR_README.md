@@ -1,197 +1,122 @@
-# ATM Straddle Profitability Calculator
+# Straddle Calculator - Improved Version
 
-A web-based options trading calculator that evaluates the historical profitability of At-The-Money (ATM) straddle strategies by analyzing how often a stock's price movements exceed breakeven points.
+## Overview
+The straddle calculator has been completely redesigned to provide a seamless and user-friendly experience for analyzing At-The-Money (ATM) straddle options strategies.
 
-## Features
+## Key Improvements
 
-### Core Functionality
-- **Real-time Stock Price Lookup**: Automatically fetches current stock prices using Alpha Vantage API
-- **Breakeven Calculations**: Calculates upper and lower breakeven points based on strike price and premium
-- **Historical Analysis**: Analyzes historical price movements to determine profitability probability
-- **Interactive UI**: Modern, responsive interface with real-time updates
-- **Visual Charts**: Graphical representation of profitability analysis
+### 1. **Streamlined User Experience**
+- **Two-input workflow**: Users only need to enter a ticker symbol and select an expiration date
+- **Auto-population**: Strike price, premium, and other details are automatically calculated
+- **Quick expiration selection**: Clickable buttons for the next 5 available expiration dates
+- **Progressive enhancement**: Results appear as soon as data is loaded
 
-### Input Parameters
-- **Stock Ticker**: Enter any valid stock symbol (e.g., AAPL, TSLA, SPY)
-- **Current Price**: Auto-populated from API or manually entered
-- **Execution Date**: When the straddle will be executed
-- **Expiration Date**: When the options expire
-- **Strike Price**: ATM or near-ATM strike price
-- **Total Premium**: Combined call + put premium cost
+### 2. **Better Error Handling**
+- **User-friendly messages**: Clear explanations instead of technical errors
+- **Helpful guidance**: Links to Yahoo Finance for manual verification
+- **Graceful fallbacks**: Continues to work even when some APIs fail
+- **Specific error types**: Different messages for different failure scenarios
 
-### Calculations Performed
-1. **Days to Expiration**: Automatically calculated from execution to expiration dates
-2. **Breakeven Points**:
-   - Upper Breakeven = Strike Price + Total Premium
-   - Lower Breakeven = Strike Price - Total Premium
-3. **Percentage Moves Required**:
-   - Upper Breakeven % = (Upper Breakeven - Strike) / Strike
-   - Lower Breakeven % = (Lower Breakeven - Strike) / Strike
+### 3. **Enhanced Visual Design**
+- **Modern UI**: Clean, card-based layout with hover effects
+- **Color-coded sections**: Green for profitable moves, red for unprofitable
+- **Interactive charts**: Animated progress bars with gradients
+- **Icon integration**: Lucide React icons for better visual hierarchy
+- **Responsive design**: Works well on all screen sizes
 
-### Historical Analysis
-The calculator analyzes historical price data to determine:
-- How often the stock moved above the upper breakeven point
-- How often the stock moved below the lower breakeven point
-- Overall profitability rate based on historical performance
-- Total number of profitable vs unprofitable occurrences
+### 4. **Improved Data Analysis**
+- **Real-time calculations**: Breakeven points calculated instantly
+- **Historical analysis**: Automatic profitability analysis based on past data
+- **Better charts**: Enhanced StraddleChart component with insights
+- **Data quality indicators**: Shows confidence level of analysis
 
-## Technical Implementation
+### 5. **Smart Defaults**
+- **ATM strike selection**: Automatically finds the closest At-The-Money strike
+- **Best expiration matching**: Finds the closest available expiration date
+- **Execution date calculation**: Automatically determines the last trading day
+- **Premium calculation**: Combines call and put premiums automatically
 
-### Frontend Components
-- **StraddleCalculator.jsx**: Main calculator component with input form and results display
-- **StraddleChart.jsx**: Visualization component for historical analysis results
-- **UI Components**: Reusable components for inputs, buttons, badges, and charts
+## Technical Improvements
 
-### Backend API Endpoints
-- **`/api/stock-price`**: Fetches current stock prices from Alpha Vantage API
-- **`/api/straddle-analysis`**: Performs historical analysis and returns profitability metrics
+### API Enhancements
+- **Better error handling**: More specific error messages
+- **Data validation**: Filters out invalid or extreme data points
+- **Performance optimization**: Reduced unnecessary API calls
+- **Fallback data**: Mock data when external APIs are unavailable
 
-### Utility Classes
-- **StraddleCalculator.js**: Core calculation engine with methods for:
-  - Breakeven point calculations
-  - Profit/loss analysis
-  - Probability of profit calculations
-  - Expected value calculations
-  - Input validation
+### Component Architecture
+- **State management**: Cleaner state handling with React hooks
+- **Error boundaries**: Better error isolation and recovery
+- **Loading states**: Clear feedback during data fetching
+- **Responsive design**: Mobile-first approach
 
-### Data Sources
-- **Alpha Vantage API**: For real-time stock prices and historical data
-- **Fallback Mock Data**: Generated when API limits are reached or for demo purposes
+## Usage
 
-## Usage Instructions
+### Basic Workflow
+1. **Enter Ticker**: Type any valid stock symbol (e.g., AAPL, TSLA, SPY)
+2. **Select Expiration**: Choose from available expiration dates or use quick-select buttons
+3. **View Results**: Strategy details, breakeven points, and historical analysis appear automatically
 
-### Basic Usage
-1. Navigate to `/straddle-calculator` in your browser
-2. Enter the stock ticker symbol (e.g., "AAPL")
-3. The current stock price will be automatically fetched
-4. Select execution and expiration dates
-5. Enter the strike price (typically ATM or near current price)
-6. Enter the total premium (call + put combined cost)
-7. Click "Calculate Profitability" to see the analysis
+### Advanced Features
+- **URL Parameters**: Pre-fill ticker via URL query parameter (`?ticker=AAPL`)
+- **Multiple Expirations**: Compare different expiration dates easily
+- **Historical Data**: View profitability analysis based on past price movements
+- **Visual Charts**: Interactive charts showing success rates and breakeven analysis
 
-### Understanding Results
-- **Breakeven Points**: Shows the price levels where the strategy breaks even
-- **Historical Analysis**: Displays how often the stock exceeded breakeven points historically
-- **Profitability Rate**: Percentage of historical periods where the strategy would have been profitable
-- **Visual Charts**: Bar charts showing the distribution of profitable vs unprofitable moves
+## API Endpoints
 
-### Example Analysis
-For a $100 stock with a $5 straddle premium:
-- Upper Breakeven: $105 (+5%)
-- Lower Breakeven: $95 (-5%)
-- If historically the stock moved beyond these levels 60% of the time, the strategy has a 60% probability of profit
+### `/api/straddle-options`
+- Fetches options data for a given ticker and expiration
+- Returns strike price, premiums, and strategy details
+- Handles date matching and ATM strike selection
 
-## API Configuration
+### `/api/straddle-analysis`
+- Analyzes historical profitability of the strategy
+- Calculates success rates and breakeven analysis
+- Provides data quality indicators
 
-### Environment Variables
-Add the following to your `.env.local` file:
-```
-ALPHA_VANTAGE_API_KEY=your_api_key_here
-```
+### `/api/available-expirations`
+- Lists available expiration dates for a ticker
+- Filters to show only future dates
+- Sorted chronologically
 
-### Alpha Vantage API
-- Free tier available at [Alpha Vantage](https://www.alphavantage.co/)
-- Rate limits: 5 API calls per minute, 500 per day
-- When limits are reached, the app falls back to mock data
+## Dependencies
 
-## Installation and Setup
+- **Next.js**: React framework for the application
+- **Tailwind CSS**: Utility-first CSS framework
+- **Lucide React**: Icon library for better UX
+- **Polygon.io API**: Options and stock data
+- **Alpha Vantage API**: Historical price data (fallback)
 
-### Prerequisites
-- Node.js 14+ 
-- npm or yarn
-- Alpha Vantage API key (optional, for real data)
+## Configuration
 
-### Installation Steps
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up environment variables (see above)
-4. Run development server: `npm run dev`
-5. Navigate to `http://localhost:3000/straddle-calculator`
-
-### Building for Production
-```bash
-npm run build
-npm start
-```
-
-## Mathematical Formulas
-
-### Breakeven Calculations
-```
-Upper Breakeven = Strike Price + Total Premium
-Lower Breakeven = Strike Price - Total Premium
-Upper Breakeven % = (Upper Breakeven - Strike) / Strike * 100
-Lower Breakeven % = (Lower Breakeven - Strike) / Strike * 100
-```
-
-### Profitability Analysis
-```
-Profitable Moves = Moves Above Upper + Moves Below Lower
-Profitability Rate = (Profitable Moves / Total Samples) * 100
-```
-
-### Expected Value (Simplified)
-```
-Expected Profit = (Profitability Rate / 100) * Average Profit
-Expected Loss = ((100 - Profitability Rate) / 100) * Premium
-Expected Value = Expected Profit - Expected Loss
-```
-
-## Limitations and Considerations
-
-### Data Limitations
-- Historical analysis is based on past performance and may not predict future results
-- API rate limits may affect real-time data availability
-- Mock data is used when API limits are reached
-
-### Strategy Assumptions
-- Assumes perfect execution at specified prices
-- Does not account for transaction costs, slippage, or bid-ask spreads
-- Simplified expected value calculations
-- Does not consider implied volatility changes
-
-### Risk Disclaimers
-- This tool is for educational purposes only
-- Past performance does not guarantee future results
-- Options trading involves substantial risk
-- Always consult with a financial advisor before making investment decisions
+The calculator requires the following environment variables:
+- `POLYGON_API_KEY`: For options and stock data
+- `ALPHA_VANTAGE_API_KEY`: For historical data (optional, has fallback)
 
 ## Future Enhancements
 
-### Planned Features
-- Multiple timeframe analysis (daily, weekly, monthly)
-- Implied volatility analysis
-- Greeks calculations (Delta, Gamma, Theta, Vega)
-- Portfolio-level analysis
-- Export functionality for results
-- Comparison with other options strategies
+- **Portfolio integration**: Save and track multiple strategies
+- **Risk metrics**: Additional risk analysis tools
+- **Comparison tools**: Compare multiple tickers or strategies
+- **Export functionality**: Download analysis reports
+- **Real-time updates**: Live pricing updates during market hours
 
-### Technical Improvements
-- Caching for historical data to reduce API calls
-- Real-time options chain data integration
-- Advanced charting with price overlays
-- Mobile app version
-- Backtesting framework integration
+## Troubleshooting
 
-## Contributing
+### Common Issues
+1. **"No options contracts found"**: Verify the ticker symbol is correct
+2. **"Pricing data unavailable"**: Try a different expiration date
+3. **"API limit reached"**: Wait for rate limit reset or check API key
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+### Fallback Behavior
+- When external APIs fail, the calculator provides mock data for demonstration
+- Historical analysis continues to work with simulated data
+- User is informed when fallback data is being used
 
-## License
+## Performance
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For questions or issues:
-1. Check the documentation above
-2. Review existing issues on GitHub
-3. Create a new issue with detailed information about your problem
-
----
-
-**Disclaimer**: This calculator is for educational purposes only. It does not constitute financial advice. Always consult with a qualified financial advisor before making investment decisions. Options trading involves substantial risk and is not suitable for all investors.
+- **Fast loading**: Optimized API calls and data processing
+- **Efficient rendering**: React optimization for smooth interactions
+- **Caching**: Intelligent caching of frequently accessed data
+- **Progressive loading**: Results appear as soon as available
