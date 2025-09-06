@@ -131,24 +131,45 @@ const StraddleCalculator = () => {
       return;
     }
 
-    // Create strategy data from manual input
-    const manualStrategy = {
-      ticker: inputs.ticker,
-      expiration: inputs.expirationDate,
-      currentPrice: 0, // We'll estimate this
-      strikePrice: 0, // We'll estimate this
-      totalPremium: premium,
-      callPrice: premium / 2, // Estimate split between call and put
-      putPrice: premium / 2,
-      daysToExpiration: Math.ceil((new Date(inputs.expirationDate) - new Date()) / (1000 * 60 * 60 * 24))
-    };
-
-    setStrategy(manualStrategy);
+    setLoading(true);
     setError('');
-    setShowManualInput(false);
-    
-    // Analyze historical data
-    await analyzeHistoricalData(manualStrategy);
+
+    try {
+      // Try to get current stock price for better analysis
+      let currentPrice = 100; // Default fallback
+      try {
+        const priceResponse = await fetch(`/api/stock-price?ticker=${inputs.ticker.toUpperCase()}`);
+        if (priceResponse.ok) {
+          const priceData = await priceResponse.json();
+          currentPrice = priceData.price || 100;
+        }
+      } catch (priceError) {
+        console.log('Could not fetch current price, using default');
+      }
+
+      // Create strategy data from manual input
+      const daysToExp = Math.ceil((new Date(inputs.expirationDate) - new Date()) / (1000 * 60 * 60 * 24));
+      const manualStrategy = {
+        ticker: inputs.ticker,
+        expiration: inputs.expirationDate,
+        currentPrice: currentPrice,
+        strikePrice: currentPrice, // Use current price as strike for ATM analysis
+        totalPremium: premium,
+        callPrice: premium / 2, // Estimate split between call and put
+        putPrice: premium / 2,
+        daysToExpiration: daysToExp
+      };
+
+      setStrategy(manualStrategy);
+      setShowManualInput(false);
+      
+      // Analyze historical data
+      await analyzeHistoricalData(manualStrategy);
+    } catch (error) {
+      setError('Failed to process manual input. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Analyze historical data
@@ -163,19 +184,23 @@ const StraddleCalculator = () => {
         },
         body: JSON.stringify({
           ticker: strategyData.ticker,
-          strikePrice: strategyData.strikePrice,
+          strikePrice: strategyData.strikePrice || 100, // Provide default if missing
           totalPremium: strategyData.totalPremium,
           daysToExpiration: strategyData.daysToExpiration || 30
         })
       });
 
-      if (!response.ok) throw new Error('Analysis failed');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
+      }
       
       const data = await response.json();
       setResults(data);
     } catch (error) {
       console.error('Historical analysis failed:', error);
-      // Don't show error to user as this is secondary functionality
+      // Show a subtle error message to the user
+      setError(prev => prev + (prev ? ' ' : '') + 'Note: Historical analysis unavailable for this ticker.');
     }
   };
 

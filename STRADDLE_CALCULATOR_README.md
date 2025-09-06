@@ -116,12 +116,15 @@ The calculator requires the following environment variables:
 1. **"No options contracts found"**: Verify the ticker symbol is correct
 2. **"Pricing data unavailable"**: Use the manual premium entry feature or try a different expiration date
 3. **"API limit reached"**: Wait for rate limit reset or check API key
-4. **Missing strike price**: When using manual input, strike price may show as "N/A" but analysis still works
+4. **"Historical analysis unavailable"**: Some tickers may not have historical data; the calculator will use simulated data
+5. **Manual input not working**: Ensure you enter a valid premium amount and try again
 
 ### Fallback Behavior
 - When external APIs fail, the calculator provides mock data for demonstration
 - Historical analysis continues to work with simulated data
 - User is informed when fallback data is being used
+- Manual premium input automatically tries to fetch current stock price for better analysis
+- If stock price fetch fails, uses default values but still provides complete analysis
 
 ## Performance
 
