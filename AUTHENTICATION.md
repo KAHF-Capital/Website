@@ -12,9 +12,7 @@ This project uses NextAuth.js for authentication with a credentials-based provid
 
 ## Demo Account
 
-For testing purposes, you can use these credentials:
-- **Email:** demo@kahfcapital.com
-- **Password:** password
+~~Demo account has been removed from the sign-in page for security reasons.~~
 
 ## Environment Variables
 

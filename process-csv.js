@@ -76,7 +76,10 @@ function parseDarkPoolTradesChunked(csvFilePath) {
       currentChunk.forEach(row => {
         // Check if this is a dark pool trade
         if (row.exchange === '4' && row.trf_id && row.trf_id.trim() !== '') {
-          const tradeDate = new Date(row.timestamp || row.t || new Date()).toISOString().split('T')[0];
+          // Use prior day as fallback for newly analyzed data
+          const priorDay = new Date();
+          priorDay.setDate(priorDay.getDate() - 1);
+          const tradeDate = new Date(row.timestamp || row.t || priorDay).toISOString().split('T')[0];
           const ticker = (row.ticker || row.symbol || 'UNKNOWN').toUpperCase();
           
           if (!dateMap[tradeDate]) {

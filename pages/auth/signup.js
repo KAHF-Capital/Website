@@ -10,6 +10,7 @@ export default function SignUp() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: ''
   })
@@ -45,6 +46,20 @@ export default function SignUp() {
       return
     }
 
+    // Phone number validation
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
+    if (!formData.phone.trim()) {
+      setError('Phone number is required')
+      setIsLoading(false)
+      return
+    }
+
+    if (!phoneRegex.test(formData.phone.replace(/[\s\-\(\)]/g, ''))) {
+      setError('Please enter a valid phone number')
+      setIsLoading(false)
+      return
+    }
+
     try {
       // Hash the password
       const hashedPassword = await bcrypt.hash(formData.password, 10)
@@ -54,6 +69,7 @@ export default function SignUp() {
       console.log('User registration data:', {
         name: formData.name,
         email: formData.email,
+        phone: formData.phone,
         password: hashedPassword
       })
 
@@ -179,6 +195,28 @@ export default function SignUp() {
                   placeholder="Enter your email"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                Phone number
+              </label>
+              <div className="mt-1">
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  placeholder="Enter your phone number"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Include country code (e.g., +1 for US)
+              </p>
             </div>
 
             <div>
