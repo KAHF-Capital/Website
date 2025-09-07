@@ -1,8 +1,6 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
-import { getUserByEmail, createUser, verifyUser } from '../../../lib/auth-utils'
 
 export default NextAuth({
   providers: [
@@ -22,6 +20,8 @@ export default NextAuth({
         }
 
         try {
+          // Import here to avoid circular dependency issues
+          const { verifyUser } = await import('../../../lib/auth-utils')
           const user = await verifyUser(credentials.email, credentials.password)
           if (user) {
             return {
@@ -41,8 +41,11 @@ export default NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account.provider === 'google') {
+      if (account?.provider === 'google') {
         try {
+          // Import here to avoid circular dependency issues
+          const { getUserByEmail, createUser } = await import('../../../lib/auth-utils')
+          
           // Check if user exists, if not create them
           let existingUser = await getUserByEmail(user.email)
           if (!existingUser) {
@@ -80,10 +83,10 @@ export default NextAuth({
   },
   pages: {
     signIn: '/auth/signin',
-    signUp: '/auth/signup',
   },
   session: {
     strategy: 'jwt',
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
 })
