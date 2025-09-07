@@ -1,5 +1,10 @@
 import StraddleCalculator from '../src/pages/StraddleCalculator';
+import ProtectedRoute from '../src/components/ProtectedRoute';
 
 export default function StraddleCalculatorPage() {
-  return <StraddleCalculator />;
+  return (
+    <ProtectedRoute>
+      <StraddleCalculator />
+    </ProtectedRoute>
+  );
 }

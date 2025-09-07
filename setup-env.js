@@ -43,6 +43,11 @@ function setupEnvironment() {
 # Get your API key from https://polygon.io
 # Copy this file to .env.local and replace with your actual API key
 POLYGON_API_KEY=${apiKey.trim()}
+
+# NextAuth.js Configuration
+# Generate a random secret: openssl rand -base64 32
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
 `;
 
     try {

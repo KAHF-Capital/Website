@@ -20,12 +20,17 @@ try {
   
   let apiKeyFound = false;
   let apiKeyValue = '';
+  let nextAuthSecretFound = false;
+  let nextAuthSecretValue = '';
   
   for (const line of lines) {
     if (line.startsWith('POLYGON_API_KEY=')) {
       apiKeyFound = true;
       apiKeyValue = line.split('=')[1]?.trim();
-      break;
+    }
+    if (line.startsWith('NEXTAUTH_SECRET=')) {
+      nextAuthSecretFound = true;
+      nextAuthSecretValue = line.split('=')[1]?.trim();
     }
   }
   
@@ -38,6 +43,18 @@ try {
   if (!apiKeyValue || apiKeyValue === 'your_polygon_api_key_here') {
     console.log('❌ POLYGON_API_KEY is not set to a valid value');
     console.log('💡 Update .env.local with your actual Polygon API key');
+    process.exit(1);
+  }
+
+  if (!nextAuthSecretFound) {
+    console.log('❌ NEXTAUTH_SECRET not found in .env.local');
+    console.log('💡 Add NEXTAUTH_SECRET to your .env.local file');
+    process.exit(1);
+  }
+  
+  if (!nextAuthSecretValue || nextAuthSecretValue === 'your_nextauth_secret_here') {
+    console.log('❌ NEXTAUTH_SECRET is not set to a valid value');
+    console.log('💡 Generate a secret: openssl rand -base64 32');
     process.exit(1);
   }
   
