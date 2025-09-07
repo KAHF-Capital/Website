@@ -84,6 +84,16 @@ const StraddleCalculator = () => {
         setStrategy(data);
         // Auto-analyze historical data
         await analyzeHistoricalData(data);
+        
+        // Show a note if pricing was estimated
+        if (data.isEstimated) {
+          setError(
+            <span>
+              Options contracts found but real-time pricing unavailable. Using estimated pricing based on stock price and time to expiration. 
+              You can still enter the premium manually below for more accurate analysis.
+            </span>
+          );
+        }
       } else {
         setShowManualInput(true);
         setError(
@@ -417,8 +427,18 @@ const StraddleCalculator = () => {
                         <div className="text-center p-3 bg-green-50 rounded-lg">
                           <div className="text-lg font-bold text-green-600">
                             ${strategy.totalPremium.toFixed(2)}
+                            {strategy.isEstimated && (
+                              <span className="ml-1 text-xs text-orange-600" title="Estimated pricing">
+                                *
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-green-700">Total Premium</div>
+                          <div className="text-xs text-green-700">
+                            Total Premium
+                            {strategy.isEstimated && (
+                              <span className="block text-orange-600">(Estimated)</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

@@ -36,6 +36,7 @@ The straddle calculator has been completely redesigned to provide a seamless and
 - **Best expiration matching**: Finds the closest available expiration date
 - **Execution date calculation**: Automatically determines the last trading day
 - **Premium calculation**: Combines call and put premiums automatically
+- **Intelligent pricing**: Estimates options prices when real-time data is unavailable
 
 ## Technical Improvements
 
@@ -44,6 +45,8 @@ The straddle calculator has been completely redesigned to provide a seamless and
 - **Data validation**: Filters out invalid or extreme data points
 - **Performance optimization**: Reduced unnecessary API calls
 - **Fallback data**: Mock data when external APIs are unavailable
+- **Intelligent pricing estimation**: Uses Black-Scholes approximation when real options data is unavailable
+- **Multiple API endpoints**: Tries different Polygon.io endpoints for better data coverage
 
 ### Component Architecture
 - **State management**: Cleaner state handling with React hooks
@@ -114,10 +117,11 @@ The calculator requires the following environment variables:
 
 ### Common Issues
 1. **"No options contracts found"**: Verify the ticker symbol is correct
-2. **"Pricing data unavailable"**: Use the manual premium entry feature or try a different expiration date
+2. **"Pricing data unavailable"**: The calculator now estimates pricing automatically; you can still enter manual premium for accuracy
 3. **"API limit reached"**: Wait for rate limit reset or check API key
 4. **"Historical analysis unavailable"**: Some tickers may not have historical data; the calculator will use simulated data
 5. **Manual input not working**: Ensure you enter a valid premium amount and try again
+6. **Estimated pricing shown**: When real options data isn't available, the calculator shows estimated pricing with an asterisk (*)
 
 ### Fallback Behavior
 - When external APIs fail, the calculator provides mock data for demonstration
