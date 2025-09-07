@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useSession, signOut } from 'next-auth/react';
-import { Menu, X, User, LogOut, Zap } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const router = useRouter();
-  const { data: session, status } = useSession();
 
   const navigationItems = [
     { href: '/', label: 'Home' },
@@ -32,10 +29,6 @@ export default function Header() {
 
   const handleMobileMenuClose = () => {
     setIsMobileMenuOpen(false);
-  };
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/' });
   };
 
   const renderNavItem = (item) => {
@@ -90,67 +83,6 @@ export default function Header() {
           <nav className="hidden sm:flex space-x-8">
             {navigationItems.map(renderNavItem)}
           </nav>
-
-          {/* Auth Section */}
-          <div className="hidden sm:flex items-center space-x-4">
-            {status === 'loading' ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
-            ) : session ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-green-600" />
-                  </div>
-                  <span className="text-sm font-medium">{session.user.name}</span>
-                  {session.user.subscriptionStatus === 'pro' && (
-                    <Zap className="h-4 w-4 text-green-600" />
-                  )}
-                </button>
-
-                <AnimatePresence>
-                  {showUserMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                    >
-                      <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900">{session.user.name}</p>
-                        <p className="text-xs text-gray-500">{session.user.email}</p>
-                        <p className="text-xs text-green-600 font-medium capitalize">
-                          {session.user.subscriptionStatus} Plan
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Sign out
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <Link href="/auth/signin">
-                  <button className="text-gray-700 hover:text-green-600 font-medium transition-colors">
-                    Sign In
-                  </button>
-                </Link>
-                <Link href="/auth/signup">
-                  <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    Sign Up
-                  </button>
-                </Link>
-              </div>
-            )}
-          </div>
 
           {/* Mobile Menu Button */}
           <div className="sm:hidden">
@@ -209,44 +141,6 @@ export default function Header() {
                   </Link>
                 );
               })}
-              
-              {/* Mobile Auth Section */}
-              <div className="w-full border-t border-gray-200 pt-3 mt-3">
-                {session ? (
-                  <div className="space-y-2">
-                    <div className="px-3 py-2 text-center">
-                      <p className="text-sm font-medium text-gray-900">{session.user.name}</p>
-                      <p className="text-xs text-gray-500">{session.user.email}</p>
-                      <p className="text-xs text-green-600 font-medium capitalize">
-                        {session.user.subscriptionStatus} Plan
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        handleSignOut();
-                        handleMobileMenuClose();
-                      }}
-                      className="w-full text-center py-3 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors font-medium touch-manipulation flex items-center justify-center"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign out
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Link href="/auth/signin" onClick={handleMobileMenuClose}>
-                      <button className="w-full text-center py-3 rounded-md text-gray-700 hover:text-green-600 hover:bg-gray-100 transition-colors font-medium touch-manipulation">
-                        Sign In
-                      </button>
-                    </Link>
-                    <Link href="/auth/signup" onClick={handleMobileMenuClose}>
-                      <button className="w-full text-center py-3 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors font-medium touch-manipulation">
-                        Sign Up
-                      </button>
-                    </Link>
-                  </div>
-                )}
-              </div>
             </nav>
           </motion.div>
         )}
