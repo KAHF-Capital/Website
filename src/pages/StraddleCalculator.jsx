@@ -13,131 +13,42 @@ const StraddleCalculator = () => {
   const [inputs, setInputs] = useState({
     ticker: '',
     expirationDate: '',
-    manualPremium: ''
+    premium: '',
+    strikePrice: ''
   });
 
   const [strategy, setStrategy] = useState(null);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [availableExpirations, setAvailableExpirations] = useState([]);
   const [showStraddleInfo, setShowStraddleInfo] = useState(false);
-  const [showManualInput, setShowManualInput] = useState(false);
 
-  // Fetch available expiration dates for a ticker
-  const fetchAvailableExpirations = async (ticker) => {
-    try {
-      const response = await fetch(`/api/available-expirations?ticker=${ticker}`);
-      if (response.ok) {
-        const data = await response.json();
-        const sortedExpirations = (data.expirations || [])
-          .filter(date => new Date(date) > new Date()) // Only future dates
-          .sort((a, b) => new Date(a) - new Date(b))
-          .slice(0, 10); // Show next 10 expirations
-        setAvailableExpirations(sortedExpirations);
-        return sortedExpirations;
-      }
-    } catch (error) {
-      console.error('Error fetching expirations:', error);
-    }
-    return [];
-  };
-
-  // Handle ticker input with auto-fetch of expirations
-  const handleTickerChange = async (value) => {
+  // Handle ticker input
+  const handleTickerChange = (value) => {
     const ticker = value.toUpperCase().trim();
     setInputs(prev => ({ ...prev, ticker }));
     setStrategy(null);
     setResults(null);
     setError('');
-    setShowManualInput(false);
-    
-    if (ticker.length >= 1) {
-      try {
-        const expirations = await fetchAvailableExpirations(ticker);
-        if (expirations.length > 0) {
-          // Auto-select the first available expiration (usually closest)
-          setInputs(prev => ({ ...prev, expirationDate: expirations[0] }));
-          // Auto-fetch strategy data
-          await fetchStrategyData(ticker, expirations[0]);
-        }
-      } catch (error) {
-        setError('Failed to fetch available expiration dates. Please check the ticker symbol.');
-      }
-    }
   };
 
-  // Fetch complete strategy data (strike, premium, etc.)
-  const fetchStrategyData = async (ticker, expirationDate) => {
-    if (!ticker || !expirationDate) return;
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await fetch(`/api/straddle-options?ticker=${ticker}&expiration=${expirationDate}`);
-      if (!response.ok) throw new Error('Failed to fetch strategy data');
-      
-      const data = await response.json();
-      
-      if (data.totalPremium > 0) {
-        setStrategy(data);
-        // Auto-analyze historical data
-        await analyzeHistoricalData(data);
-        
-        // Show a note if pricing was estimated
-        if (data.isEstimated) {
-          setError(
-            <span>
-              Options contracts found but real-time pricing unavailable. Using estimated pricing based on stock price and time to expiration. 
-              You can still enter the premium manually below for more accurate analysis.
-            </span>
-          );
-        }
-      } else {
-        setShowManualInput(true);
-        setError(
-          <span>
-            Options found but pricing data unavailable. This usually means no recent trading activity. 
-            Please try a different expiration date or enter the premium manually below.
-          </span>
-        );
-      }
-    } catch (error) {
-      setShowManualInput(true);
-      setError(
-        <span>
-          Unable to fetch options data. Please verify the ticker symbol and try again, or enter the premium manually below.
-        </span>
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle expiration date change
-  const handleExpirationChange = async (value) => {
-    setInputs(prev => ({ ...prev, expirationDate: value }));
-    setStrategy(null);
-    setResults(null);
-    setError('');
-    setShowManualInput(false);
-    
-    if (value && inputs.ticker) {
-      await fetchStrategyData(inputs.ticker, value);
-    }
-  };
-
-  // Handle manual premium input
-  const handleManualPremiumSubmit = async () => {
-    if (!inputs.ticker || !inputs.expirationDate || !inputs.manualPremium) {
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (!inputs.ticker || !inputs.expirationDate || !inputs.premium) {
       setError('Please fill in all required fields');
       return;
     }
 
-    const premium = parseFloat(inputs.manualPremium);
+    const premium = parseFloat(inputs.premium);
+    const strikePrice = parseFloat(inputs.strikePrice) || 100; // Default to 100 if not provided
+
     if (isNaN(premium) || premium <= 0) {
       setError('Please enter a valid premium amount');
+      return;
+    }
+
+    if (isNaN(strikePrice) || strikePrice <= 0) {
+      setError('Please enter a valid strike price');
       return;
     }
 
@@ -146,15 +57,15 @@ const StraddleCalculator = () => {
 
     try {
       // Try to get current stock price for better analysis
-      let currentPrice = 100; // Default fallback
+      let currentPrice = strikePrice; // Use strike price as fallback
       try {
         const priceResponse = await fetch(`/api/stock-price?ticker=${inputs.ticker.toUpperCase()}`);
         if (priceResponse.ok) {
           const priceData = await priceResponse.json();
-          currentPrice = priceData.price || 100;
+          currentPrice = priceData.price || strikePrice;
         }
       } catch (priceError) {
-        console.log('Could not fetch current price, using default');
+        console.log('Could not fetch current price, using strike price');
       }
 
       // Create strategy data from manual input
@@ -163,7 +74,7 @@ const StraddleCalculator = () => {
         ticker: inputs.ticker,
         expiration: inputs.expirationDate,
         currentPrice: currentPrice,
-        strikePrice: currentPrice, // Use current price as strike for ATM analysis
+        strikePrice: strikePrice,
         totalPremium: premium,
         callPrice: premium / 2, // Estimate split between call and put
         putPrice: premium / 2,
@@ -171,12 +82,11 @@ const StraddleCalculator = () => {
       };
 
       setStrategy(manualStrategy);
-      setShowManualInput(false);
       
       // Analyze historical data
       await analyzeHistoricalData(manualStrategy);
     } catch (error) {
-      setError('Failed to process manual input. Please try again.');
+      setError('Failed to process input. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -235,7 +145,7 @@ const StraddleCalculator = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tickerParam = urlParams.get('ticker');
       if (tickerParam) {
-        handleTickerChange(tickerParam);
+        setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
       }
     }
   }, []);
@@ -262,7 +172,7 @@ const StraddleCalculator = () => {
             </button>
           </div>
           <p className="text-lg text-gray-600">
-            Analyze the profitability of At-The-Money straddle strategies with just two inputs
+            Analyze the profitability of straddle strategies by entering your options data manually
           </p>
           
           {showStraddleInfo && (
@@ -315,36 +225,52 @@ const StraddleCalculator = () => {
                       <Input
                         type="date"
                         value={inputs.expirationDate}
-                        onChange={(e) => handleExpirationChange(e.target.value)}
+                        onChange={(e) => setInputs(prev => ({ ...prev, expirationDate: e.target.value }))}
                         className="w-full"
-                        disabled={loading || !inputs.ticker}
                       />
-                      {availableExpirations.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs text-gray-600 mb-1">Quick select:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {availableExpirations.slice(0, 5).map((date, index) => (
-                              <button
-                                key={date}
-                                onClick={() => handleExpirationChange(date)}
-                                className={`px-2 py-1 text-xs rounded ${
-                                  inputs.expirationDate === date
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                              >
-                                {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Select the options expiration date
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Strike Price *
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g., 150.00"
+                        value={inputs.strikePrice}
+                        onChange={(e) => setInputs(prev => ({ ...prev, strikePrice: e.target.value }))}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter the strike price for your straddle
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Total Premium (Call + Put) *
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g., 5.50"
+                        value={inputs.premium}
+                        onChange={(e) => setInputs(prev => ({ ...prev, premium: e.target.value }))}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter the combined premium for both call and put options
+                      </p>
                     </div>
 
                     {loading && (
                       <div className="text-center py-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                        <p className="text-sm text-gray-600 mt-2">Fetching options data...</p>
+                        <p className="text-sm text-gray-600 mt-2">Analyzing strategy...</p>
                       </div>
                     )}
 
@@ -354,55 +280,28 @@ const StraddleCalculator = () => {
                       </div>
                     )}
 
-                    {showManualInput && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 className="text-sm font-medium text-blue-800 mb-3">Manual Premium Entry</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Total Premium (Call + Put) *
-                            </label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="e.g., 5.50"
-                              value={inputs.manualPremium}
-                              onChange={(e) => setInputs(prev => ({ ...prev, manualPremium: e.target.value }))}
-                              className="w-full"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Enter the combined premium for both call and put options
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={handleManualPremiumSubmit}
-                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              Calculate with Manual Premium
-                            </Button>
-                            <Button
-                              onClick={() => setShowManualInput(false)}
-                              variant="outline"
-                              className="flex-1"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                          <div className="text-xs text-blue-700">
-                            <p className="mb-1">Need help finding the premium?</p>
-                            <a 
-                              href={`https://finance.yahoo.com/quote/${inputs.ticker}/options`}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline font-medium"
-                            >
-                              View options on Yahoo Finance →
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={loading}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
+                    >
+                      {loading ? 'Analyzing...' : 'Calculate Straddle Analysis'}
+                    </Button>
+
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-700">
+                        <strong>Need help finding options data?</strong>
+                        <br />
+                        <a 
+                          href={`https://finance.yahoo.com/quote/${inputs.ticker || 'AAPL'}/options`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline font-medium"
+                        >
+                          View options on Yahoo Finance →
+                        </a>
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -427,18 +326,8 @@ const StraddleCalculator = () => {
                         <div className="text-center p-3 bg-green-50 rounded-lg">
                           <div className="text-lg font-bold text-green-600">
                             ${strategy.totalPremium.toFixed(2)}
-                            {strategy.isEstimated && (
-                              <span className="ml-1 text-xs text-orange-600" title="Estimated pricing">
-                                *
-                              </span>
-                            )}
                           </div>
-                          <div className="text-xs text-green-700">
-                            Total Premium
-                            {strategy.isEstimated && (
-                              <span className="block text-orange-600">(Estimated)</span>
-                            )}
-                          </div>
+                          <div className="text-xs text-green-700">Total Premium</div>
                         </div>
                       </div>
 

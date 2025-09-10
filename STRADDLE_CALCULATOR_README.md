@@ -1,22 +1,22 @@
-# Straddle Calculator - Improved Version
+# Straddle Calculator - Manual Input Version
 
 ## Overview
-The straddle calculator has been completely redesigned to provide a seamless and user-friendly experience for analyzing At-The-Money (ATM) straddle options strategies.
+The straddle calculator has been simplified to provide a reliable and user-friendly experience for analyzing straddle options strategies. Users manually input their options data for accurate analysis.
 
 ## Key Improvements
 
-### 1. **Streamlined User Experience**
-- **Two-input workflow**: Users only need to enter a ticker symbol and select an expiration date
-- **Auto-population**: Strike price, premium, and other details are automatically calculated
-- **Quick expiration selection**: Clickable buttons for the next 5 available expiration dates
-- **Progressive enhancement**: Results appear as soon as data is loaded
-- **Manual fallback**: When API fails, users can enter premium manually with helpful guidance
+### 1. **Simple Manual Input**
+- **Four-input workflow**: Users enter ticker, expiration date, strike price, and premium
+- **No API dependencies**: Eliminates issues with options data fetching
+- **Direct Yahoo Finance link**: Easy access to options data for reference
+- **Reliable operation**: Always works regardless of API availability
+- **User control**: Users input their own accurate options data
 
-### 2. **Better Error Handling**
-- **User-friendly messages**: Clear explanations instead of technical errors
-- **Helpful guidance**: Links to Yahoo Finance for manual verification
-- **Graceful fallbacks**: Continues to work even when some APIs fail
-- **Specific error types**: Different messages for different failure scenarios
+### 2. **Reliable Operation**
+- **No API failures**: Eliminates options data fetching issues
+- **Consistent results**: Always provides analysis when valid data is entered
+- **Clear validation**: Helpful error messages for invalid inputs
+- **Yahoo Finance integration**: Direct links to options data for reference
 
 ### 3. **Enhanced Visual Design**
 - **Modern UI**: Clean, card-based layout with hover effects
@@ -31,12 +31,12 @@ The straddle calculator has been completely redesigned to provide a seamless and
 - **Better charts**: Enhanced StraddleChart component with insights
 - **Data quality indicators**: Shows confidence level of analysis
 
-### 5. **Smart Defaults**
-- **ATM strike selection**: Automatically finds the closest At-The-Money strike
-- **Best expiration matching**: Finds the closest available expiration date
-- **Execution date calculation**: Automatically determines the last trading day
-- **Premium calculation**: Combines call and put premiums automatically
-- **Intelligent pricing**: Estimates options prices when real-time data is unavailable
+### 5. **User Control**
+- **Manual strike price**: Users enter their exact strike price
+- **Custom expiration**: Users select their specific expiration date
+- **Accurate premium**: Users enter the exact premium they would pay
+- **Current price lookup**: Automatically fetches current stock price for analysis
+- **No estimation needed**: All data comes from user input
 
 ## Technical Improvements
 
@@ -58,15 +58,16 @@ The straddle calculator has been completely redesigned to provide a seamless and
 
 ### Basic Workflow
 1. **Enter Ticker**: Type any valid stock symbol (e.g., AAPL, TSLA, SPY)
-2. **Select Expiration**: Choose from available expiration dates or use quick-select buttons
-3. **View Results**: Strategy details, breakeven points, and historical analysis appear automatically
+2. **Select Expiration**: Choose the options expiration date
+3. **Enter Strike Price**: Input the strike price for your straddle
+4. **Enter Premium**: Input the total premium (call + put combined)
+5. **Calculate**: Click "Calculate Straddle Analysis" to see results
 
-### Manual Input Fallback
-When the API doesn't provide pricing data:
-1. **Manual Premium Entry**: A blue section appears allowing you to enter the total premium manually
-2. **Yahoo Finance Link**: Direct link to the ticker's options page for easy reference
-3. **Calculate**: Click "Calculate with Manual Premium" to proceed with your entered data
-4. **Results**: Full analysis is provided based on your manual input
+### Getting Options Data
+1. **Yahoo Finance Link**: Click the link to view options data for your ticker
+2. **Find Your Options**: Locate the call and put options at your desired strike and expiration
+3. **Get Premiums**: Note the bid/ask prices for both call and put options
+4. **Enter Data**: Input the strike price and combined premium into the calculator
 
 ### Advanced Features
 - **URL Parameters**: Pre-fill ticker via URL query parameter (`?ticker=AAPL`)
@@ -116,19 +117,17 @@ The calculator requires the following environment variables:
 ## Troubleshooting
 
 ### Common Issues
-1. **"No options contracts found"**: Verify the ticker symbol is correct
-2. **"Pricing data unavailable"**: The calculator now estimates pricing automatically; you can still enter manual premium for accuracy
-3. **"API limit reached"**: Wait for rate limit reset or check API key
+1. **"Please fill in all required fields"**: Make sure you've entered ticker, expiration date, strike price, and premium
+2. **"Please enter a valid premium amount"**: Ensure the premium is a positive number
+3. **"Please enter a valid strike price"**: Ensure the strike price is a positive number
 4. **"Historical analysis unavailable"**: Some tickers may not have historical data; the calculator will use simulated data
-5. **Manual input not working**: Ensure you enter a valid premium amount and try again
-6. **Estimated pricing shown**: When real options data isn't available, the calculator shows estimated pricing with an asterisk (*)
+5. **Invalid ticker symbol**: Verify the ticker symbol is correct and exists
 
 ### Fallback Behavior
-- When external APIs fail, the calculator provides mock data for demonstration
-- Historical analysis continues to work with simulated data
-- User is informed when fallback data is being used
-- Manual premium input automatically tries to fetch current stock price for better analysis
-- If stock price fetch fails, uses default values but still provides complete analysis
+- Current stock price is fetched automatically for better analysis
+- If stock price fetch fails, uses the strike price as the current price
+- Historical analysis continues to work with simulated data when real data is unavailable
+- All calculations work regardless of API availability
 
 ## Performance
 

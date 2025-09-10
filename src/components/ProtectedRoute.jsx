@@ -40,3 +40,4 @@ export default function ProtectedRoute({ children }) {
   // User is authenticated, render the protected content
   return children
 }
+

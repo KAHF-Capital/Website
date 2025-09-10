@@ -74,3 +74,4 @@ After setting the environment variables:
 - **Use different secrets** for development and production
 - **Rotate secrets regularly** for better security
 - **Monitor your application logs** for any authentication issues
+
