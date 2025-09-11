@@ -61,20 +61,25 @@ export default function SignUp() {
     }
 
     try {
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(formData.password, 10)
-      
-      // In a real application, you would send this to your API
-      // For now, we'll simulate a successful registration
-      console.log('User registration data:', {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: hashedPassword
+      // Send registration data to API
+      const response = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password
+        })
       })
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed')
+      }
 
       setSuccess(true)
       
@@ -92,7 +97,7 @@ export default function SignUp() {
       }, 2000)
 
     } catch (error) {
-      setError('An error occurred during registration. Please try again.')
+      setError(error.message || 'An error occurred during registration. Please try again.')
     } finally {
       setIsLoading(false)
     }
