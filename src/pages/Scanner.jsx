@@ -38,10 +38,12 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
+  const [minPrice, setMinPrice] = useState(10); // Filter for stocks above $10
+  const [minVolume, setMinVolume] = useState(250000000); // Filter for volume above $250M
 
   useEffect(() => {
     loadDarkPoolData();
-  }, [sortBy]);
+  }, [sortBy, minPrice, minVolume]);
 
   const loadDarkPoolData = async () => {
     setIsLoading(true);
@@ -62,7 +64,10 @@ export default function Scanner() {
                 ? (ticker.total_volume / ticker.avg_7day_volume).toFixed(2)
                 : 'N/A'
             }))
-            .filter(ticker => ticker.avg_price >= 1 && ticker.total_value >= 100000000) // Filter out penny stocks and low value trades
+            .filter(ticker => 
+              ticker.avg_price >= minPrice && 
+              ticker.total_value >= minVolume
+            ) // Apply user-defined filters for price and volume
         };
         
         // Apply sorting based on current sortBy state
@@ -229,6 +234,7 @@ export default function Scanner() {
                 <div className="text-sm text-green-700 space-y-2">
                   <p><strong>What are Dark Pools?</strong> Private exchanges where large institutions trade stocks away from public markets, often to avoid price impact.</p>
                   <p><strong>Volume Ratio:</strong> Compares today's dark pool volume to the 7-day average. Higher ratios indicate unusual institutional activity.</p>
+                  <p><strong>Filters:</strong> Use the price and volume filters to focus on higher-quality stocks. Default settings show stocks above $10 and $250M+ volume.</p>
                   <p><strong>Why It Matters:</strong> Large dark pool activity can signal institutional buying/selling before it becomes public, potentially indicating future price movements.</p>
                   <p><strong>Data Source:</strong> Analyzes daily dark pool trading data identified from Securities Information Processors (SIPs).</p>
                 </div>
@@ -264,8 +270,42 @@ export default function Scanner() {
                 </p>
               </div>
               
-              {/* Sort Controls */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+              {/* Filter and Sort Controls */}
+              <div className="flex flex-col lg:flex-row items-center justify-center gap-6 mb-8">
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">Min Price:</label>
+                    <select
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(parseFloat(e.target.value))}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value={1}>$1+</option>
+                      <option value={5}>$5+</option>
+                      <option value={10}>$10+</option>
+                      <option value={25}>$25+</option>
+                      <option value={50}>$50+</option>
+                      <option value={100}>$100+</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700">Min Volume:</label>
+                    <select
+                      value={minVolume}
+                      onChange={(e) => setMinVolume(parseFloat(e.target.value))}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value={100000000}>$100M+</option>
+                      <option value={250000000}>$250M+</option>
+                      <option value={500000000}>$500M+</option>
+                      <option value={1000000000}>$1B+</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Sort Controls */}
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium text-gray-700">Sort by:</label>
                   <select

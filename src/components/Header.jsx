@@ -14,7 +14,7 @@ export default function Header() {
   const navigationItems = [
     { href: '/', label: 'Home' },
     { href: '/learning', label: 'Learning Modules' },
-    { href: '/scanner', label: 'Scanner' },
+    { href: '/scanner', label: 'Dark Pool Scanner' },
     { href: '/straddle-calculator', label: 'Straddle Calculator' },
     { 
       href: 'https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00', 

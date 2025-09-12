@@ -58,7 +58,7 @@ export default function Home() {
             </a>
             <Link href="/scanner" className="w-full sm:w-auto">
               <button className="w-full bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                Try Free Scanner
+                Try Free Dark Pool Scanner
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>

@@ -1,7 +1,17 @@
 import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
-import { supabase } from '../../../lib/supabase'
+
+// Simple in-memory user store (replace with database in production)
+const users = [
+  {
+    id: '1',
+    email: 'demo@kahfcapital.com',
+    password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: "password"
+    name: 'Demo User',
+    phone: '+1-555-123-4567'
+  }
+]
 
 export default NextAuth({
   providers: [
@@ -16,41 +26,23 @@ export default NextAuth({
           return null
         }
 
-        try {
-          // Get user from database
-          const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', credentials.email)
-            .eq('is_active', true)
-            .single()
-
-          if (error || !user) {
-            return null
-          }
-
-          const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
-          
-          if (!isPasswordValid) {
-            return null
-          }
-
-          // Update last login time
-          await supabase
-            .from('users')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', user.id)
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            phone: user.phone,
-            role: user.role || 'user'
-          }
-        } catch (error) {
-          console.error('Auth error:', error)
+        const user = users.find(u => u.email === credentials.email)
+        
+        if (!user) {
           return null
+        }
+
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+        
+        if (!isPasswordValid) {
+          return null
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
         }
       }
     })
@@ -63,7 +55,6 @@ export default NextAuth({
       if (user) {
         token.id = user.id
         token.phone = user.phone
-        token.role = user.role
       }
       return token
     },
@@ -71,7 +62,6 @@ export default NextAuth({
       if (token) {
         session.user.id = token.id
         session.user.phone = token.phone
-        session.user.role = token.role
       }
       return session
     },
