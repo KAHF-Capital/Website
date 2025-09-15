@@ -124,12 +124,12 @@ async function getOptionsData(ticker, currentPrice) {
     
     // Find ATM strike
     let atmStrike = null;
-    let minDistance = Infinity;
+    let minStrikeDistance = Infinity;
     
     calls.forEach(call => {
       const distance = Math.abs(call.strike - currentPrice);
-      if (distance < minDistance) {
-        minDistance = distance;
+      if (distance < minStrikeDistance) {
+        minStrikeDistance = distance;
         atmStrike = call.strike;
       }
     });
