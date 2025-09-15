@@ -83,23 +83,31 @@ async function getOptionsData(ticker, currentPrice) {
       throw new Error('No expiration dates available');
     }
     
-    // Find the closest expiration to 30 days out
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + 30);
+    // For automation, find the closest expiration to 30 days out
+    // But only if we have expirations available
+    let closestExpiration = null;
+    if (expirations.length > 0) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 30);
+      
+      closestExpiration = expirations[0];
+      let minDistance = Infinity;
+      
+      expirations.forEach(timestamp => {
+        const expDate = new Date(timestamp * 1000);
+        const distance = Math.abs(expDate - targetDate);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestExpiration = timestamp;
+        }
+      });
+    }
     
-    let closestExpiration = expirations[0];
-    let minDistance = Infinity;
+    // Get options data for the closest expiration (if available)
+    if (!closestExpiration) {
+      throw new Error('No expiration dates available');
+    }
     
-    expirations.forEach(timestamp => {
-      const expDate = new Date(timestamp * 1000);
-      const distance = Math.abs(expDate - targetDate);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestExpiration = timestamp;
-      }
-    });
-    
-    // Get options data for the closest expiration
     const optionsResponse = await fetch(`${YAHOO_OPTIONS_BASE}/${ticker}?date=${closestExpiration}`, {
       timeout: BATCH_CONFIG.requestTimeout
     });

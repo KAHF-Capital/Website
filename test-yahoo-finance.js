@@ -9,9 +9,26 @@ async function testYahooFinanceIntegration() {
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   
   try {
-    // Test 1: Single ticker options data
-    console.log('1️⃣ Testing Single Ticker Options Data...');
+    // Test 1: Available expiration dates
+    console.log('1️⃣ Testing Available Expiration Dates...');
     const testTicker = 'AAPL';
+    
+    const expirationsResponse = await fetch(`${baseUrl}/api/available-expirations-yahoo?ticker=${testTicker}`);
+    
+    if (!expirationsResponse.ok) {
+      throw new Error(`Expirations API error: ${expirationsResponse.status} ${expirationsResponse.statusText}`);
+    }
+    
+    const expirationsData = await expirationsResponse.json();
+    console.log(`   ✅ ${testTicker} available expirations:`);
+    console.log(`      Total expirations: ${expirationsData.totalExpirations}`);
+    console.log(`      First 5 expirations:`);
+    expirationsData.expirations.slice(0, 5).forEach((exp, index) => {
+      console.log(`         ${index + 1}. ${exp.displayDate} (${exp.daysFromNow} days)`);
+    });
+    
+    // Test 2: Single ticker options data (without expiration - should show available dates)
+    console.log('\n2️⃣ Testing Single Ticker Options Data (No Expiration)...');
     
     const singleResponse = await fetch(`${baseUrl}/api/yahoo-finance-options?ticker=${testTicker}`);
     
@@ -20,16 +37,37 @@ async function testYahooFinanceIntegration() {
     }
     
     const singleData = await singleResponse.json();
-    console.log(`   ✅ ${testTicker} options data retrieved:`);
+    console.log(`   ✅ ${testTicker} response (no expiration specified):`);
     console.log(`      Current Price: $${singleData.currentPrice?.toFixed(2) || 'N/A'}`);
-    console.log(`      Strike Price: $${singleData.strikePrice?.toFixed(2) || 'N/A'}`);
-    console.log(`      Total Premium: $${singleData.totalPremium?.toFixed(2) || 'N/A'}`);
+    console.log(`      Message: ${singleData.message || 'N/A'}`);
     console.log(`      Source: ${singleData.source || 'N/A'}`);
-    console.log(`      Data Quality: ${singleData.dataQuality || 'N/A'}`);
-    console.log(`      Expiration: ${singleData.expirationDate || 'N/A'}`);
+    console.log(`      Available Expirations: ${singleData.availableExpirations?.length || 0}`);
     
-    // Test 2: Batch processing
-    console.log('\n2️⃣ Testing Batch Options Processing...');
+    // Test 3: Single ticker with specific expiration
+    console.log('\n3️⃣ Testing Single Ticker with Specific Expiration...');
+    const specificExpiration = expirationsData.expirations[2]?.date; // Use 3rd available expiration
+    
+    if (specificExpiration) {
+      const specificResponse = await fetch(`${baseUrl}/api/yahoo-finance-options?ticker=${testTicker}&expiration=${specificExpiration}`);
+      
+      if (!specificResponse.ok) {
+        throw new Error(`Specific expiration API error: ${specificResponse.status} ${specificResponse.statusText}`);
+      }
+      
+      const specificData = await specificResponse.json();
+      console.log(`   ✅ ${testTicker} options data for ${specificExpiration}:`);
+      console.log(`      Current Price: $${specificData.currentPrice?.toFixed(2) || 'N/A'}`);
+      console.log(`      Strike Price: $${specificData.strikePrice?.toFixed(2) || 'N/A'}`);
+      console.log(`      Total Premium: $${specificData.totalPremium?.toFixed(2) || 'N/A'}`);
+      console.log(`      Source: ${specificData.source || 'N/A'}`);
+      console.log(`      Data Quality: ${specificData.dataQuality || 'N/A'}`);
+      console.log(`      Expiration: ${specificData.expirationDate || 'N/A'}`);
+    } else {
+      console.log('   ⚠️  No specific expiration available for testing');
+    }
+    
+    // Test 4: Batch processing
+    console.log('\n4️⃣ Testing Batch Options Processing...');
     const testTickers = [
       { ticker: 'AAPL', avg_price: 150.25 },
       { ticker: 'TSLA', avg_price: 245.80 },
@@ -60,8 +98,8 @@ async function testYahooFinanceIntegration() {
       }
     });
     
-    // Test 3: Updated automation with Yahoo Finance
-    console.log('\n3️⃣ Testing Updated Automation Pipeline...');
+    // Test 5: Updated automation with Yahoo Finance
+    console.log('\n5️⃣ Testing Updated Automation Pipeline...');
     
     const automationResponse = await fetch(`${baseUrl}/api/run-automation`, {
       method: 'POST',
@@ -95,8 +133,8 @@ async function testYahooFinanceIntegration() {
       console.log(`   Error: ${automationData.error}`);
     }
     
-    // Test 4: Performance comparison
-    console.log('\n4️⃣ Performance Analysis...');
+    // Test 6: Performance comparison
+    console.log('\n6️⃣ Performance Analysis...');
     
     const performanceTests = [
       { ticker: 'AAPL', name: 'Large Cap' },

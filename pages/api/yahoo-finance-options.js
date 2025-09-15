@@ -202,62 +202,67 @@ async function getStraddleData(ticker, expirationDate = null, daysToExpiration =
     const priceData = await getCurrentPrice(ticker);
     const currentPrice = priceData.price;
     
-    // If no expiration date provided, try to get the nearest one
+    // Get available expiration dates
+    let availableExpirations = [];
+    try {
+      availableExpirations = await getExpirationDates(ticker);
+    } catch (error) {
+      console.warn(`Could not get expiration dates for ${ticker}:`, error.message);
+    }
+    
+    // If no expiration date provided, return available expirations without forcing a selection
     if (!expirationDate) {
-      try {
-        const expirations = await getExpirationDates(ticker);
-        if (expirations.length > 0) {
-          // Find the expiration closest to our target days
-          const targetDate = new Date();
-          targetDate.setDate(targetDate.getDate() + daysToExpiration);
-          
-          let closestExpiration = expirations[0];
-          let minDistance = Infinity;
-          
-          expirations.forEach(exp => {
-            const expDate = new Date(exp);
-            const distance = Math.abs(expDate - targetDate);
-            if (distance < minDistance) {
-              minDistance = distance;
-              closestExpiration = exp;
-            }
-          });
-          
-          expirationDate = closestExpiration;
-        }
-      } catch (error) {
-        console.warn(`Could not get expiration dates for ${ticker}, using estimation:`, error.message);
-      }
+      return {
+        ticker,
+        currentPrice,
+        availableExpirations,
+        message: 'Please select an expiration date from the available options',
+        source: 'expiration_list',
+        dataQuality: 'none'
+      };
     }
     
-    // Try to get real options data
-    if (expirationDate) {
-      try {
-        const optionsData = await getOptionsData(ticker, expirationDate);
-        return {
-          ...optionsData,
-          source: 'yahoo_finance',
-          executionDate: new Date().toISOString().split('T')[0]
-        };
-      } catch (error) {
-        console.warn(`Could not get options data for ${ticker} ${expirationDate}, using estimation:`, error.message);
-      }
+    // Check if the requested expiration date is available
+    if (availableExpirations.length > 0 && !availableExpirations.includes(expirationDate)) {
+      return {
+        ticker,
+        currentPrice,
+        requestedExpiration: expirationDate,
+        availableExpirations,
+        message: `Requested expiration date ${expirationDate} is not available`,
+        source: 'expiration_not_available',
+        dataQuality: 'none'
+      };
     }
     
-    // Fallback to estimation
-    const estimatedPremium = estimateStraddlePremium(currentPrice, daysToExpiration);
-    
-    return {
-      ticker,
-      expirationDate: expirationDate || 'estimated',
-      currentPrice,
-      strikePrice: currentPrice,
-      totalPremium: estimatedPremium,
-      source: 'estimation',
-      executionDate: new Date().toISOString().split('T')[0],
-      dataQuality: 'medium',
-      note: 'Premium estimated using Black-Scholes approximation'
-    };
+    // Try to get real options data for the specified expiration
+    try {
+      const optionsData = await getOptionsData(ticker, expirationDate);
+      return {
+        ...optionsData,
+        availableExpirations,
+        source: 'yahoo_finance',
+        executionDate: new Date().toISOString().split('T')[0]
+      };
+    } catch (error) {
+      console.warn(`Could not get options data for ${ticker} ${expirationDate}, using estimation:`, error.message);
+      
+      // Fallback to estimation
+      const estimatedPremium = estimateStraddlePremium(currentPrice, daysToExpiration);
+      
+      return {
+        ticker,
+        expirationDate,
+        currentPrice,
+        strikePrice: currentPrice,
+        totalPremium: estimatedPremium,
+        availableExpirations,
+        source: 'estimation',
+        executionDate: new Date().toISOString().split('T')[0],
+        dataQuality: 'medium',
+        note: 'Premium estimated using Black-Scholes approximation'
+      };
+    }
     
   } catch (error) {
     console.error(`Error getting straddle data for ${ticker}:`, error.message);
