@@ -40,8 +40,62 @@ export default function Scanner() {
   const [showScannerInfo, setShowScannerInfo] = useState(false);
 
   useEffect(() => {
-    loadDarkPoolData();
+    // Check if we have cached data first
+    const cachedData = getCachedData();
+    if (cachedData) {
+      setDarkPoolData(cachedData);
+      setIsLoading(false);
+    } else {
+      loadDarkPoolData();
+    }
   }, [sortBy]);
+
+  // Cookie utility functions
+  const setCookie = (name, value, days = 1) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${JSON.stringify(value)};expires=${expires.toUTCString()};path=/`;
+  };
+
+  const getCookie = (name) => {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  };
+
+  const getCachedData = () => {
+    try {
+      const cached = getCookie('darkpool_data');
+      if (cached) {
+        const data = JSON.parse(cached);
+        // Check if cache is from today (same date)
+        const today = new Date().toISOString().split('T')[0];
+        if (data.date === today || data.date === getLastTradingDay()) {
+          return data;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached data:', error);
+    }
+    return null;
+  };
+
+  const getLastTradingDay = () => {
+    const today = new Date();
+    let lastTradingDay = new Date(today);
+    lastTradingDay.setDate(today.getDate() - 1);
+    
+    while (lastTradingDay.getDay() === 0 || lastTradingDay.getDay() === 6) {
+      lastTradingDay.setDate(lastTradingDay.getDate() - 1);
+    }
+    
+    return lastTradingDay.toISOString().split('T')[0];
+  };
 
   const loadDarkPoolData = async () => {
     setIsLoading(true);
@@ -75,6 +129,9 @@ export default function Scanner() {
         };
         
         setDarkPoolData(enhancedData);
+        
+        // Cache the data for 1 day
+        setCookie('darkpool_data', enhancedData, 1);
       } else {
         setError(data.error || 'Failed to load dark pool data');
       }
@@ -87,6 +144,8 @@ export default function Scanner() {
   };
 
   const handleRefresh = async () => {
+    // Clear cached data and force reload
+    document.cookie = 'darkpool_data=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
     await loadDarkPoolData();
   };
 
@@ -197,6 +256,14 @@ export default function Scanner() {
                 title="How it works"
               >
                 <Info className="h-6 w-6" />
+              </button>
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-500 hover:text-green-600 transition-colors"
+                title="Refresh data"
+                disabled={isLoading}
+              >
+                <SafeRefreshCw className={`h-6 w-6 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
             <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
