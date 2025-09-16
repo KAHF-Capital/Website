@@ -81,7 +81,7 @@ async function getBatchPerformance(tickers, maxConcurrent = 5, delayMs = 200) {
 }
 
 // Get the weekday before today's data with 7-day averages
-function getLatestTradingDayWithAverages() {
+async function getLatestTradingDayWithAverages() {
   try {
     // Calculate the weekday before today
     const today = new Date();
@@ -209,7 +209,7 @@ export default async function handler(req, res) {
   try {
     ensureDirectories();
     
-    const latestData = getLatestTradingDayWithAverages();
+    const latestData = await getLatestTradingDayWithAverages();
     
     if (!latestData) {
       return res.status(404).json({
