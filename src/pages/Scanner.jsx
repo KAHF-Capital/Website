@@ -149,6 +149,16 @@ export default function Scanner() {
             <span className="text-sm text-gray-600">Total Value:</span>
             <span className="font-medium text-gray-900">${formatValue(ticker.total_value)}</span>
           </div>
+          
+          {/* Performance Data */}
+          {ticker.performance && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Today's Change:</span>
+              <span className={`font-semibold ${ticker.performance.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {ticker.performance.change >= 0 ? '+' : ''}${ticker.performance.change.toFixed(2)} ({ticker.performance.changePercent >= 0 ? '+' : ''}{ticker.performance.changePercent.toFixed(2)}%)
+              </span>
+            </div>
+          )}
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-100">
