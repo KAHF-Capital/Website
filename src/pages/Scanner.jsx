@@ -287,7 +287,7 @@ export default function Scanner() {
                 
                 <div className="text-center">
                   <p className="text-sm text-gray-600">
-                    Showing stocks with <span className="font-semibold text-green-600">>$250M</span> trading value and <span className="font-semibold text-green-600">>$50</span> price
+                    Showing stocks with <span className="font-semibold text-green-600">&gt;$250M</span> trading value and <span className="font-semibold text-green-600">&gt;$50</span> price
                   </p>
                 </div>
               </div>
