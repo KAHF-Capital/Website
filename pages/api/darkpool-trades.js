@@ -83,17 +83,19 @@ async function getBatchPerformance(tickers, maxConcurrent = 5, delayMs = 200) {
 // Get the weekday before today's data with 7-day averages
 async function getLatestTradingDayWithAverages() {
   try {
-    // Calculate the weekday before today
+    // Calculate the last trading day (weekday before today)
     const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    let lastTradingDay = new Date(today);
     
-    // If yesterday was weekend, go back to Friday
-    while (yesterday.getDay() === 0 || yesterday.getDay() === 6) {
-      yesterday.setDate(yesterday.getDate() - 1);
+    // Go back one day
+    lastTradingDay.setDate(today.getDate() - 1);
+    
+    // If it's weekend, keep going back to find the last weekday
+    while (lastTradingDay.getDay() === 0 || lastTradingDay.getDay() === 6) {
+      lastTradingDay.setDate(lastTradingDay.getDate() - 1);
     }
     
-    const targetDate = yesterday.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const targetDate = lastTradingDay.toISOString().split('T')[0]; // YYYY-MM-DD format
     
     // Get all date files (excluding summary files)
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
