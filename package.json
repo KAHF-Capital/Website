@@ -9,10 +9,6 @@
     "lint": "next lint",
     "setup": "node setup-env.js",
     "check-env": "node check-env.js",
-    "setup-automation": "node setup-automation.js",
-    "test-automation": "node test-automation.js",
-    "test-automation-simple": "curl -X POST http://localhost:3000/api/run-automation",
-    "test-yahoo-finance": "node test-yahoo-finance.js",
     "process-csv": "node process-csv.js"
   },
   "dependencies": {
