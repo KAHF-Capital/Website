@@ -167,12 +167,19 @@ async function getLatestTradingDayWithAverages() {
       tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
     });
 
-    // Get performance data for all tickers
-    const tickerSymbols = latestDateData.tickers.map(t => t.ticker);
+    // Pre-filter for high-value stocks: >$250M trading value and >$50 price
+    const filteredTickers = latestDateData.tickers.filter(ticker => {
+      const tradingValue = ticker.total_value;
+      const avgPrice = ticker.avg_price;
+      return tradingValue > 250000000 && avgPrice > 50; // $250M and $50
+    });
+    
+    // Get performance data only for filtered tickers
+    const tickerSymbols = filteredTickers.map(t => t.ticker);
     const performanceData = await getBatchPerformance(tickerSymbols);
     
-    // Add 7-day average and performance data to latest day's tickers
-    const enhancedTickers = latestDateData.tickers.map(ticker => {
+    // Add 7-day average and performance data to filtered tickers
+    const enhancedTickers = filteredTickers.map(ticker => {
       const performance = performanceData[ticker.ticker];
       const volumeRatio = tickerAverages[ticker.ticker] > 0 
         ? (ticker.total_volume / tickerAverages[ticker.ticker]).toFixed(2)
