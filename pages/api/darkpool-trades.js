@@ -80,23 +80,9 @@ async function getBatchPerformance(tickers, maxConcurrent = 5, delayMs = 200) {
   return results;
 }
 
-// Get the weekday before today's data with 7-day averages
+// Get the most recently analyzed file with 7-day averages
 async function getLatestTradingDayWithAverages() {
   try {
-    // Calculate the last trading day (weekday before today)
-    const today = new Date();
-    let lastTradingDay = new Date(today);
-    
-    // Go back one day
-    lastTradingDay.setDate(today.getDate() - 1);
-    
-    // If it's weekend, keep going back to find the last weekday
-    while (lastTradingDay.getDay() === 0 || lastTradingDay.getDay() === 6) {
-      lastTradingDay.setDate(lastTradingDay.getDate() - 1);
-    }
-    
-    const targetDate = lastTradingDay.toISOString().split('T')[0]; // YYYY-MM-DD format
-    
     // Get all date files (excluding summary files)
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
       .filter(file => file.endsWith('.json') && !file.includes('summary'))
@@ -114,18 +100,8 @@ async function getLatestTradingDayWithAverages() {
       return null;
     }
 
-    // Find the file for the target date (weekday before today)
-    let targetDateFile = dateFiles.find(file => file.date === targetDate);
-    
-    // If target date not found, find the closest previous trading day
-    if (!targetDateFile) {
-      targetDateFile = dateFiles.find(file => file.date < targetDate);
-    }
-    
-    // If still no file found, use the latest available
-    if (!targetDateFile) {
-      targetDateFile = dateFiles[0];
-    }
+    // Use the most recent file (first in the sorted array)
+    const targetDateFile = dateFiles[0];
     
     const latestDateData = JSON.parse(fs.readFileSync(targetDateFile.path, 'utf8'));
     
@@ -133,14 +109,15 @@ async function getLatestTradingDayWithAverages() {
     const filenameDate = targetDateFile.date;
 
     // Calculate 7-day average for each ticker using the filename date
-    const sevenDaysAgo = new Date(filenameDate);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const currentDate = new Date(filenameDate);
+    const sevenDaysAgo = new Date(currentDate);
+    sevenDaysAgo.setDate(currentDate.getDate() - 6); // Include current day, so 6 days back
 
-    // Get all dates within the last 7 days
+    // Get all dates within the last 7 days (including the current date)
     const recentDateFiles = dateFiles
       .filter(file => {
         const fileDate = new Date(file.date);
-        return fileDate >= sevenDaysAgo && fileDate <= new Date(filenameDate);
+        return fileDate >= sevenDaysAgo && fileDate <= currentDate;
       })
       .slice(0, 7); // Limit to 7 days
 
