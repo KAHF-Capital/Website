@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useSession, signOut } from 'next-auth/react';
-import { Menu, X, User, LogOut } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const router = useRouter();
-  const { data: session, status } = useSession();
 
   const navigationItems = [
     { href: '/', label: 'Home' },
@@ -34,9 +31,6 @@ export default function Header() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/' });
-  };
 
   const renderNavItem = (item) => {
     const isActive = isActiveRoute(item.href);
@@ -91,66 +85,6 @@ export default function Header() {
             <nav className="flex space-x-8">
               {navigationItems.map(renderNavItem)}
             </nav>
-            
-            {/* Authentication Section */}
-            <div className="flex items-center space-x-4">
-              {status === 'loading' ? (
-                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-              ) : session ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <User className="h-4 w-4 text-green-600" />
-                    </div>
-                    <span className="text-sm font-medium">{session.user.name}</span>
-                  </button>
-                  
-                  <AnimatePresence>
-                    {showUserMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200"
-                      >
-                        <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100">
-                          <div>{session.user.email}</div>
-                          {session.user.phone && (
-                            <div className="text-xs text-gray-400">{session.user.phone}</div>
-                          )}
-                        </div>
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          <span>Sign out</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <Link
-                    href="/auth/signin"
-                    className="text-gray-700 hover:text-green-600 transition-colors font-medium"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors font-medium"
-                  >
-                    Sign up
-                  </Link>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Mobile Menu Button */}
@@ -210,49 +144,6 @@ export default function Header() {
                   </Link>
                 );
               })}
-              
-              {/* Mobile Authentication */}
-              <div className="w-full border-t border-gray-200 pt-3 mt-3">
-                {session ? (
-                  <div className="space-y-2">
-                    <div className="text-center py-2">
-                      <div className="text-sm text-gray-600">Signed in as</div>
-                      <div className="font-medium text-gray-900">{session.user.name}</div>
-                      <div className="text-xs text-gray-500">{session.user.email}</div>
-                      {session.user.phone && (
-                        <div className="text-xs text-gray-400">{session.user.phone}</div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        handleSignOut();
-                        handleMobileMenuClose();
-                      }}
-                      className="w-full py-3 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-medium touch-manipulation flex items-center justify-center space-x-2"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Sign out</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Link
-                      href="/auth/signin"
-                      className="w-full text-center py-3 rounded-md text-gray-900 hover:text-green-600 hover:bg-gray-100 transition-colors font-medium touch-manipulation"
-                      onClick={handleMobileMenuClose}
-                    >
-                      Sign in
-                    </Link>
-                    <Link
-                      href="/auth/signup"
-                      className="w-full text-center py-3 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors font-medium touch-manipulation"
-                      onClick={handleMobileMenuClose}
-                    >
-                      Sign up
-                    </Link>
-                  </div>
-                )}
-              </div>
             </nav>
           </motion.div>
         )}
