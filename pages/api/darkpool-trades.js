@@ -57,7 +57,7 @@ async function getBatchPerformance(tickers) {
 }
 
 // Get the most recently analyzed file with 7-day averages
-async function getLatestTradingDayWithAverages(requestedDate = null, minVolume = 500000000, minPrice = 50) {
+async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
   try {
     // Get all date files (excluding summary files)
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
@@ -76,16 +76,8 @@ async function getLatestTradingDayWithAverages(requestedDate = null, minVolume =
       return null;
     }
 
-    // Use the requested date or the most recent file
-    let targetDateFile;
-    if (requestedDate) {
-      targetDateFile = dateFiles.find(file => file.date === requestedDate);
-      if (!targetDateFile) {
-        return null; // Requested date not found
-      }
-    } else {
-      targetDateFile = dateFiles[0]; // Most recent file
-    }
+    // Use the most recent file (first in the sorted array)
+    const targetDateFile = dateFiles[0];
     
     const latestDateData = JSON.parse(fs.readFileSync(targetDateFile.path, 'utf8'));
     
@@ -130,7 +122,7 @@ async function getLatestTradingDayWithAverages(requestedDate = null, minVolume =
       tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
     });
 
-    // Apply volume and price filters
+    // Apply volume and price filters if specified
     const filteredTickers = latestDateData.tickers.filter(ticker => {
       const tradingValue = ticker.total_value;
       const avgPrice = ticker.avg_price;
@@ -169,7 +161,9 @@ async function getLatestTradingDayWithAverages(requestedDate = null, minVolume =
       filters: {
         minVolume: minVolume,
         minPrice: minPrice,
-        appliedFilters: filteredTickers.length !== latestDateData.tickers.length
+        appliedFilters: minVolume > 0 || minPrice > 0,
+        filteredCount: filteredTickers.length,
+        totalCount: latestDateData.tickers.length
       },
       tickers: enhancedTickers
     };
@@ -184,15 +178,14 @@ export default async function handler(req, res) {
   try {
     ensureDirectories();
     
-    // Get query parameters
-    const { date, minVolume, minPrice } = req.query;
+    // Get query parameters for filtering
+    const { minVolume, minPrice } = req.query;
     
     // Parse and validate parameters
-    const requestedDate = date || null;
-    const volumeFilter = minVolume ? parseInt(minVolume) : 500000000; // Default $500M
-    const priceFilter = minPrice ? parseFloat(minPrice) : 50; // Default $50
+    const volumeFilter = minVolume ? parseInt(minVolume) : 0;
+    const priceFilter = minPrice ? parseFloat(minPrice) : 0;
     
-    const latestData = await getLatestTradingDayWithAverages(requestedDate, volumeFilter, priceFilter);
+    const latestData = await getLatestTradingDayWithAverages(volumeFilter, priceFilter);
     
     if (!latestData) {
       return res.status(404).json({

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import Footer from './Footer';
 import Header from '../components/Header';
 import PerformanceWindow from '../components/PerformanceWindow';
-import { Info, Bell, Zap, BarChart3 } from 'lucide-react';
+import DraggableFilter from '../components/DraggableFilter';
+import { Info, Bell, Zap, BarChart3, Filter, Plus } from 'lucide-react';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -40,17 +41,11 @@ export default function Scanner() {
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
   const [showPerformanceWindow, setShowPerformanceWindow] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [availableDates, setAvailableDates] = useState([]);
   const [filters, setFilters] = useState({
-    minVolume: 500000000, // $500M
-    minPrice: 50 // $50
+    minVolume: 500000000, // $500M default
+    minPrice: 50 // $50 default
   });
-
-  useEffect(() => {
-    // Load available dates first
-    loadAvailableDates();
-  }, []);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     // Check if we have cached data first
@@ -61,7 +56,7 @@ export default function Scanner() {
     } else {
       loadDarkPoolData();
     }
-  }, [sortBy, selectedDate, filters]);
+  }, [sortBy, filters]);
 
   // Cookie utility functions
   const setCookie = (name, value, days = 1) => {
@@ -110,32 +105,15 @@ export default function Scanner() {
     return lastTradingDay.toISOString().split('T')[0];
   };
 
-  const loadAvailableDates = async () => {
-    try {
-      const response = await fetch('/api/available-dates');
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableDates(data.availableDates);
-        // Set the latest date as default if no date is selected
-        if (!selectedDate && data.latestDate) {
-          setSelectedDate(data.latestDate);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading available dates:', error);
-    }
-  };
-
   const loadDarkPoolData = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Build query parameters
+      // Build query parameters for filters
       const params = new URLSearchParams();
-      if (selectedDate) params.append('date', selectedDate);
-      params.append('minVolume', filters.minVolume.toString());
-      params.append('minPrice', filters.minPrice.toString());
+      if (filters.minVolume > 0) params.append('minVolume', filters.minVolume.toString());
+      if (filters.minPrice > 0) params.append('minPrice', filters.minPrice.toString());
 
       const response = await fetch(`/api/darkpool-trades?${params.toString()}`);
       const data = await response.json();
@@ -292,6 +270,22 @@ export default function Scanner() {
               >
                 <Info className="h-6 w-6" />
               </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`p-2 transition-colors ${
+                    showFilters || (filters.minVolume > 0 || filters.minPrice > 0)
+                      ? 'text-green-600 bg-green-50' 
+                      : 'text-gray-500 hover:text-green-600'
+                  }`}
+                  title="Toggle filters"
+                >
+                  <Filter className="h-6 w-6" />
+                </button>
+                {(filters.minVolume > 0 || filters.minPrice > 0) && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-600 rounded-full border-2 border-white"></div>
+                )}
+              </div>
               <button
                 onClick={() => setShowPerformanceWindow(true)}
                 className="p-2 text-gray-500 hover:text-green-600 transition-colors"
@@ -331,6 +325,83 @@ export default function Scanner() {
                 </a>
               </div>
             </div>
+
+            {/* Draggable Filters Panel */}
+            {showFilters && (
+              <div className="mt-6 mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Filter Controls</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setFilters({ minVolume: 0, minPrice: 0 })}
+                      className="px-3 py-1 text-sm text-gray-600 hover:text-red-600 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                    <button
+                      onClick={() => setFilters({ minVolume: 500000000, minPrice: 50 })}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                    >
+                      Set Defaults
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <DraggableFilter
+                    label="Minimum Volume"
+                    value={filters.minVolume}
+                    onChange={(value) => setFilters(prev => ({ ...prev, minVolume: value }))}
+                    min={0}
+                    max={2000000000}
+                    step={1000000}
+                    formatValue={(val) => `$${(val / 1000000).toFixed(0)}M`}
+                    unit=""
+                  />
+                  
+                  <DraggableFilter
+                    label="Minimum Price"
+                    value={filters.minPrice}
+                    onChange={(value) => setFilters(prev => ({ ...prev, minPrice: value }))}
+                    min={0}
+                    max={500}
+                    step={1}
+                    formatValue={(val) => `$${val.toFixed(0)}`}
+                    unit=""
+                  />
+                </div>
+
+                {/* Filter Summary */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center space-x-4">
+                      <span className="text-gray-600">
+                        Active Filters: 
+                        {filters.minVolume > 0 && (
+                          <span className="ml-1 font-medium text-green-600">
+                            Volume ≥ ${(filters.minVolume / 1000000).toFixed(0)}M
+                          </span>
+                        )}
+                        {filters.minVolume > 0 && filters.minPrice > 0 && <span className="mx-2 text-gray-400">•</span>}
+                        {filters.minPrice > 0 && (
+                          <span className="ml-1 font-medium text-green-600">
+                            Price ≥ ${filters.minPrice}
+                          </span>
+                        )}
+                        {filters.minVolume === 0 && filters.minPrice === 0 && (
+                          <span className="ml-1 text-gray-500">None</span>
+                        )}
+                      </span>
+                    </div>
+                    {darkPoolData?.filters && (
+                      <div className="text-gray-600">
+                        Showing {darkPoolData.filters.filteredCount} of {darkPoolData.filters.totalCount} tickers
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {showScannerInfo && (
               <div className="mt-4 max-w-2xl bg-green-50 border border-green-200 rounded-lg p-4">
@@ -338,8 +409,7 @@ export default function Scanner() {
                 <div className="text-sm text-green-700 space-y-2">
                   <p><strong>What are Dark Pools?</strong> Private exchanges where large institutions trade stocks away from public markets, often to avoid price impact.</p>
                   <p><strong>Volume Ratio:</strong> Compares today's dark pool volume to the 7-day average. Higher ratios indicate unusual institutional activity.</p>
-                  <p><strong>Date Selection:</strong> Choose from available trading dates to analyze historical dark pool activity.</p>
-                  <p><strong>Filters:</strong> Customize volume and price filters to focus on high-quality stocks. Default filters are $500M+ volume and $50+ price.</p>
+                  <p><strong>Filters:</strong> Use the draggable filter controls to customize volume and price thresholds. Default filters are $500M+ volume and $50+ price for high-quality stocks.</p>
                   <p><strong>Why It Matters:</strong> Large dark pool activity can signal institutional buying/selling before it becomes public, potentially indicating future price movements.</p>
                   <p><strong>Data Source:</strong> Analyzes daily dark pool trading data identified from Securities Information Processors (SIPs).</p>
                 </div>
@@ -375,93 +445,33 @@ export default function Scanner() {
                 </p>
               </div>
               
-              {/* Date and Filter Controls */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  {/* Date Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Date
-                    </label>
-                    <select
-                      value={selectedDate || ''}
-                      onChange={(e) => setSelectedDate(e.target.value || null)}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value="">Latest Available</option>
-                      {availableDates.map((date) => (
-                        <option key={date.date} value={date.date}>
-                          {date.displayDate}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Volume Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Min Volume
-                    </label>
-                    <select
-                      value={filters.minVolume}
-                      onChange={(e) => setFilters(prev => ({ ...prev, minVolume: parseInt(e.target.value) }))}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value={100000000}>$100M</option>
-                      <option value={250000000}>$250M</option>
-                      <option value={500000000}>$500M</option>
-                      <option value={1000000000}>$1B</option>
-                      <option value={0}>No Filter</option>
-                    </select>
-                  </div>
-
-                  {/* Price Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Min Price
-                    </label>
-                    <select
-                      value={filters.minPrice}
-                      onChange={(e) => setFilters(prev => ({ ...prev, minPrice: parseFloat(e.target.value) }))}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value={10}>$10</option>
-                      <option value={25}>$25</option>
-                      <option value={50}>$50</option>
-                      <option value={100}>$100</option>
-                      <option value={0}>No Filter</option>
-                    </select>
-                  </div>
-
-                  {/* Sort Controls */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sort by
-                    </label>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    >
-                      <option value="volume_ratio">Volume Ratio</option>
-                      <option value="total_value">Total Value</option>
-                      <option value="avg_price">Price</option>
-                    </select>
-                  </div>
+              {/* Sort Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-8">
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">Sort by:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="volume_ratio">Volume Ratio</option>
+                    <option value="total_value">Total Value</option>
+                    <option value="avg_price">Price</option>
+                  </select>
                 </div>
-
-                {/* Filter Summary */}
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center space-x-4">
-                    <span>Filters: Volume ≥ ${(filters.minVolume / 1000000).toFixed(0)}M, Price ≥ ${filters.minPrice}</span>
-                    {darkPoolData?.filters?.appliedFilters && (
-                      <span className="text-green-600 font-medium">Filters Applied</span>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2 text-green-600">
-                    <SafeTrendingUp className="h-4 w-4" />
-                    <span className="font-semibold">Highest First</span>
-                  </div>
+                
+                <div className="flex items-center space-x-2 text-green-600">
+                  <SafeTrendingUp className="h-5 w-5" />
+                  <span className="text-sm font-semibold">Highest First</span>
+                </div>
+                
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    {darkPoolData?.filters?.appliedFilters 
+                      ? `Showing ${darkPoolData.filters.filteredCount} of ${darkPoolData.filters.totalCount} tickers with active filters`
+                      : 'Showing all dark pool activity for the selected date'
+                    }
+                  </p>
                 </div>
               </div>
 
