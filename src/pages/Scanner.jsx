@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from './Footer';
 import Header from '../components/Header';
-import { Info, Bell, Zap } from 'lucide-react';
+import PerformanceWindow from '../components/PerformanceWindow';
+import { Info, Bell, Zap, BarChart3 } from 'lucide-react';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -38,6 +39,7 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
+  const [showPerformanceWindow, setShowPerformanceWindow] = useState(false);
 
   useEffect(() => {
     // Check if we have cached data first
@@ -258,6 +260,13 @@ export default function Scanner() {
                 <Info className="h-6 w-6" />
               </button>
               <button
+                onClick={() => setShowPerformanceWindow(true)}
+                className="p-2 text-gray-500 hover:text-green-600 transition-colors"
+                title="Open Performance Monitor"
+              >
+                <BarChart3 className="h-6 w-6" />
+              </button>
+              <button
                 onClick={handleRefresh}
                 className="p-2 text-gray-500 hover:text-green-600 transition-colors"
                 title="Refresh data"
@@ -354,7 +363,7 @@ export default function Scanner() {
                 
                 <div className="text-center">
                   <p className="text-sm text-gray-600">
-                    Showing stocks with <span className="font-semibold text-green-600">&gt;$250M</span> trading value and <span className="font-semibold text-green-600">&gt;$50</span> price
+                    Showing all dark pool activity for the selected date
                   </p>
                 </div>
               </div>
@@ -388,6 +397,13 @@ export default function Scanner() {
         {/* Footer */}
         <Footer />
       </div>
+
+      {/* Performance Window */}
+      <PerformanceWindow
+        isOpen={showPerformanceWindow}
+        onClose={() => setShowPerformanceWindow(false)}
+        tickers={darkPoolData?.tickers?.map(t => t.ticker) || []}
+      />
     </div>
   );
 }

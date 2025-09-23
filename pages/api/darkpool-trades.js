@@ -16,68 +16,44 @@ function ensureDirectories() {
   }
 }
 
-// Get stock performance data from Yahoo Finance
-async function getStockPerformance(ticker) {
+// Get performance data for multiple tickers using batch API
+async function getBatchPerformance(tickers) {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`;
-    const response = await fetch(url);
-    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/batch-performance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tickers: tickers
+      })
+    });
+
     if (!response.ok) {
-      return null;
+      console.error('Batch performance API failed:', response.status);
+      return {};
     }
-    
+
     const data = await response.json();
     
-    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-      return null;
-    }
+    // Convert array results to object format
+    const results = {};
+    data.data.forEach(item => {
+      if (!item.error) {
+        results[item.ticker] = {
+          currentPrice: item.currentPrice,
+          previousClose: item.previousClose,
+          change: item.change,
+          changePercent: item.changePercent
+        };
+      }
+    });
     
-    const result = data.chart.result[0];
-    const meta = result.meta;
-    
-    // Calculate performance
-    const currentPrice = meta.regularMarketPrice;
-    const previousClose = meta.previousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
-    
-    return {
-      currentPrice: currentPrice,
-      previousClose: previousClose,
-      change: change,
-      changePercent: changePercent
-    };
+    return results;
   } catch (error) {
-    console.error(`Error fetching performance for ${ticker}:`, error.message);
-    return null;
+    console.error('Error fetching batch performance:', error.message);
+    return {};
   }
-}
-
-// Get performance data for multiple tickers with rate limiting
-async function getBatchPerformance(tickers, maxConcurrent = 5, delayMs = 200) {
-  const results = {};
-  
-  for (let i = 0; i < tickers.length; i += maxConcurrent) {
-    const batch = tickers.slice(i, i + maxConcurrent);
-    
-    const batchPromises = batch.map(async (ticker) => {
-      const performance = await getStockPerformance(ticker);
-      return { ticker, performance };
-    });
-    
-    const batchResults = await Promise.all(batchPromises);
-    
-    batchResults.forEach(({ ticker, performance }) => {
-      results[ticker] = performance;
-    });
-    
-    // Add delay between batches to be respectful to Yahoo Finance
-    if (i + maxConcurrent < tickers.length) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
-  }
-  
-  return results;
 }
 
 // Get the most recently analyzed file with 7-day averages
@@ -146,12 +122,8 @@ async function getLatestTradingDayWithAverages() {
       tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
     });
 
-    // Pre-filter for high-value stocks: >$250M trading value and >$50 price
-    const filteredTickers = latestDateData.tickers.filter(ticker => {
-      const tradingValue = ticker.total_value;
-      const avgPrice = ticker.avg_price;
-      return tradingValue > 250000000 && avgPrice > 50; // $250M and $50
-    });
+    // Use all tickers without filtering
+    const filteredTickers = latestDateData.tickers;
     
     // Get performance data only for filtered tickers
     const tickerSymbols = filteredTickers.map(t => t.ticker);
