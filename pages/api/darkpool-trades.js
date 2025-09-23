@@ -57,7 +57,7 @@ async function getBatchPerformance(tickers) {
 }
 
 // Get the most recently analyzed file with 7-day averages
-async function getLatestTradingDayWithAverages() {
+async function getLatestTradingDayWithAverages(requestedDate = null, minVolume = 500000000, minPrice = 50) {
   try {
     // Get all date files (excluding summary files)
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
@@ -76,8 +76,16 @@ async function getLatestTradingDayWithAverages() {
       return null;
     }
 
-    // Use the most recent file (first in the sorted array)
-    const targetDateFile = dateFiles[0];
+    // Use the requested date or the most recent file
+    let targetDateFile;
+    if (requestedDate) {
+      targetDateFile = dateFiles.find(file => file.date === requestedDate);
+      if (!targetDateFile) {
+        return null; // Requested date not found
+      }
+    } else {
+      targetDateFile = dateFiles[0]; // Most recent file
+    }
     
     const latestDateData = JSON.parse(fs.readFileSync(targetDateFile.path, 'utf8'));
     
@@ -122,8 +130,12 @@ async function getLatestTradingDayWithAverages() {
       tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
     });
 
-    // Use all tickers without filtering
-    const filteredTickers = latestDateData.tickers;
+    // Apply volume and price filters
+    const filteredTickers = latestDateData.tickers.filter(ticker => {
+      const tradingValue = ticker.total_value;
+      const avgPrice = ticker.avg_price;
+      return tradingValue >= minVolume && avgPrice >= minPrice;
+    });
     
     // Get performance data only for filtered tickers
     const tickerSymbols = filteredTickers.map(t => t.ticker);
@@ -154,6 +166,11 @@ async function getLatestTradingDayWithAverages() {
       total_tickers: latestDateData.total_tickers,
       total_volume: latestDateData.total_volume,
       last_updated: latestDateData.processed_at || new Date().toISOString(),
+      filters: {
+        minVolume: minVolume,
+        minPrice: minPrice,
+        appliedFilters: filteredTickers.length !== latestDateData.tickers.length
+      },
       tickers: enhancedTickers
     };
 
@@ -167,7 +184,15 @@ export default async function handler(req, res) {
   try {
     ensureDirectories();
     
-    const latestData = await getLatestTradingDayWithAverages();
+    // Get query parameters
+    const { date, minVolume, minPrice } = req.query;
+    
+    // Parse and validate parameters
+    const requestedDate = date || null;
+    const volumeFilter = minVolume ? parseInt(minVolume) : 500000000; // Default $500M
+    const priceFilter = minPrice ? parseFloat(minPrice) : 50; // Default $50
+    
+    const latestData = await getLatestTradingDayWithAverages(requestedDate, volumeFilter, priceFilter);
     
     if (!latestData) {
       return res.status(404).json({
