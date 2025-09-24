@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Footer from './Footer';
 import Header from '../components/Header';
-import PerformanceWindow from '../components/PerformanceWindow';
 import DraggableFilter from '../components/DraggableFilter';
-import { Info, Bell, Zap, BarChart3, Filter, Plus } from 'lucide-react';
+import DarkPoolAnalysis from '../components/DarkPoolAnalysis';
+import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp } from 'lucide-react';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -40,12 +40,13 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
-  const [showPerformanceWindow, setShowPerformanceWindow] = useState(false);
   const [filters, setFilters] = useState({
     minVolume: 500000000, // $500M default
     minPrice: 50 // $50 default
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showDarkPoolAnalysis, setShowDarkPoolAnalysis] = useState(false);
+  const [selectedTicker, setSelectedTicker] = useState(null);
 
   useEffect(() => {
     // Check if we have cached data first
@@ -162,6 +163,11 @@ export default function Scanner() {
     await loadDarkPoolData();
   };
 
+  const openDarkPoolAnalysis = (ticker) => {
+    setSelectedTicker(ticker);
+    setShowDarkPoolAnalysis(true);
+  };
+
   const formatNumber = (num) => {
     return new Intl.NumberFormat().format(num);
   };
@@ -218,7 +224,14 @@ export default function Scanner() {
           )}
         </div>
         
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+          <button 
+            onClick={() => openDarkPoolAnalysis(ticker.ticker)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+          >
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Dark Pool History & Price
+          </button>
           <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
             <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
               Analyze {ticker.ticker} Straddle
@@ -286,13 +299,6 @@ export default function Scanner() {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-600 rounded-full border-2 border-white"></div>
                 )}
               </div>
-              <button
-                onClick={() => setShowPerformanceWindow(true)}
-                className="p-2 text-gray-500 hover:text-green-600 transition-colors"
-                title="Open Performance Monitor"
-              >
-                <BarChart3 className="h-6 w-6" />
-              </button>
               <button
                 onClick={handleRefresh}
                 className="p-2 text-gray-500 hover:text-green-600 transition-colors"
@@ -505,11 +511,11 @@ export default function Scanner() {
         <Footer />
       </div>
 
-      {/* Performance Window */}
-      <PerformanceWindow
-        isOpen={showPerformanceWindow}
-        onClose={() => setShowPerformanceWindow(false)}
-        tickers={darkPoolData?.tickers?.map(t => t.ticker) || []}
+      {/* Dark Pool Analysis Modal */}
+      <DarkPoolAnalysis
+        isOpen={showDarkPoolAnalysis}
+        onClose={() => setShowDarkPoolAnalysis(false)}
+        ticker={selectedTicker}
       />
     </div>
   );

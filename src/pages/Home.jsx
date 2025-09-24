@@ -24,11 +24,6 @@ export default function Home() {
       icon: TrendingUp,
     },
     {
-      name: "Performance Monitor",
-      description: "Track real-time performance of your watchlist with batch processing for optimal speed",
-      icon: BarChart3,
-    },
-    {
       name: "VolAlert Pro",
       description: "Get real-time SMS alerts on volatility opportunities",
       icon: Search,
@@ -91,8 +86,6 @@ export default function Home() {
                     return '/scanner';
                   case 'Straddle Calculator':
                     return '/straddle-calculator';
-                  case 'Performance Monitor':
-                    return '/performance-monitor';
                   case 'VolAlert Pro':
                     return 'https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01';
                   default:
