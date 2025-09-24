@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
+// Yahoo Finance API endpoints
+const YAHOO_FINANCE_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -13,28 +14,31 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ticker symbol is required' });
   }
 
-  if (!POLYGON_API_KEY) {
-    return res.status(500).json({ error: 'Polygon API key not configured' });
-  }
-
   try {
-    // Get current price and previous close
-    const [currentResponse, previousResponse] = await Promise.all([
-      fetch(`https://api.polygon.io/v1/last/trade/${ticker}?apikey=${POLYGON_API_KEY}`),
-      fetch(`https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`)
-    ]);
-
-    if (!currentResponse.ok || !previousResponse.ok) {
-      throw new Error('Failed to fetch stock data');
+    // Clean ticker symbol (remove any suffixes like :1)
+    const cleanTicker = ticker.split(':')[0].toUpperCase();
+    
+    // Get current price and previous close from Yahoo Finance
+    const url = `${YAHOO_FINANCE_BASE}/${cleanTicker}`;
+    const response = await fetch(url, { 
+      timeout: 10000 
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
     }
-
-    const [currentData, previousData] = await Promise.all([
-      currentResponse.json(),
-      previousResponse.json()
-    ]);
-
-    const currentPrice = currentData.results?.p || 0;
-    const previousClose = previousData.results?.[0]?.c || 0;
+    
+    const data = await response.json();
+    
+    if (!data.chart?.result?.[0]) {
+      throw new Error('No price data available');
+    }
+    
+    const result = data.chart.result[0];
+    const meta = result.meta;
+    
+    const currentPrice = meta.regularMarketPrice || 0;
+    const previousClose = meta.previousClose || 0;
 
     if (!currentPrice || !previousClose) {
       return res.status(404).json({ error: 'Stock data not found' });
@@ -44,7 +48,7 @@ export default async function handler(req, res) {
     const changePercent = (change / previousClose) * 100;
 
     res.status(200).json({
-      ticker: ticker.toUpperCase(),
+      ticker: cleanTicker,
       currentPrice,
       previousClose,
       change,
@@ -53,6 +57,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching stock price change:', error);
-    res.status(500).json({ error: 'Failed to fetch stock price change' });
+    res.status(500).json({ error: 'Failed to fetch stock price change: ' + error.message });
   }
 }
