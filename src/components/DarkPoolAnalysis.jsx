@@ -246,3 +246,4 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
 };
 
 export default DarkPoolAnalysis;
+

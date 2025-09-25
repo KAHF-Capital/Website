@@ -224,17 +224,17 @@ export default function Scanner() {
           )}
         </div>
         
-        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+        <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
           <button 
             onClick={() => openDarkPoolAnalysis(ticker.ticker)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm"
           >
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Dark Pool History & Price
+            <TrendingUp className="h-4 w-4 mr-1" />
+            Dark Pool History
           </button>
           <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-              Analyze {ticker.ticker} Straddle
+            <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors text-sm">
+              Analyze Straddle
             </button>
           </Link>
         </div>
