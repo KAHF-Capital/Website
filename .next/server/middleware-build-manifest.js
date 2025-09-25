@@ -1,1 +1,18 @@
-self.__BUILD_MANIFEST={polyfillFiles:["static/chunks/polyfills-42372ed130431b0a.js"],devFiles:[],ampDevFiles:[],lowPriorityFiles:[],rootMainFiles:[],pages:{"/":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/261-593b05851f81895a.js","static/chunks/pages/index-315b7298d8a0c967.js"],"/_app":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/css/43292592f086c94c.css","static/chunks/pages/_app-3ee7fff92c8f88a0.js"],"/_error":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/pages/_error-10090a8ee211d5fd.js"],"/confirmation":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/pages/confirmation-540d533283b1b736.js"],"/learning":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/261-593b05851f81895a.js","static/chunks/pages/learning-0928450647c0a961.js"],"/payment":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/pages/payment-c0145483bdf13b05.js"],"/scanner":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/e5d67320-58cd27b0f7ab9a0f.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/261-593b05851f81895a.js","static/chunks/433-5963c5cf1d0f75b4.js","static/chunks/pages/scanner-b28830e1763345d3.js"],"/straddle-calculator":["static/chunks/webpack-8fa1640cc84ba8fe.js","static/chunks/framework-e952fed463eb8e34.js","static/chunks/main-fedde1690a7460a3.js","static/chunks/648-57a592d8d8a648eb.js","static/chunks/261-593b05851f81895a.js","static/chunks/pages/straddle-calculator-66642f0a02d38f5d.js"]},ampFirstPages:[]},self.__BUILD_MANIFEST.lowPriorityFiles=["/static/"+process.env.__NEXT_BUILD_ID+"/_buildManifest.js",,"/static/"+process.env.__NEXT_BUILD_ID+"/_ssgManifest.js"];
+self.__BUILD_MANIFEST = {
+  "polyfillFiles": [
+    "static/chunks/polyfills.js"
+  ],
+  "devFiles": [],
+  "ampDevFiles": [],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [],
+  "pages": {
+    "/_app": []
+  },
+  "ampFirstPages": []
+};
+self.__BUILD_MANIFEST.lowPriorityFiles = [
+"/static/" + process.env.__NEXT_BUILD_ID + "/_buildManifest.js",
+,"/static/" + process.env.__NEXT_BUILD_ID + "/_ssgManifest.js",
+
+];
