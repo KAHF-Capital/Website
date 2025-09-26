@@ -40,13 +40,6 @@ const InteractiveOptionsChart = ({
           icon: Layers,
           description: 'Range-bound strategy with defined profit/loss zones'
         };
-      case 'short-straddle':
-        return {
-          name: 'Short Straddle',
-          color: 'red', 
-          icon: AlertTriangle,
-          description: 'Premium collection strategy with unlimited risk'
-        };
       case 'straddle':
       default:
         return {
@@ -88,21 +81,6 @@ const InteractiveOptionsChart = ({
         }
         break;
 
-      case 'short-straddle':
-        if (price > upperBreakeven || price < lowerBreakeven) {
-          // Loss scenarios - exponential as price moves further
-          const upperLoss = price > upperBreakeven ? 
-            ((price - upperBreakeven) / upperBreakeven) : 0;
-          const lowerLoss = price < lowerBreakeven ? 
-            ((lowerBreakeven - price) / lowerBreakeven) : 0;
-          profitLoss = Math.max(upperLoss, lowerLoss);
-          profitLoss = -(profitLoss * maxProfit * 10); // Scale loss significantly
-          status = 'loss';
-        } else {
-          profitLoss = maxProfit || 0;
-          status = 'profit';
-        }
-        break;
 
       case 'straddle':
       default:
@@ -166,19 +144,6 @@ const InteractiveOptionsChart = ({
       );
     }
 
-    if (strategyType === 'short-straddle') {
-      return (
-        <div className="space-y-3">
-          <div className="bg-red-50 p-3 rounded-lg">
-            <div className="font-semibold text-red-700">Short Straddle Legs</div>
-            <div className="text-red-600 text-sm">
-              <div>Sell Call: ${inputs.strikePrice} @ ${inputs.callPremium || '0.00'} Premium</div>
-              <div>Sell Put: ${inputs.strikePrice} @ ${inputs.putPremium || '0.00'} Premium</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     return (
       <div className="space-y-3">

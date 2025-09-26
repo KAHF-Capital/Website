@@ -19,8 +19,7 @@ export default function Header() {
       dropdown: true,
       items: [
         { href: '/straddle-calculator', label: 'ATM Straddle' },
-        { href: '/iron-condor-calculator', label: 'Iron Condor' },
-        { href: '/short-straddle-calculator', label: 'Short Straddle' }
+        { href: '/iron-condor-calculator', label: 'Iron Condor' }
       ]
     },
     { 

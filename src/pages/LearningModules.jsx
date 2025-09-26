@@ -41,35 +41,6 @@ export default function LearningModules() {
         "Look for dark pool volume spikes before events"
       ]
     },
-    "short-straddle": {
-      name: "Short Straddle",
-      icon: Target,
-      difficulty: "Advanced",
-      description: "Capitalize on low volatility and time decay",
-      overview: "The short straddle involves selling both a call and put at the same strike price. This strategy profits from low volatility and time decay when the stock stays within a specific range.",
-      whenToUse: [
-        "Expecting low volatility or sideways movement",
-        "When implied volatility is high",
-        "In range-bound markets",
-        "After major events when volatility typically drops"
-      ],
-      keyPoints: [
-        "Collect premium upfront",
-        "Benefits from time decay",
-        "Unlimited risk potential",
-        "Requires careful position management"
-      ],
-      riskProfile: {
-        maxProfit: "Premium collected",
-        maxLoss: "Unlimited",
-        breakeven: "Strike ± Premium collected"
-      },
-      darkPoolInsights: [
-        "Monitor for lack of large block activity",
-        "Watch for decreasing dark pool volume",
-        "Look for institutional profit-taking signals"
-      ]
-    },
     "iron-condor": {
       name: "Iron Condor",
       icon: BarChart3,
