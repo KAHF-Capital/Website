@@ -224,19 +224,31 @@ export default function Scanner() {
           )}
         </div>
         
-        <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
           <button 
             onClick={() => openDarkPoolAnalysis(ticker.ticker)}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm"
+            className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm"
           >
             <TrendingUp className="h-4 w-4 mr-1" />
             Dark Pool History
           </button>
-          <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
-            <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors text-sm">
-              Analyze Straddle
-            </button>
-          </Link>
+          <div className="grid grid-cols-3 gap-2">
+            <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-colors text-xs">
+                ATM Straddle
+              </button>
+            </Link>
+            <Link href={`/iron-condor-calculator?ticker=${ticker.ticker}`}>
+              <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-medium transition-colors text-xs">
+                Iron Condor
+              </button>
+            </Link>
+            <Link href={`/short-straddle-calculator?ticker=${ticker.ticker}`}>
+              <button className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg font-medium transition-colors text-xs">
+                Short Straddle
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -481,7 +493,7 @@ export default function Scanner() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                 {darkPoolData.tickers.map((ticker, index) => (
                   <DarkPoolSummaryCard key={ticker.ticker || index} ticker={ticker} />
                 ))}

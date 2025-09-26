@@ -6,16 +6,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
 
   const navigationItems = [
     { href: '/', label: 'Home' },
-    { href: '/learning', label: 'Learning Modules' },
-    { href: '/scanner', label: 'Dark Pool Scanner' },
-    { href: '/straddle-calculator', label: 'Straddle Calculator' },
+    { href: '/learning', label: 'Learning' },
+    { href: '/scanner', label: 'Scanner' },
+    { 
+      href: '#calculators',
+      label: 'Calculators',
+      dropdown: true,
+      items: [
+        { href: '/straddle-calculator', label: 'ATM Straddle' },
+        { href: '/iron-condor-calculator', label: 'Iron Condor' },
+        { href: '/short-straddle-calculator', label: 'Short Straddle' }
+      ]
+    },
     { 
       href: 'https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00', 
-      label: 'My Subscriptions',
+      label: 'Subscriptions',
       external: true 
     }
   ];
@@ -48,6 +58,37 @@ export default function Header() {
         >
           {item.label}
         </a>
+      );
+    }
+
+    if (item.dropdown) {
+      return (
+        <div key={item.href} className="relative">
+          <button
+            className={`${baseClasses} ${activeClasses}`}
+            onMouseEnter={() => setShowDropdown(true)}
+            onMouseLeave={() => setShowDropdown(false)}
+          >
+            {item.label} ▼
+          </button>
+          {showDropdown && (
+            <div 
+              className="absolute top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 min-w-[200px] py-1"
+              onMouseEnter={() => setShowDropdown(true)}
+              onMouseLeave={() => setShowDropdown(false)}
+            >
+              {item.items.map(subItem => (
+                <Link
+                  key={subItem.href}
+                  href={subItem.href}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-green-600"
+                >
+                  {subItem.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -100,54 +141,74 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="sm:hidden overflow-hidden"
-          >
-            <nav className="flex flex-col items-center space-y-1 p-3 border-t border-gray-200">
-              {navigationItems.map((item) => {
-                const isActive = isActiveRoute(item.href);
-                const baseClasses = "w-full text-center py-3 rounded-md transition-colors font-medium touch-manipulation";
-                const activeClasses = isActive 
-                  ? "text-green-600 bg-green-50" 
-                  : "text-gray-900 hover:text-green-600 hover:bg-gray-100";
+          {/* Mobile Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="sm:hidden overflow-hidden"
+            >
+              <nav className="flex flex-col items-center space-y-1 p-3 border-t border-gray-200">
+                {navigationItems.map((item) => {
+                  const isActive = isActiveRoute(item.href);
+                  const baseClasses = "w-full text-center py-3 rounded-md transition-colors font-medium touch-manipulation";
+                  const activeClasses = isActive 
+                    ? "text-green-600 bg-green-50" 
+                    : "text-gray-900 hover:text-green-600 hover:bg-gray-100";
 
-                if (item.external) {
+                  if (item.dropdown) {
+                    return (
+                      <div key={item.href} className="w-full">
+                        <div className={`${baseClasses} ${activeClasses} font-semibold`}>
+                          {item.label}
+                        </div>
+                        {item.items.map(subItem => (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className="block w-full py-2 px-4 text-sm text-gray-700 hover:bg-gray-100 hover:text-green-600 touch-manipulation"
+                            onClick={handleMobileMenuClose}
+                          >
+                            • {subItem.label}
+                          </Link>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  if (item.external) {
+                    return (
+                      <a 
+                        key={item.href}
+                        href={item.href}
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className={`${baseClasses} ${activeClasses}`}
+                        onClick={handleMobileMenuClose}
+                      >
+                        {item.label}
+                      </a>
+                    );
+                  }
+
                   return (
-                    <a 
+                    <Link 
                       key={item.href}
-                      href={item.href}
-                      target="_blank" 
-                      rel="noopener noreferrer" 
+                      href={item.href} 
                       className={`${baseClasses} ${activeClasses}`}
                       onClick={handleMobileMenuClose}
                     >
                       {item.label}
-                    </a>
+                    </Link>
                   );
-                }
-
-                return (
-                  <Link 
-                    key={item.href}
-                    href={item.href} 
-                    className={`${baseClasses} ${activeClasses}`}
-                    onClick={handleMobileMenuClose}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                })}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </header>
   );
 }

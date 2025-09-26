@@ -4,6 +4,7 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Select } from '../components/ui/select';
 import StraddleChart from '../components/StraddleChart';
+import InteractiveOptionsChart from '../components/InteractiveOptionsChart';
 import Header from '../components/Header';
 import { Info } from 'lucide-react';
 import Link from 'next/link';
@@ -531,7 +532,20 @@ const StraddleCalculator = () => {
           <div className="lg:col-span-1">
                 <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                   <div className="p-6">
-            <StraddleChart results={results} breakevens={breakevens} />
+            {/* Use interactive chart for enhanced experience - with classic chart for detailed results */}
+            {(results && breakevens) && (
+              <div className="space-y-4">
+                <InteractiveOptionsChart 
+                  strategyType="straddle"
+                  inputs={inputs}
+                  results={results}
+                  metrics={breakevens}
+                  isMobile={typeof window !== 'undefined' && window.innerWidth < 640}
+                  onInputChange={(field, value) => setInputs(prev => ({ ...prev, [field]: value }))}
+                />
+                <StraddleChart results={results} breakevens={breakevens} />
+              </div>
+            )}
           </div>
         </div>
               </div>
