@@ -280,3 +280,4 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
                     'High risk strategy - consider adjusting strikes'
   };
 }
+
