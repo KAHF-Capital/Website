@@ -177,20 +177,27 @@ function saveProcessedData(dateMap, sourceFile) {
   const summaryPath = path.join(PROCESSED_DIR, `${path.basename(sourceFile, '.csv')}_summary.json`);
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
   
-  // Save detailed data for each date (using just the date format)
-  Object.keys(dateMap).forEach(date => {
-    const datePath = path.join(PROCESSED_DIR, `${date}.json`);
-    const dateData = {
-      date: date,
-      source_file: path.basename(sourceFile),
-      processed_at: new Date().toISOString(),
-      total_tickers: dateMap[date].length,
-      total_trades: dateMap[date].reduce((sum, ticker) => sum + ticker.trade_count, 0),
-      total_volume: dateMap[date].reduce((sum, ticker) => sum + ticker.total_volume, 0),
-      tickers: dateMap[date]
-    };
-    fs.writeFileSync(datePath, JSON.stringify(dateData, null, 2));
+  // Save detailed data using the original CSV filename
+  const processedFileName = path.basename(sourceFile, '.csv') + '.json';
+  const datePath = path.join(PROCESSED_DIR, processedFileName);
+  
+  // Combine all ticker data from all dates into one file
+  const allTickers = [];
+  Object.keys(dateMap).forEach(d => {
+    allTickers.push(...dateMap[d]);
   });
+  
+  const dateData = {
+    date: Object.keys(dateMap)[0] || path.basename(sourceFile, '.csv'), // Use first trade date or CSV date
+    csv_date: path.basename(sourceFile, '.csv'), // Add the CSV file date
+    source_file: path.basename(sourceFile),
+    processed_at: new Date().toISOString(),
+    total_tickers: allTickers.length,
+    total_trades: allTickers.reduce((sum, ticker) => sum + ticker.trade_count, 0),
+    total_volume: allTickers.reduce((sum, ticker) => sum + ticker.total_volume, 0),
+    tickers: allTickers
+  };
+  fs.writeFileSync(datePath, JSON.stringify(dateData, null, 2));
   
   return summary;
 }

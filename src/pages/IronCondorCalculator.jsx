@@ -149,12 +149,46 @@ const IronCondorCalculator = () => {
             expirationDate: ironCondorData.expiration // Use the actual expiration date from API
           }));
           
+          // Show notices for missing prices
+          const notices = [];
+          
+          if (ironCondorData.premiums.shortCallPrice === 0) {
+            notices.push("⚠️ Short Call option price not available");
+          }
+          if (ironCondorData.premiums.shortPutPrice === 0) {
+            notices.push("⚠️ Short Put option price not available");
+          }
+          if (ironCondorData.premiums.longCallPrice === 0) {
+            notices.push("⚠️ Long Call option price not available");
+          }
+          if (ironCondorData.premiums.longPutPrice === 0) {
+            notices.push("⚠️ Long Put option price not available");
+          }
+          
+          // Check if any prices are missing
+          const missingPrices = [
+            ironCondorData.premiums.shortCallPrice === 0,
+            ironCondorData.premiums.shortPutPrice === 0,
+            ironCondorData.premiums.longCallPrice === 0,
+            ironCondorData.premiums.longPutPrice === 0
+          ].filter(Boolean).length;
+          
+          if (missingPrices > 0) {
+            notices.push(`📊 ${missingPrices} option price(s) missing - premiums may be inaccurate`);
+          }
+          
           // Show a message if the expiration date was adjusted
           if (ironCondorData.requestedExpiration && ironCondorData.expiration !== ironCondorData.requestedExpiration) {
+            notices.push(`📅 Using closest available expiration date ${ironCondorData.expiration} (requested ${ironCondorData.requestedExpiration})`);
+          }
+          
+          if (notices.length > 0) {
             setError(
-              <span>
-                Note: Using closest available expiration date {ironCondorData.expiration} (requested {ironCondorData.requestedExpiration})
-              </span>
+              <div className="space-y-1">
+                {notices.map((notice, index) => (
+                  <div key={index} className="text-sm">{notice}</div>
+                ))}
+              </div>
             );
           }
           
@@ -349,6 +383,25 @@ const IronCondorCalculator = () => {
       setLoading(false);
     }
   };
+
+  // Handle URL parameters for pre-filling ticker
+  useEffect(() => {
+    const initializeTicker = async () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tickerParam = urlParams.get('ticker');
+        if (tickerParam) {
+          setInputs(prev => ({ ...prev, ticker: tickerParam.toUpperCase() }));
+          await handleTickerChange(tickerParam);
+        }
+      }
+    };
+
+    initializeTicker().catch(error => {
+      console.error('Error initializing ticker:', error);
+      setError('Failed to initialize ticker from URL parameters');
+    });
+  }, []); // Empty dependency array is fine since this only runs once on mount
 
   // Calculate days to expiration
   const calculateDaysToExpiration = () => {

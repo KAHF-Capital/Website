@@ -63,9 +63,11 @@ async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
     const dateFiles = fs.readdirSync(PROCESSED_DIR)
       .filter(file => file.endsWith('.json') && !file.includes('summary'))
       .map(file => {
+        // Extract date from filename - now files are named like "2025-08-22.json"
         const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
         return {
           date: dateMatch ? dateMatch[1] : null,
+          filename: file,
           path: path.join(PROCESSED_DIR, file)
         };
       })
@@ -155,6 +157,7 @@ async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
 
     return {
       date: filenameDate, // Use filename date instead of JSON date
+      filename: targetDateFile.filename, // Include the actual filename
       total_tickers: latestDateData.total_tickers,
       total_volume: latestDateData.total_volume,
       last_updated: latestDateData.processed_at || new Date().toISOString(),

@@ -131,12 +131,31 @@ const StraddleCalculator = () => {
             expirationDate: straddleData.expiration // Use the actual expiration date from API
           }));
           
+          // Show notices for missing prices
+          const notices = [];
+          
+          if (straddleData.callPrice === 0) {
+            notices.push("⚠️ Call option price not available - using estimated value");
+          }
+          if (straddleData.putPrice === 0) {
+            notices.push("⚠️ Put option price not available - using estimated value");
+          }
+          if (straddleData.isEstimated) {
+            notices.push("📊 Premium values are estimated due to missing pricing data");
+          }
+          
           // Show a message if the expiration date was adjusted
           if (straddleData.requestedExpiration && straddleData.expiration !== straddleData.requestedExpiration) {
+            notices.push(`📅 Using closest available expiration date ${straddleData.expiration} (requested ${straddleData.requestedExpiration})`);
+          }
+          
+          if (notices.length > 0) {
             setError(
-              <span>
-                Note: Using closest available expiration date {straddleData.expiration} (requested {straddleData.requestedExpiration})
-              </span>
+              <div className="space-y-1">
+                {notices.map((notice, index) => (
+                  <div key={index} className="text-sm">{notice}</div>
+                ))}
+              </div>
             );
           }
           
