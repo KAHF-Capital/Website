@@ -60,6 +60,38 @@ const IronCondorCalculator = () => {
     }
   };
 
+  // Fetch Iron Condor options data
+  const fetchIronCondorOptions = async (ticker, expiration) => {
+    try {
+      const response = await fetch(`/api/iron-condor-options?ticker=${ticker}&expiration=${expiration}`);
+      if (!response.ok) throw new Error('Failed to fetch iron condor options');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching iron condor options:', error);
+      return null;
+    }
+  };
+
+  // Convert date to Yahoo Finance timestamp format
+  const getYahooFinanceDate = (dateString) => {
+    if (!dateString) return '';
+    // Create date at midnight in local timezone, not UTC
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    return Math.floor(date.getTime() / 1000);
+  };
+
+  // Generate Yahoo Finance options URL with date and iron condor parameters
+  const getYahooFinanceUrl = (ticker, expirationDate) => {
+    const baseUrl = `https://finance.yahoo.com/quote/${ticker}/options`;
+    if (expirationDate) {
+      const timestamp = getYahooFinanceDate(expirationDate);
+      return `${baseUrl}/?date=${timestamp}`;
+    }
+    return baseUrl;
+  };
+
   // Handle ticker input with auto-price fetch
   const handleTickerChange = async (value) => {
     try {
@@ -91,6 +123,95 @@ const IronCondorCalculator = () => {
     } catch (error) {
       console.error('Error in handleTickerChange:', error);
       setError('Failed to fetch ticker data: ' + error.message);
+    }
+  };
+
+  // Handle expiration date change with iron condor options fetch
+  const handleExpirationChange = async (value) => {
+    setInputs(prev => ({ ...prev, expirationDate: value }));
+    
+    if (value && inputs.ticker) {
+      setFetchingOptions(true);
+      setError('');
+      
+      try {
+        const ironCondorData = await fetchIronCondorOptions(inputs.ticker, value);
+        if (ironCondorData && ironCondorData.premiums.totalCredit > 0) {
+          setInputs(prev => ({ 
+            ...prev, 
+            shortCallStrike: ironCondorData.strikes.shortCall.toFixed(0),
+            shortPutStrike: ironCondorData.strikes.shortPut.toFixed(0),
+            longCallStrike: ironCondorData.strikes.longCall.toFixed(0),
+            longPutStrike: ironCondorData.strikes.longPut.toFixed(0),
+            callCredit: ironCondorData.premiums.callCredit.toFixed(2),
+            putCredit: ironCondorData.premiums.putCredit.toFixed(2),
+            totalCredit: ironCondorData.premiums.totalCredit.toFixed(2),
+            expirationDate: ironCondorData.expiration // Use the actual expiration date from API
+          }));
+          
+          // Show a message if the expiration date was adjusted
+          if (ironCondorData.requestedExpiration && ironCondorData.expiration !== ironCondorData.requestedExpiration) {
+            setError(
+              <span>
+                Note: Using closest available expiration date {ironCondorData.expiration} (requested {ironCondorData.requestedExpiration})
+              </span>
+            );
+          }
+          
+          // Log execution date for debugging (but don't show to user)
+          if (ironCondorData.executionDate) {
+            console.log(`Using execution date: ${ironCondorData.executionDate} for expiration: ${ironCondorData.expiration}`);
+          }
+        } else if (ironCondorData && ironCondorData.premiums.totalCredit === 0) {
+          // API returned data but with 0 premiums - likely pricing data issue
+          setError(
+            <span>
+              Options contracts found but pricing data unavailable. This usually means no recent trading data. Please{' '}
+              <a 
+                href={getYahooFinanceUrl(inputs.ticker, value)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-800 underline font-medium"
+              >
+                check Yahoo Finance options
+              </a>{' '}
+              to enter premium manually. Strikes: {ironCondorData.strikes.shortCall}/{ironCondorData.strikes.shortPut}/{ironCondorData.strikes.longCall}/{ironCondorData.strikes.longPut}, Expiration: {ironCondorData.expiration}
+            </span>
+          );
+        } else {
+          setError(
+            <span>
+              No iron condor options found for this expiration date. Please try a different date or{' '}
+              <a 
+                href={getYahooFinanceUrl(inputs.ticker, value)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-800 underline font-medium"
+              >
+                check Yahoo Finance options
+              </a>{' '}
+              to enter premium manually. Available expirations: {availableExpirations.slice(0, 3).join(', ')}
+            </span>
+          );
+        }
+      } catch (error) {
+        setError(
+          <span>
+            Failed to fetch iron condor options. Please{' '}
+            <a 
+              href={getYahooFinanceUrl(inputs.ticker, value)} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-green-600 hover:text-green-800 underline font-medium"
+            >
+              check Yahoo Finance options
+            </a>{' '}
+            to enter premium manually.
+          </span>
+        );
+      } finally {
+        setFetchingOptions(false);
+      }
     }
   };
 
@@ -306,9 +427,16 @@ const IronCondorCalculator = () => {
                         <Input
                           type="date"
                           value={inputs.expirationDate}
-                          onChange={(e) => handleInputChange('expirationDate', e.target.value)}
+                          onChange={(e) => handleExpirationChange(e.target.value)}
                           className="w-full"
+                          disabled={fetchingOptions}
                         />
+                        {fetchingOptions && (
+                          <div className="mt-2 text-sm text-green-600 flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                            Fetching options data...
+                          </div>
+                        )}
                       </div>
 
                       {/* Strike Prices Row */}
@@ -453,6 +581,26 @@ const IronCondorCalculator = () => {
                           </div>
                         </div>
                       </div>
+
+                      {/* Fill In Options Button */}
+                      {inputs.ticker && inputs.expirationDate && (
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Info className="h-4 w-4 text-blue-600" />
+                            <h3 className="text-sm font-medium text-blue-800">Auto-Fill Options Data</h3>
+                          </div>
+                          <p className="text-xs text-blue-700 mb-3">
+                            Automatically fetch current options prices and strikes for your Iron Condor strategy.
+                          </p>
+                          <Button
+                            onClick={() => handleExpirationChange(inputs.expirationDate)}
+                            disabled={fetchingOptions}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 disabled:opacity-50"
+                          >
+                            {fetchingOptions ? 'Fetching Options...' : 'Fill In Options Data'}
+                          </Button>
+                        </div>
+                      )}
 
                       <Button
                         onClick={analyzeHistoricalData}

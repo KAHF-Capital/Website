@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     ).sort();
 
     const historicalData = [];
+    const dateMap = new Map(); // Use Map to track unique dates
 
     for (const file of dataFiles) {
       try {
@@ -35,13 +36,19 @@ export default async function handler(req, res) {
         const tickerData = data.tickers?.find(t => t.ticker === ticker.toUpperCase());
         
         if (tickerData) {
-          historicalData.push({
-            date: data.date,
-            total_volume: tickerData.total_volume,
-            trade_count: tickerData.trade_count,
-            avg_price: tickerData.avg_price,
-            total_value: tickerData.total_value
-          });
+          const dateKey = data.date;
+          
+          // Only add if we don't already have data for this date
+          // or if this data has higher volume (more recent/complete data)
+          if (!dateMap.has(dateKey) || tickerData.total_volume > dateMap.get(dateKey).total_volume) {
+            dateMap.set(dateKey, {
+              date: data.date,
+              total_volume: tickerData.total_volume,
+              trade_count: tickerData.trade_count,
+              avg_price: tickerData.avg_price,
+              total_value: tickerData.total_value
+            });
+          }
         }
       } catch (fileError) {
         console.error(`Error reading file ${file}:`, fileError);
@@ -49,7 +56,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Sort by date (oldest first)
+    // Convert Map to array and sort by date (oldest first)
+    historicalData.push(...dateMap.values());
     historicalData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     res.status(200).json({
