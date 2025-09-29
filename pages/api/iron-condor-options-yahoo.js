@@ -6,16 +6,74 @@ import fetch from 'node-fetch';
 // Yahoo Finance API endpoints (unofficial but stable)
 const YAHOO_FINANCE_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_OPTIONS_BASE = 'https://query2.finance.yahoo.com/v7/finance/options';
+const YAHOO_OPTIONS_ALT = 'https://query1.finance.yahoo.com/v7/finance/options';
+const YAHOO_QUOTE_BASE = 'https://query1.finance.yahoo.com/v1/finance/search';
+
+// Cache for crumb to reduce API calls
+let crumbCache = null;
+let crumbTimestamp = 0;
+const CRUMB_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 // Cache for options data to reduce API calls
 const optionsCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Get Yahoo Finance crumb for authentication
+async function getYahooCrumb() {
+  const now = Date.now();
+  
+  // Check cache first
+  if (crumbCache && (now - crumbTimestamp) < CRUMB_CACHE_DURATION) {
+    return crumbCache;
+  }
+  
+  try {
+    // First, get a quote page to extract the crumb
+    const quoteUrl = 'https://finance.yahoo.com/quote/AAPL';
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
+    };
+    
+    const response = await fetch(quoteUrl, { headers });
+    const html = await response.text();
+    
+    // Extract crumb from the HTML
+    const crumbMatch = html.match(/"CrumbStore":\{"crumb":"([^"]+)"/);
+    if (crumbMatch && crumbMatch[1]) {
+      const crumb = crumbMatch[1].replace(/\\u002F/g, '/');
+      crumbCache = crumb;
+      crumbTimestamp = now;
+      return crumb;
+    }
+    
+    throw new Error('Could not extract crumb from Yahoo Finance');
+  } catch (error) {
+    console.error('Error getting Yahoo Finance crumb:', error.message);
+    throw error;
+  }
+}
+
 // Get current stock price from Yahoo Finance
 async function getCurrentPrice(ticker) {
   try {
     const url = `${YAHOO_FINANCE_BASE}/${ticker}`;
-    const response = await fetch(url);
+    
+    // Add headers to mimic a browser request (same as straddle calculator)
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Referer': 'https://finance.yahoo.com/',
+      'Origin': 'https://finance.yahoo.com'
+    };
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`Yahoo Finance API error: ${response.status}`);
@@ -45,9 +103,11 @@ async function getCurrentPrice(ticker) {
 // Get available expiration dates for a ticker
 async function getExpirationDates(ticker) {
   try {
-    const url = `${YAHOO_OPTIONS_BASE}/${ticker}`;
+    // Get crumb for authentication
+    const crumb = await getYahooCrumb();
+    const url = `${YAHOO_OPTIONS_BASE}/${ticker}?crumb=${crumb}`;
     
-    // Add headers to mimic a browser request
+    // Add headers to mimic a browser request (same as straddle calculator)
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
@@ -99,9 +159,12 @@ async function getOptionsData(ticker, expirationDate) {
   }
   
   try {
+    // Get crumb for authentication
+    const crumb = await getYahooCrumb();
+    
     // Convert date to timestamp
     const expirationTimestamp = Math.floor(new Date(expirationDate).getTime() / 1000);
-    const url = `${YAHOO_OPTIONS_BASE}/${ticker}?date=${expirationTimestamp}`;
+    const url = `${YAHOO_OPTIONS_BASE}/${ticker}?date=${expirationTimestamp}&crumb=${crumb}`;
     
     // Add headers to mimic a browser request
     const headers = {
@@ -295,18 +358,18 @@ async function getIronCondorData(ticker, expirationDate = null) {
         requestedExpiration: expirationDate
       };
     } catch (error) {
-      console.warn(`Could not get options data for ${ticker} ${expirationDate}:`, error.message);
+      console.warn(`Could not get options data for ${ticker} ${expirationDate}, using estimation:`, error.message);
       
-      // Return error message directing to Yahoo Finance
+      // Fallback to estimation (similar to straddle calculator)
+      const estimatedData = estimateIronCondorData(ticker, currentPrice, expirationDate);
+      
       return {
-        ticker,
-        currentPrice,
+        ...estimatedData,
         availableExpirations,
         requestedExpiration: expirationDate,
-        message: `Could not fetch options data for ${expirationDate}. Please check Yahoo Finance options for ${ticker} to see available dates and enter data manually.`,
-        yahooFinanceUrl: `https://finance.yahoo.com/quote/${ticker}/options`,
-        source: 'error_fallback',
-        dataQuality: 'none'
+        source: 'estimation',
+        dataQuality: 'medium',
+        note: 'Options data estimated due to Yahoo Finance API limitations'
       };
     }
     
@@ -314,6 +377,72 @@ async function getIronCondorData(ticker, expirationDate = null) {
     console.error(`Error getting iron condor data for ${ticker}:`, error.message);
     throw error;
   }
+}
+
+// Estimate Iron Condor data when real options data is not available
+function estimateIronCondorData(ticker, currentPrice, expirationDate) {
+  // Calculate days to expiration
+  const expiration = new Date(expirationDate);
+  const today = new Date();
+  const daysToExpiration = Math.ceil((expiration - today) / (1000 * 60 * 60 * 24));
+  
+  // Simple estimation based on current price and time to expiration
+  const volatility = 0.25; // 25% annual volatility (typical for stocks)
+  const timeToExpiration = daysToExpiration / 365;
+  const sqrtTime = Math.sqrt(timeToExpiration);
+  
+  // Estimate ATM option prices using simplified Black-Scholes
+  const estimatedOptionPrice = currentPrice * volatility * sqrtTime * 0.4;
+  
+  // Set up Iron Condor strikes (10 dollar wings by default)
+  const wingWidth = 10;
+  const strikeIncrement = 5;
+  const atmStrike = Math.round(currentPrice / strikeIncrement) * strikeIncrement;
+  
+  const shortCallStrike = atmStrike;
+  const shortPutStrike = atmStrike;
+  const longCallStrike = atmStrike + wingWidth;
+  const longPutStrike = atmStrike - wingWidth;
+  
+  // Estimate premiums (shorter strikes have higher premiums)
+  const shortCallPrice = estimatedOptionPrice;
+  const shortPutPrice = estimatedOptionPrice;
+  const longCallPrice = estimatedOptionPrice * 0.3; // Longer strikes are cheaper
+  const longPutPrice = estimatedOptionPrice * 0.3;
+  
+  const callCredit = shortCallPrice - longCallPrice;
+  const putCredit = shortPutPrice - longPutPrice;
+  const totalCredit = callCredit + putCredit;
+  
+  return {
+    ticker: ticker.toUpperCase(),
+    currentPrice,
+    expiration: expirationDate,
+    executionDate: new Date().toISOString().split('T')[0],
+    strikes: {
+      shortCall: shortCallStrike,
+      shortPut: shortPutStrike,
+      longCall: longCallStrike,
+      longPut: longPutStrike
+    },
+    premiums: {
+      shortCallPrice,
+      shortPutPrice,
+      longCallPrice,
+      longPutPrice,
+      callCredit,
+      putCredit,
+      totalCredit
+    },
+    contracts: {
+      shortCall: `${ticker}${expirationDate.replace(/-/g, '')}C${shortCallStrike}000`,
+      shortPut: `${ticker}${expirationDate.replace(/-/g, '')}P${shortPutStrike}000`,
+      longCall: `${ticker}${expirationDate.replace(/-/g, '')}C${longCallStrike}000`,
+      longPut: `${ticker}${expirationDate.replace(/-/g, '')}P${longPutStrike}000`
+    },
+    wingWidth,
+    isNetCredit: totalCredit > 0
+  };
 }
 
 export default async function handler(req, res) {

@@ -106,117 +106,54 @@ export default async function handler(req, res) {
       throw new Error('No matching call and put contracts found for this expiration');
     }
 
-    // Calculate the last trading day (previous weekday)
-    const currentDate = new Date();
-    let lastTradingDay = null;
-    
-    // Start from yesterday and go backwards until we find a weekday
-    for (let i = 1; i <= 7; i++) {
-      const testDate = new Date(currentDate);
-      testDate.setDate(testDate.getDate() - i);
-      
-      const dayOfWeek = testDate.getDay();
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const testDateStr = testDate.toISOString().slice(0, 10);
-        
-        try {
-          const stockTestResponse = await fetch(
-            `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${testDateStr}/${testDateStr}?adjusted=true&apiKey=${POLYGON_API_KEY}`
-          );
-          if (stockTestResponse.ok) {
-            const stockTestData = await stockTestResponse.json();
-            if (stockTestData.results && stockTestData.results.length > 0) {
-              lastTradingDay = testDateStr;
-              break;
-            }
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-    }
-    
-    if (!lastTradingDay) {
-      throw new Error('Could not find recent trading data');
-    }
-    
-    // Get options pricing data - try multiple approaches
+    // Use Polygon.io options snapshot API to get comprehensive options data
     let callPrice = 0;
     let putPrice = 0;
-    
-    // Try to get options pricing data using the aggregates endpoint
+    let callSnapshot = null;
+    let putSnapshot = null;
+    let callGreeks = null;
+    let putGreeks = null;
+    let callImpliedVol = null;
+    let putImpliedVol = null;
+    let callOpenInterest = null;
+    let putOpenInterest = null;
+
     try {
-      const callResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-      if (callResponse.ok) {
-        const callData = await callResponse.json();
-        if (callData.results && callData.results.length > 0) {
-          callPrice = callData.results[0].c || 0; // Close price
+      // Fetch call option snapshot
+      const callSnapshotResponse = await fetch(
+        `https://api.polygon.io/v3/snapshot/options/${ticker}/${bestCall.ticker}?apiKey=${POLYGON_API_KEY}`
+      );
+
+      if (callSnapshotResponse.ok) {
+        callSnapshot = await callSnapshotResponse.json();
+        if (callSnapshot.results) {
+          callPrice = callSnapshot.results.last_trade?.p || callSnapshot.results.last_quote?.p || 0;
+          callGreeks = callSnapshot.results.greeks;
+          callImpliedVol = callSnapshot.results.implied_volatility;
+          callOpenInterest = callSnapshot.results.open_interest;
         }
       }
     } catch (error) {
-      console.log(`Call options data fetch failed:`, error.message);
+      console.log(`Call options snapshot fetch failed:`, error.message);
     }
-    
+
     try {
-      const putResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/prev?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-      if (putResponse.ok) {
-        const putData = await putResponse.json();
-        if (putData.results && putData.results.length > 0) {
-          putPrice = putData.results[0].c || 0; // Close price
+      // Fetch put option snapshot
+      const putSnapshotResponse = await fetch(
+        `https://api.polygon.io/v3/snapshot/options/${ticker}/${bestPut.ticker}?apiKey=${POLYGON_API_KEY}`
+      );
+
+      if (putSnapshotResponse.ok) {
+        putSnapshot = await putSnapshotResponse.json();
+        if (putSnapshot.results) {
+          putPrice = putSnapshot.results.last_trade?.p || putSnapshot.results.last_quote?.p || 0;
+          putGreeks = putSnapshot.results.greeks;
+          putImpliedVol = putSnapshot.results.implied_volatility;
+          putOpenInterest = putSnapshot.results.open_interest;
         }
       }
     } catch (error) {
-      console.log(`Put options data fetch failed:`, error.message);
-    }
-
-    // If we still don't have pricing data, try the open-close endpoint as fallback
-    if (callPrice === 0 || putPrice === 0) {
-      try {
-        const callResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestCall.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (callResponse.ok) {
-          const callData = await callResponse.json();
-          if (callPrice === 0) callPrice = callData.close || 0;
-        }
-      } catch (error) {
-        console.log(`Call options open-close fetch failed:`, error.message);
-      }
-      
-      try {
-        const putResponse = await fetch(`https://api.polygon.io/v1/open-close/${bestPut.ticker}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (putResponse.ok) {
-          const putData = await putResponse.json();
-          if (putPrice === 0) putPrice = putData.close || 0;
-        }
-      } catch (error) {
-        console.log(`Put options open-close fetch failed:`, error.message);
-      }
-    }
-
-    // Final fallback: try to get any recent options data (not just specific date)
-    if (callPrice === 0 || putPrice === 0) {
-      try {
-        const callResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestCall.ticker}/range/1/day/${lastTradingDay}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (callResponse.ok) {
-          const callData = await callResponse.json();
-          if (callData.results && callData.results.length > 0 && callPrice === 0) {
-            callPrice = callData.results[0].c || 0;
-          }
-        }
-      } catch (error) {
-        console.log(`Call options range fetch failed:`, error.message);
-      }
-      
-      try {
-        const putResponse = await fetch(`https://api.polygon.io/v2/aggs/ticker/${bestPut.ticker}/range/1/day/${lastTradingDay}/${lastTradingDay}?adjusted=true&apiKey=${POLYGON_API_KEY}`);
-        if (putResponse.ok) {
-          const putData = await putResponse.json();
-          if (putData.results && putData.results.length > 0 && putPrice === 0) {
-            putPrice = putData.results[0].c || 0;
-          }
-        }
-      } catch (error) {
-        console.log(`Put options range fetch failed:`, error.message);
-      }
+      console.log(`Put options snapshot fetch failed:`, error.message);
     }
 
     const foundStrike = bestCall.strike_price;
@@ -224,12 +161,12 @@ export default async function handler(req, res) {
 
     // Calculate days to expiration
     const expirationDate = new Date(closestExpiration);
-    const executionDate = new Date(lastTradingDay);
-    const daysToExpiration = Math.ceil((expirationDate - executionDate) / (1000 * 60 * 60 * 24));
+    const currentDate = new Date();
+    const daysToExpiration = Math.ceil((expirationDate - currentDate) / (1000 * 60 * 60 * 24));
 
-    // If we don't have real pricing data, estimate based on stock price and time to expiration
+    // If we don't have real pricing data from snapshot API, estimate based on stock price and time to expiration
     if (totalPremium === 0) {
-      console.log(`No real options pricing data available, estimating based on stock price and time to expiration`);
+      console.log(`No real options pricing data available from snapshot API, estimating based on stock price and time to expiration`);
       
       // Estimate implied volatility based on stock price and time to expiration
       // This is a simplified Black-Scholes approximation
@@ -247,14 +184,22 @@ export default async function handler(req, res) {
       
       console.log(`Estimated premium: $${totalPremium.toFixed(2)} (Call: $${callPrice.toFixed(2)}, Put: $${putPrice.toFixed(2)})`);
     } else {
-      console.log(`Real options pricing data found - Call: $${callPrice}, Put: $${putPrice}, Total: $${totalPremium}`);
+      console.log(`Real options pricing data found from snapshot API - Call: $${callPrice}, Put: $${putPrice}, Total: $${totalPremium}`);
+    }
+
+    // Calculate break-even price from snapshot data if available
+    let breakEvenPrice = null;
+    if (callSnapshot?.results?.break_even_price) {
+      breakEvenPrice = callSnapshot.results.break_even_price;
+    } else if (putSnapshot?.results?.break_even_price) {
+      breakEvenPrice = putSnapshot.results.break_even_price;
     }
 
     return res.status(200).json({
       ticker,
       expiration: closestExpiration,
       requestedExpiration: expiration,
-      executionDate: lastTradingDay,
+      executionDate: new Date().toISOString().split('T')[0],
       currentPrice,
       strikePrice: foundStrike,
       callPrice,
@@ -263,7 +208,25 @@ export default async function handler(req, res) {
       callTicker: bestCall.ticker,
       putTicker: bestPut.ticker,
       daysToExpiration,
-      isEstimated: totalPremium > 0 && (callPrice === 0 || putPrice === 0) // Flag if pricing was estimated
+      isEstimated: totalPremium > 0 && (callPrice === 0 || putPrice === 0), // Flag if pricing was estimated
+      // Enhanced data from snapshot API
+      greeks: {
+        call: callGreeks,
+        put: putGreeks
+      },
+      impliedVolatility: {
+        call: callImpliedVol,
+        put: putImpliedVol,
+        average: callImpliedVol && putImpliedVol ? (callImpliedVol + putImpliedVol) / 2 : null
+      },
+      openInterest: {
+        call: callOpenInterest,
+        put: putOpenInterest
+      },
+      breakEvenPrice,
+      // Data source information
+      dataSource: 'polygon_snapshot_api',
+      dataQuality: totalPremium > 0 && callPrice > 0 && putPrice > 0 ? 'high' : 'estimated'
     });
 
   } catch (error) {

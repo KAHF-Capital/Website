@@ -92,16 +92,44 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in available-expirations-yahoo API:', error);
+    
+    // Provide default expiration dates when Yahoo Finance fails
+    const defaultExpirations = generateDefaultExpirations();
+    
     return res.status(200).json({
       ticker,
-      expirations: [],
-      message: `No expiration dates found. Please check Yahoo Finance options for ${ticker} to see available dates.`,
+      expirations: defaultExpirations,
+      message: `Using default expiration dates. Yahoo Finance API not accessible - please verify dates on Yahoo Finance.`,
       yahooFinanceUrl: `https://finance.yahoo.com/quote/${ticker}/options`,
-      source: 'error',
-      error: 'Yahoo Finance API not accessible'
+      source: 'default_fallback',
+      dataQuality: 'low'
     });
   }
 }
 
-
+// Generate default expiration dates when Yahoo Finance is not accessible
+function generateDefaultExpirations() {
+  const expirations = [];
+  const today = new Date();
+  
+  // Generate next 8 Fridays (typical options expiration dates)
+  for (let i = 1; i <= 8; i++) {
+    const date = new Date(today);
+    
+    // Find next Friday
+    const daysUntilFriday = (5 - today.getDay() + 7) % 7;
+    const nextFriday = daysUntilFriday === 0 ? 7 : daysUntilFriday;
+    
+    date.setDate(today.getDate() + (i * 7) + nextFriday - today.getDay());
+    
+    // Skip if it's too close (less than 2 days)
+    if (date.getTime() - today.getTime() < 2 * 24 * 60 * 60 * 1000) {
+      continue;
+    }
+    
+    expirations.push(date.toISOString().split('T')[0]);
+  }
+  
+  return expirations;
+}
 
