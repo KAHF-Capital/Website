@@ -36,13 +36,16 @@ export default async function handler(req, res) {
         const tickerData = data.tickers?.find(t => t.ticker === ticker.toUpperCase());
         
         if (tickerData) {
-          const dateKey = data.date;
+          // Extract date from filename instead of using data.date
+          // Filename format: YYYY-MM-DD.json
+          const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
+          const dateKey = dateMatch ? dateMatch[1] : data.date;
           
           // Only add if we don't already have data for this date
           // or if this data has higher volume (more recent/complete data)
           if (!dateMap.has(dateKey) || tickerData.total_volume > dateMap.get(dateKey).total_volume) {
             dateMap.set(dateKey, {
-              date: data.date,
+              date: dateKey,
               total_volume: tickerData.total_volume,
               trade_count: tickerData.trade_count,
               avg_price: tickerData.avg_price,

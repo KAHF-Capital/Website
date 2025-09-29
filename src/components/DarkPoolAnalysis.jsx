@@ -166,32 +166,47 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                   </div>
                 )}
                 
+                {historicalData.length >= 5 && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800">
+                      <strong>Complete History:</strong> Showing all {historicalData.length} days of dark pool data available for {ticker}.
+                    </p>
+                  </div>
+                )}
+                
                 {historicalData.length > 0 ? (
                   <div className="space-y-4">
-                    {/* Simple bar chart representation - only shows available dates */}
-                    <div className="h-64 bg-gray-50 rounded-lg p-4 flex items-end justify-between space-x-1">
-                      {historicalData.map((day, index) => {
-                        const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
-                        const height = maxVolume > 0 ? (day.total_volume / maxVolume) * 200 : 0; // Max height of 200px
-                        
-                        return (
-                          <div key={`${day.date}-${index}`} className="flex flex-col items-center flex-1 min-w-0">
-                            <div
-                              className="bg-green-600 w-full rounded-t transition-all duration-300 hover:bg-green-700 cursor-pointer"
-                              style={{ height: `${height}px`, minHeight: height > 0 ? '4px' : '0px' }}
-                              title={`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}
-                            ></div>
-                            {/* Date labels for better readability */}
-                            <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">
-                              {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {/* Simple bar chart representation - shows all available dates */}
+                    <div className="h-64 bg-gray-50 rounded-lg p-4 overflow-x-auto">
+                      <div className="flex items-end justify-between space-x-1 min-w-max">
+                        {historicalData.map((day, index) => {
+                          const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
+                          const height = maxVolume > 0 ? (day.total_volume / maxVolume) * 200 : 0; // Max height of 200px
+                          
+                          // Adjust bar width based on number of data points
+                          const barWidth = historicalData.length > 30 ? 'w-2' : historicalData.length > 15 ? 'w-3' : 'w-4';
+                          
+                          return (
+                            <div key={`${day.date}-${index}`} className="flex flex-col items-center min-w-0">
+                              <div
+                                className={`bg-green-600 ${barWidth} rounded-t transition-all duration-300 hover:bg-green-700 cursor-pointer`}
+                                style={{ height: `${height}px`, minHeight: height > 0 ? '4px' : '0px' }}
+                                title={`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}
+                              ></div>
+                              {/* Date labels - only show every few dates if there are many */}
+                              {historicalData.length <= 20 || index % Math.ceil(historicalData.length / 10) === 0 ? (
+                                <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">
+                                  {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </div>
+                              ) : null}
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Data table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
@@ -203,7 +218,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {historicalData.slice(-10).reverse().map((day) => (
+                          {historicalData.reverse().map((day) => (
                             <tr key={day.date} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {formatDate(day.date)}
