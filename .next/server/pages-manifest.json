@@ -2,5 +2,5 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/dark-pool-history": "pages/api/dark-pool-history.js"
+  "/api/iron-condor-analysis": "pages/api/iron-condor-analysis.js"
 }

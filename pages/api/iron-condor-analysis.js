@@ -188,7 +188,7 @@ function generateMockHistoricalData(daysToExpiration) {
   return movements;
 }
 
-// Analyze profitability specifically for Iron Condor strategy
+// Analyze profitability specifically for Iron Condor strategy (simplified like straddle)
 function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lowerBreakevenPct, shortCallStrike, shortPutStrike, netCredit) {
   let inProfitZoneCount = 0;
   let aboveUpperBreakevenCount = 0;
@@ -203,58 +203,53 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
       belowLowerBreakeven: 0,
       totalSamples: 0,
       profitableRate: 0,
-      maxLossCount: 0,
-      maxProfitCount: 0,
       upperBreakevenPct: upperBreakevenPct * 100,
       lowerBreakevenPct: lowerBreakevenPct * 100,
-      avgReturn: 0,
-      maxReturn: 0,
-      minReturn: 0,
+      avgMove: 0,
+      maxMove: 0,
+      minMove: 0,
       dataQuality: 'none'
     };
   }
   
-  // Filter out extreme outliers
+  // Filter out extreme outliers (more than 50% moves in either direction) - same as straddle
   let filteredData = historicalData.filter(movement => {
     const absMove = Math.abs(movement.percentMove);
-    return absMove <= 1.0; // Filter out moves > 100%
+    return absMove <= 0.5; // Filter out moves > 50%
   });
   
   if (filteredData.length === 0) {
+    // If all data is filtered out, use original data
     filteredData = historicalData;
   }
   
   filteredData.forEach(movement => {
     const percentMove = movement.percentMove;
-    const priceLevel = 1 + percentMove; // Current price as percentage change
     
     // Iron Condor is profitable when price stays between breakeven points
-    if (priceLevel < upperBreakevenPct && priceLevel > lowerBreakevenPct) {
+    if (percentMove < upperBreakevenPct && percentMove > lowerBreakevenPct) {
       inProfitZoneCount++;
     }
     
     // Track losses outside profit zone
-    if (priceLevel >= upperBreakevenPct || priceLevel <= lowerBreakevenPct) {
-      if (priceLevel >= upperBreakevenPct) {
-        aboveUpperBreakevenCount++;
-      } else {
-        belowLowerBreakevenCount++;
-      }
+    if (percentMove >= upperBreakevenPct) {
+      aboveUpperBreakevenCount++;
+    }
+    if (percentMove <= lowerBreakevenPct) {
+      belowLowerBreakevenCount++;
     }
     
     totalValidSamples++;
   });
   
-  // Calculate Iron Condor-specific metrics
   const profitableRate = totalValidSamples > 0 ? (inProfitZoneCount / totalValidSamples) * 100 : 0;
-  const maxLossRate = totalValidSamples > 0 ? ((aboveUpperBreakevenCount + belowUpperBreakevenCount) / totalValidSamples) * 100 : 0;
   
-  // Calculate additional statistics
-  const avgReturn = filteredData.length > 0 ? 
+  // Calculate additional metrics safely - same as straddle
+  const avgMove = filteredData.length > 0 ? 
     filteredData.reduce((sum, m) => sum + Math.abs(m.percentMove), 0) / filteredData.length : 0;
-  const maxReturn = filteredData.length > 0 ? 
+  const maxMove = filteredData.length > 0 ? 
     Math.max(...filteredData.map(m => Math.abs(m.percentMove))) : 0;
-  const minReturn = filteredData.length > 0 ? 
+  const minMove = filteredData.length > 0 ? 
     Math.min(...filteredData.map(m => Math.abs(m.percentMove))) : 0;
   
   return {
@@ -263,21 +258,12 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
     belowLowerBreakeven: belowLowerBreakevenCount,
     totalSamples: totalValidSamples,
     profitableRate,
-    maxLossRate,
     upperBreakevenPct: upperBreakevenPct * 100,
     lowerBreakevenPct: lowerBreakevenPct * 100,
-    avgReturn: avgReturn * 100,
-    maxReturn: maxReturn * 100,
-    minReturn: minReturn * 100,
-    dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 20 ? 'medium' : totalValidSamples >= 5 ? 'low' : 'limited',
-    spreadAnalysis: {
-      callSpreadRange: `$${shortPutStrike} - $${shortCallStrike}`, 
-      putSpreadRange: `${shortPutStrike} - ${longCallStrike}`
-    },
-    strategyInsight: profitableRate > 70 ? 'Conservative strategy with good profit probability' :
-                    profitableRate > 50 ? 'Moderate risk strategy' :
-                    profitableRate > 30 ? 'Higher risk strategy' :
-                    'High risk strategy - consider adjusting strikes'
+    avgMove: avgMove * 100,
+    maxMove: maxMove * 100,
+    minMove: minMove * 100,
+    dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 20 ? 'medium' : totalValidSamples >= 5 ? 'low' : 'limited'
   };
 }
 
