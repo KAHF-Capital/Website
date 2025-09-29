@@ -32,10 +32,10 @@ const IronCondorCalculator = () => {
   const [fetchingOptions, setFetchingOptions] = useState(false);
   const [availableExpirations, setAvailableExpirations] = useState([]);
 
-  // Fetch current stock price
+  // Fetch current stock price using Yahoo Finance
   const fetchCurrentPrice = async (ticker) => {
     try {
-      const response = await fetch(`/api/stock-price?ticker=${ticker.toUpperCase()}`);
+      const response = await fetch(`/api/stock-price-yahoo?ticker=${ticker.toUpperCase()}`);
       if (!response.ok) throw new Error('Failed to fetch price');
       const data = await response.json();
       return data.price;
@@ -45,13 +45,33 @@ const IronCondorCalculator = () => {
     }
   };
 
-  // Fetch available expiration dates for a ticker
+  // Fetch available expiration dates for a ticker using Yahoo Finance
   const fetchAvailableExpirations = async (ticker) => {
     try {
-      const response = await fetch(`/api/available-expirations?ticker=${ticker}`);
+      const response = await fetch(`/api/available-expirations-yahoo?ticker=${ticker}`);
       if (response.ok) {
         const data = await response.json();
-        setAvailableExpirations(data.expirations || []);
+        // Extract just the date strings from the enhanced format
+        const expirationDates = data.expirations ? data.expirations.map(exp => exp.date) : [];
+        setAvailableExpirations(expirationDates);
+        
+        // If no expirations found, show a message
+        if (expirationDates.length === 0 && data.message) {
+          setError(
+            <span>
+              {data.message} Please{' '}
+              <a 
+                href={data.yahooFinanceUrl || `https://finance.yahoo.com/quote/${ticker}/options`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-800 underline font-medium"
+              >
+                check Yahoo Finance options
+              </a>{' '}
+              to see available dates.
+            </span>
+          );
+        }
       } else {
         console.warn('Failed to fetch available expirations:', response.status);
       }
@@ -60,10 +80,10 @@ const IronCondorCalculator = () => {
     }
   };
 
-  // Fetch Iron Condor options data
+  // Fetch Iron Condor options data using Yahoo Finance
   const fetchIronCondorOptions = async (ticker, expiration) => {
     try {
-      const response = await fetch(`/api/iron-condor-options?ticker=${ticker}&expiration=${expiration}`);
+      const response = await fetch(`/api/iron-condor-options-yahoo?ticker=${ticker}&expiration=${expiration}`);
       if (!response.ok) throw new Error('Failed to fetch iron condor options');
       const data = await response.json();
       return data;
@@ -213,18 +233,19 @@ const IronCondorCalculator = () => {
             </span>
           );
         } else {
+          const yahooUrl = ironCondorData.yahooFinanceUrl || getYahooFinanceUrl(inputs.ticker, value);
           setError(
             <span>
-              No iron condor options found for this expiration date. Please try a different date or{' '}
+              {ironCondorData.message || 'No iron condor options found for this expiration date.'} Please{' '}
               <a 
-                href={getYahooFinanceUrl(inputs.ticker, value)} 
+                href={yahooUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-green-600 hover:text-green-800 underline font-medium"
               >
                 check Yahoo Finance options
               </a>{' '}
-              to enter premium manually. Available expirations: {availableExpirations.slice(0, 3).join(', ')}
+              to see available dates and enter data manually.
             </span>
           );
         }
@@ -240,7 +261,7 @@ const IronCondorCalculator = () => {
             >
               check Yahoo Finance options
             </a>{' '}
-            to enter premium manually.
+            to see available dates and enter data manually.
           </span>
         );
       } finally {

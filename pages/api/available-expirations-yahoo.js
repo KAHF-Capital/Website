@@ -9,7 +9,18 @@ const YAHOO_OPTIONS_BASE = 'https://query2.finance.yahoo.com/v7/finance/options'
 async function getAvailableExpirations(ticker) {
   try {
     const url = `${YAHOO_OPTIONS_BASE}/${ticker}`;
-    const response = await fetch(url);
+    
+    // Add headers to mimic a browser request
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Referer': 'https://finance.yahoo.com/',
+      'Origin': 'https://finance.yahoo.com'
+    };
+    
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`Yahoo Finance options API error: ${response.status}`);
@@ -60,6 +71,7 @@ async function getAvailableExpirations(ticker) {
   }
 }
 
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -80,9 +92,13 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in available-expirations-yahoo API:', error);
-    return res.status(500).json({
-      error: 'Failed to fetch available expiration dates',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
+    return res.status(200).json({
+      ticker,
+      expirations: [],
+      message: `No expiration dates found. Please check Yahoo Finance options for ${ticker} to see available dates.`,
+      yahooFinanceUrl: `https://finance.yahoo.com/quote/${ticker}/options`,
+      source: 'error',
+      error: 'Yahoo Finance API not accessible'
     });
   }
 }

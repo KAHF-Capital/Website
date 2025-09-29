@@ -1,7 +1,8 @@
 {
-  "date": "2025-09-08",
+  "date": "2025-09-27",
+  "csv_date": "2025-09-08",
   "source_file": "2025-09-08.csv",
-  "processed_at": "2025-09-09T22:49:18.352Z",
+  "processed_at": "2025-09-28T08:28:30.067Z",
   "total_tickers": 11306,
   "total_trades": 48469317,
   "total_volume": 8761752661,

@@ -173,9 +173,9 @@ function saveProcessedData(dateMap, sourceFile) {
     dates: Object.keys(dateMap).sort()
   };
   
-  // Save summary
-  const summaryPath = path.join(PROCESSED_DIR, `${path.basename(sourceFile, '.csv')}_summary.json`);
-  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+  // Skip summary file creation - only create ticker data files
+  // const summaryPath = path.join(PROCESSED_DIR, `${path.basename(sourceFile, '.csv')}_summary.json`);
+  // fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
   
   // Save detailed data using the original CSV filename
   const processedFileName = path.basename(sourceFile, '.csv') + '.json';
