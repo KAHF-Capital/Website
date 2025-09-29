@@ -41,7 +41,7 @@ export default function Scanner() {
   const [sortBy, setSortBy] = useState('volume_ratio'); // Default sort
   const [showScannerInfo, setShowScannerInfo] = useState(false);
   const [filters, setFilters] = useState({
-    minVolume: 500000000, // $500M default
+    minVolume: 250000000, // $250M default
     minPrice: 50 // $50 default
   });
   const [showFilters, setShowFilters] = useState(false);
