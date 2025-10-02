@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, TrendingDown, BarChart3, Calendar } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, BarChart3, Calendar, TrendingUp as LineChart } from 'lucide-react';
 
 const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
   const [historicalData, setHistoricalData] = useState([]);
   const [priceData, setPriceData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (isOpen && ticker) {
       fetchData();
     }
   }, [isOpen, ticker]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -153,7 +165,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
               {/* Historical Dark Pool Volume Chart */}
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2 text-green-600" />
+                  <LineChart className="h-5 w-5 mr-2 text-green-600" />
                   Historical Dark Pool Volume ({historicalData.length} days)
                 </h3>
                 
@@ -176,32 +188,133 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                 
                 {historicalData.length > 0 ? (
                   <div className="space-y-4">
-                    {/* Simple bar chart representation - shows all available dates */}
-                    <div className="h-64 bg-gray-50 rounded-lg p-4 overflow-x-auto">
-                      <div className="flex items-end justify-between space-x-1 min-w-max">
-                        {historicalData.map((day, index) => {
-                          const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
-                          const height = maxVolume > 0 ? (day.total_volume / maxVolume) * 200 : 0; // Max height of 200px
+                    {/* Line chart representation - mobile optimized */}
+                    <div className={`${isMobile ? 'h-64' : 'h-80'} bg-gray-50 rounded-lg p-2 sm:p-4 overflow-x-auto`}>
+                      <div className="relative w-full h-full min-w-max">
+                        <svg 
+                          className="w-full h-full" 
+                          viewBox="0 0 800 300" 
+                          preserveAspectRatio="none"
+                        >
+                          {/* Grid lines for better readability */}
+                          <defs>
+                            <pattern id="grid" width="40" height="60" patternUnits="userSpaceOnUse">
+                              <path d="M 40 0 L 0 0 0 60" fill="none" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.3"/>
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#grid)" />
                           
-                          // Adjust bar width based on number of data points
-                          const barWidth = historicalData.length > 30 ? 'w-2' : historicalData.length > 15 ? 'w-3' : 'w-4';
+                          {/* Y-axis labels */}
+                          {(() => {
+                          const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
+                            const minVolume = Math.min(...historicalData.map(d => d.total_volume));
+                            const range = maxVolume - minVolume;
+                            const steps = 4;
+                            
+                            return Array.from({ length: steps + 1 }, (_, i) => {
+                              const value = minVolume + (range * i / steps);
+                              const y = 280 - (i * 60);
+                              return (
+                                <g key={i}>
+                                  <line x1="60" y1={y} x2="780" y2={y} stroke="#e5e7eb" strokeWidth="0.5" opacity="0.5"/>
+                                  <text x="55" y={y + 4} textAnchor="end" className="text-xs fill-gray-500">
+                                    {formatNumber(Math.round(value))}
+                                  </text>
+                                </g>
+                              );
+                            });
+                          })()}
+                          
+                          {/* Line chart path */}
+                          {(() => {
+                            const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
+                            const minVolume = Math.min(...historicalData.map(d => d.total_volume));
+                            const range = maxVolume - minVolume || 1;
+                            
+                            const points = historicalData.map((day, index) => {
+                              const x = 80 + (index * (700 / Math.max(historicalData.length - 1, 1)));
+                              const y = 280 - ((day.total_volume - minVolume) / range) * 240;
+                              return `${x},${y}`;
+                            }).join(' ');
+                            
+                            return (
+                              <polyline
+                                points={points}
+                                fill="none"
+                                stroke="#10b981"
+                                strokeWidth={isMobile ? "4" : "3"}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="drop-shadow-sm"
+                              />
+                            );
+                          })()}
+                          
+                          {/* Data points */}
+                          {historicalData.map((day, index) => {
+                            const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
+                            const minVolume = Math.min(...historicalData.map(d => d.total_volume));
+                            const range = maxVolume - minVolume || 1;
+                            const x = 80 + (index * (700 / Math.max(historicalData.length - 1, 1)));
+                            const y = 280 - ((day.total_volume - minVolume) / range) * 240;
+                            
+                            return (
+                              <circle
+                                key={`${day.date}-${index}`}
+                                cx={x}
+                                cy={y}
+                                r={isMobile ? "6" : "4"}
+                                fill="#10b981"
+                                stroke="white"
+                                strokeWidth={isMobile ? "3" : "2"}
+                                className="hover:r-8 transition-all duration-200 cursor-pointer touch-manipulation"
+                              >
+                                <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>
+                              </circle>
+                            );
+                          })}
+                        </svg>
+                        
+                        {/* X-axis date labels - mobile optimized */}
+                        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-16 sm:px-20 pb-2">
+                          {historicalData.map((day, index) => {
+                            // Show fewer labels on mobile, more on desktop
+                            const maxLabels = isMobile ? 5 : 8;
+                            const shouldShow = historicalData.length <= 10 || 
+                                             index % Math.ceil(historicalData.length / maxLabels) === 0 ||
+                                             index === historicalData.length - 1;
+                            
+                            if (!shouldShow) return null;
                           
                           return (
-                            <div key={`${day.date}-${index}`} className="flex flex-col items-center min-w-0">
-                              <div
-                                className={`bg-green-600 ${barWidth} rounded-t transition-all duration-300 hover:bg-green-700 cursor-pointer`}
-                                style={{ height: `${height}px`, minHeight: height > 0 ? '4px' : '0px' }}
-                                title={`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}
-                              ></div>
-                              {/* Date labels - only show every few dates if there are many */}
-                              {historicalData.length <= 20 || index % Math.ceil(historicalData.length / 10) === 0 ? (
-                                <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">
-                                  {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </div>
-                              ) : null}
+                              <div 
+                                key={`label-${day.date}-${index}`} 
+                                className="text-xs text-gray-500 text-center"
+                                style={{ 
+                                  transform: 'translateX(-50%)',
+                                  marginLeft: index === 0 ? '60px' : index === historicalData.length - 1 ? '-60px' : '0'
+                                }}
+                              >
+                                {new Date(day.date).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
                             </div>
                           );
                         })}
+                        </div>
+                      </div>
+                      
+                      {/* Chart Legend */}
+                      <div className="mt-4 flex items-center justify-center space-x-6 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-0.5 bg-green-600"></div>
+                          <span>Dark Pool Volume</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                          <span>Data Points</span>
+                        </div>
                       </div>
                     </div>
 
