@@ -152,5 +152,19 @@
     "status": "completed",
     "trades_found": 50521130,
     "dates_processed": 1
+  },
+  "2025-10-03.csv": {
+    "hash": "11856888014_2288912640000",
+    "processed_at": "2025-10-05T17:27:03.809Z",
+    "status": "completed",
+    "trades_found": 49905757,
+    "dates_processed": 1
+  },
+  "2025-10-02.csv": {
+    "hash": "11931300747_2288912640000",
+    "processed_at": "2025-10-05T17:39:08.980Z",
+    "status": "completed",
+    "trades_found": 49881371,
+    "dates_processed": 1
   }
 }

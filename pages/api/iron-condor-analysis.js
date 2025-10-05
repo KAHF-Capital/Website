@@ -94,7 +94,8 @@ export default async function handler(req, res) {
     console.error('Error in Iron Condor analysis:', error);
     res.status(500).json({ 
       error: 'Failed to perform analysis',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
@@ -115,9 +116,8 @@ async function fetchHistoricalData(ticker, daysToExpiration) {
     }
 
     if (data['Note']) {
-      // API limit reached, return mock historical data
-      console.log(`Alpha Vantage API limit reached for ${ticker}, using mock data`);
-      return generateMockHistoricalData(daysToExpiration);
+      // API limit reached, throw error
+      throw new Error('API limit reached. Please try again later.');
     }
 
     const timeSeries = data['Time Series (Daily)'];
@@ -144,8 +144,7 @@ async function fetchHistoricalData(ticker, daysToExpiration) {
     const movements = calculatePriceMovements(historicalPrices, daysToExpiration);
     
     if (movements.length === 0) {
-      console.log(`No price movements calculated for ${ticker}, using mock data`);
-      return generateMockHistoricalData(daysToExpiration);
+      throw new Error('No valid price movements could be calculated from historical data');
     }
 
     // Use all available movements, even if less than traditional minimums
@@ -153,12 +152,11 @@ async function fetchHistoricalData(ticker, daysToExpiration) {
     return movements;
   } catch (error) {
     console.error(`Error fetching historical data for ${ticker}:`, error.message);
-    // Return mock data as fallback
-    return generateMockHistoricalData(daysToExpiration);
+    throw error; // Re-throw the error instead of using mock data
   }
 }
 
-// Calculate price movements over specified period
+    // Calculate price movements over specified period
 function calculatePriceMovements(historicalPrices, daysToExpiration) {
   const movements = [];
   
@@ -167,7 +165,15 @@ function calculatePriceMovements(historicalPrices, daysToExpiration) {
     return movements;
   }
   
-  for (let i = 0; i < historicalPrices.length - daysToExpiration; i++) {
+  // Limit to maximum 100 instances for better performance
+  const maxInstances = 100;
+  const availableInstances = historicalPrices.length - daysToExpiration;
+  const instancesToUse = Math.min(availableInstances, maxInstances);
+  
+  // Start from the most recent data if we have more than 100 instances
+  const startIndex = availableInstances > maxInstances ? availableInstances - maxInstances : 0;
+  
+  for (let i = startIndex; i < startIndex + instancesToUse; i++) {
     const startPrice = historicalPrices[i].price;
     const endPrice = historicalPrices[i + daysToExpiration].price;
     
@@ -188,45 +194,8 @@ function calculatePriceMovements(historicalPrices, daysToExpiration) {
   return movements;
 }
 
-// Generate mock historical data for demo purposes
-function generateMockHistoricalData(daysToExpiration) {
-  const movements = [];
-  const basePrice = 100;
-  const volatility = 0.02; // 2% daily volatility
-  // Use all available data points, no arbitrary limits
-  const samples = Math.max(10, Math.min(500 - daysToExpiration, 1000));
-  
-  for (let i = 0; i < samples; i++) {
-    let cumulativeMove = 0;
-    let currentPrice = basePrice;
-    
-    for (let day = 0; day < daysToExpiration; day++) {
-      const randomMove = (Math.random() - 0.5) * volatility * 2;
-      const meanReversion = (basePrice - currentPrice) * 0.0005;
-      const dailyMove = randomMove + meanReversion;
-      
-      cumulativeMove += dailyMove;
-      currentPrice = currentPrice * (1 + dailyMove);
-    }
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - (samples - i) * 2);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + daysToExpiration);
-    
-    movements.push({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      startPrice: basePrice,
-      endPrice: basePrice * (1 + cumulativeMove),
-      percentMove: cumulativeMove
-    });
-  }
-  
-  return movements;
-}
 
-// Analyze profitability specifically for Iron Condor strategy (simplified like straddle)
+// Analyze profitability specifically for Iron Condor strategy
 function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lowerBreakevenPct, shortCallStrike, shortPutStrike, netCredit) {
   let inProfitZoneCount = 0;
   let aboveUpperBreakevenCount = 0;
@@ -241,6 +210,8 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
       belowLowerBreakeven: 0,
       totalSamples: 0,
       profitableRate: 0,
+      maxProfitProbability: 0,
+      maxLossProbability: 0,
       upperBreakevenPct: upperBreakevenPct * 100,
       lowerBreakevenPct: lowerBreakevenPct * 100,
       avgMove: 0,
@@ -250,7 +221,7 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
     };
   }
   
-  // Filter out extreme outliers (more than 50% moves in either direction) - same as straddle
+  // Filter out extreme outliers (more than 50% moves in either direction)
   let filteredData = historicalData.filter(movement => {
     const absMove = Math.abs(movement.percentMove);
     return absMove <= 0.5; // Filter out moves > 50%
@@ -281,8 +252,10 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
   });
   
   const profitableRate = totalValidSamples > 0 ? (inProfitZoneCount / totalValidSamples) * 100 : 0;
+  const maxProfitProbability = profitableRate; // Max profit occurs when price stays in profit zone
+  const maxLossProbability = totalValidSamples > 0 ? ((aboveUpperBreakevenCount + belowLowerBreakevenCount) / totalValidSamples) * 100 : 0;
   
-  // Calculate additional metrics safely - same as straddle
+  // Calculate additional metrics safely
   const avgMove = filteredData.length > 0 ? 
     filteredData.reduce((sum, m) => sum + Math.abs(m.percentMove), 0) / filteredData.length : 0;
   const maxMove = filteredData.length > 0 ? 
@@ -296,6 +269,8 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
     belowLowerBreakeven: belowLowerBreakevenCount,
     totalSamples: totalValidSamples,
     profitableRate,
+    maxProfitProbability,
+    maxLossProbability,
     upperBreakevenPct: upperBreakevenPct * 100,
     lowerBreakevenPct: lowerBreakevenPct * 100,
     avgMove: avgMove * 100,

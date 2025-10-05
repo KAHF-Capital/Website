@@ -397,11 +397,15 @@ const IronCondorCalculator = () => {
         })
       });
 
-      if (!response.ok) throw new Error('Analysis failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Analysis failed (${response.status}): ${errorData.error || errorData.details || 'Unknown error'}`);
+      }
       
       const data = await response.json();
       setResults(data);
     } catch (error) {
+      console.error('Iron Condor Analysis Error:', error);
       setError('Failed to analyze historical data: ' + error.message);
     } finally {
       setLoading(false);
