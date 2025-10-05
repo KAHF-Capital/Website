@@ -165,7 +165,10 @@ const IronCondorCalculator = () => {
             longPutStrike: ironCondorData.strikes.longPut.toFixed(0),
             callCredit: ironCondorData.premiums.callCredit.toFixed(2),
             putCredit: ironCondorData.premiums.putCredit.toFixed(2),
+            callDebit: ironCondorData.premiums.callDebit ? ironCondorData.premiums.callDebit.toFixed(2) : '',
+            putDebit: ironCondorData.premiums.putDebit ? ironCondorData.premiums.putDebit.toFixed(2) : '',
             totalCredit: ironCondorData.premiums.totalCredit.toFixed(2),
+            totalDebit: ironCondorData.premiums.totalDebit ? ironCondorData.premiums.totalDebit.toFixed(2) : '',
             expirationDate: ironCondorData.expiration // Use the actual expiration date from API
           }));
           
@@ -383,13 +386,13 @@ const IronCondorCalculator = () => {
         },
         body: JSON.stringify({
           ticker: inputs.ticker,
-          shortCallStrike: parseFloat(inputs.shortCallStrike),
-          shortPutStrike: parseFloat(inputs.shortPutStrike),
-          longCallStrike: parseFloat(inputs.longCallStrike),
-          longPutStrike: parseFloat(inputs.longPutStrike),
-          totalCredit: parseFloat(inputs.totalCredit) || 0,
-          totalDebit: parseFloat(inputs.totalDebit) || 0,
-          currentPrice: parseFloat(inputs.currentPrice),
+          shortCallStrike: inputs.shortCallStrike ? parseFloat(inputs.shortCallStrike) : null,
+          shortPutStrike: inputs.shortPutStrike ? parseFloat(inputs.shortPutStrike) : null,
+          longCallStrike: inputs.longCallStrike ? parseFloat(inputs.longCallStrike) : null,
+          longPutStrike: inputs.longPutStrike ? parseFloat(inputs.longPutStrike) : null,
+          totalCredit: inputs.totalCredit ? parseFloat(inputs.totalCredit) : 0,
+          totalDebit: inputs.totalDebit ? parseFloat(inputs.totalDebit) : 0,
+          currentPrice: inputs.currentPrice ? parseFloat(inputs.currentPrice) : null,
           daysToExpiration: calculateDaysToExpiration()
         })
       });
@@ -656,25 +659,6 @@ const IronCondorCalculator = () => {
                         </div>
                       </div>
 
-                      {/* Fill In Options Button */}
-                      {inputs.ticker && inputs.expirationDate && (
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Info className="h-4 w-4 text-blue-600" />
-                            <h3 className="text-sm font-medium text-blue-800">Auto-Fill Options Data</h3>
-                          </div>
-                          <p className="text-xs text-blue-700 mb-3">
-                            Automatically fetch current options prices and strikes for your Iron Condor strategy.
-                          </p>
-                          <Button
-                            onClick={() => handleExpirationChange(inputs.expirationDate)}
-                            disabled={fetchingOptions}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 disabled:opacity-50"
-                          >
-                            {fetchingOptions ? 'Fetching Options...' : 'Fill In Options Data'}
-                          </Button>
-                        </div>
-                      )}
 
                       <Button
                         onClick={analyzeHistoricalData}

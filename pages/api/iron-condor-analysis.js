@@ -15,35 +15,60 @@ export default async function handler(req, res) {
     daysToExpiration 
   } = req.body;
 
-  if (!ticker || !shortCallStrike || !shortPutStrike || !longCallStrike || !longPutStrike) {
+  // Parse and validate strike prices
+  const parsedShortCallStrike = parseFloat(shortCallStrike);
+  const parsedShortPutStrike = parseFloat(shortPutStrike);
+  const parsedLongCallStrike = parseFloat(longCallStrike);
+  const parsedLongPutStrike = parseFloat(longPutStrike);
+
+  if (!ticker || isNaN(parsedShortCallStrike) || isNaN(parsedShortPutStrike) || 
+      isNaN(parsedLongCallStrike) || isNaN(parsedLongPutStrike)) {
     return res.status(400).json({ 
-      error: 'Missing required parameters: ticker and all strike prices are required' 
+      error: 'Missing required parameters: ticker and all strike prices are required',
+      details: {
+        ticker: !!ticker,
+        shortCallStrike: parsedShortCallStrike,
+        shortPutStrike: parsedShortPutStrike,
+        longCallStrike: parsedLongCallStrike,
+        longPutStrike: parsedLongPutStrike
+      }
     });
   }
 
   // Validate Iron Condor setup
-  if (longPutStrike >= shortPutStrike || shortPutStrike >= shortCallStrike || 
-      shortCallStrike >= longCallStrike) {
+  if (parsedLongPutStrike >= parsedShortPutStrike || parsedShortPutStrike >= parsedShortCallStrike || 
+      parsedShortCallStrike >= parsedLongCallStrike) {
     return res.status(400).json({ 
-      error: 'Invalid Iron Condor setup. Strikes must follow: Long Put < Short Put < Short Call < Long Call' 
+      error: 'Invalid Iron Condor setup. Strikes must follow: Long Put < Short Put < Short Call < Long Call',
+      details: {
+        longPutStrike: parsedLongPutStrike,
+        shortPutStrike: parsedShortPutStrike,
+        shortCallStrike: parsedShortCallStrike,
+        longCallStrike: parsedLongCallStrike
+      }
     });
   }
 
-  const effectivePrice = currentPrice || shortCallStrike;
+  const effectivePrice = currentPrice || parsedShortCallStrike;
 
   try {
     const netCredit = (totalCredit || 0) - (totalDebit || 0);
     
     // Calculate breakeven points
-    const upperBreakeven = parseFloat(shortCallStrike) + netCredit;
-    const lowerBreakeven = parseFloat(shortPutStrike) - netCredit;
+    const upperBreakeven = parsedShortCallStrike + netCredit;
+    const lowerBreakeven = parsedShortPutStrike - netCredit;
     
     const upperBreakevenPct = (upperBreakeven - effectivePrice) / effectivePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectivePrice) / effectivePrice;
 
     // Debug logging
     console.log(`Iron Condor Analysis for ${ticker}:`, {
-      strikes: { shortCallStrike, shortPutStrike, longCallStrike, longPutStrike },
+      strikes: { 
+        shortCallStrike: parsedShortCallStrike, 
+        shortPutStrike: parsedShortPutStrike, 
+        longCallStrike: parsedLongCallStrike, 
+        longPutStrike: parsedLongPutStrike 
+      },
       netCredit,
       breakevens: { upperBreakeven, lowerBreakeven },
       breakevenPcts: { upperBreakevenPct, lowerBreakevenPct },
@@ -59,8 +84,8 @@ export default async function handler(req, res) {
       historicalData, 
       upperBreakevenPct, 
       lowerBreakevenPct,
-      parseFloat(shortCallStrike),
-      parseFloat(shortPutStrike),
+      parsedShortCallStrike,
+      parsedShortPutStrike,
       netCredit
     );
 

@@ -248,7 +248,10 @@ async function getOptionsData(ticker, expirationDate) {
     
     const callCredit = shortCallPrice - longCallPrice;
     const putCredit = shortPutPrice - longPutPrice;
+    const callDebit = longCallPrice; // Cost to buy the long call
+    const putDebit = longPutPrice;   // Cost to buy the long put
     const totalCredit = callCredit + putCredit;
+    const totalDebit = callDebit + putDebit;
     
     // Debug logging to help identify issues
     console.log(`Iron Condor Premiums for ${ticker}:`, {
@@ -256,7 +259,8 @@ async function getOptionsData(ticker, expirationDate) {
       shortPut: { strike: shortPutStrike, bid: shortPut.bid, ask: shortPut.ask, mid: shortPutPrice },
       longCall: { strike: longCallStrike, bid: longCall.bid, ask: longCall.ask, mid: longCallPrice },
       longPut: { strike: longPutStrike, bid: longPut.bid, ask: longPut.ask, mid: longPutPrice },
-      credits: { callCredit, putCredit, totalCredit }
+      credits: { callCredit, putCredit, totalCredit },
+      debits: { callDebit, putDebit, totalDebit }
     });
     
     const optionsData = {
@@ -278,7 +282,10 @@ async function getOptionsData(ticker, expirationDate) {
         longPutPrice,
         callCredit,
         putCredit,
-        totalCredit
+        callDebit,
+        putDebit,
+        totalCredit,
+        totalDebit
       },
       contracts: {
         shortCall: `${ticker}${expirationDate.replace(/-/g, '')}C${shortCallStrike}000`,
@@ -421,7 +428,10 @@ function estimateIronCondorData(ticker, currentPrice, expirationDate) {
   
   const callCredit = shortCallPrice - longCallPrice;
   const putCredit = shortPutPrice - longPutPrice;
+  const callDebit = longCallPrice; // Cost to buy the long call
+  const putDebit = longPutPrice;   // Cost to buy the long put
   const totalCredit = callCredit + putCredit;
+  const totalDebit = callDebit + putDebit;
   
   return {
     ticker: ticker.toUpperCase(),
@@ -441,7 +451,10 @@ function estimateIronCondorData(ticker, currentPrice, expirationDate) {
       longPutPrice,
       callCredit,
       putCredit,
-      totalCredit
+      callDebit,
+      putDebit,
+      totalCredit,
+      totalDebit
     },
     contracts: {
       shortCall: `${ticker}${expirationDate.replace(/-/g, '')}C${shortCallStrike}000`,
