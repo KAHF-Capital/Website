@@ -194,7 +194,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                         <svg 
                           className="w-full h-full" 
                           viewBox="0 0 800 300" 
-                          preserveAspectRatio="none"
+                          preserveAspectRatio="xMidYMid meet"
                         >
                           {/* Grid lines for better readability */}
                           <defs>
@@ -209,7 +209,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
                             const minVolume = Math.min(...historicalData.map(d => d.total_volume));
                             const range = maxVolume - minVolume;
-                            const steps = 4;
+                            const steps = isMobile ? 3 : 4; // Fewer steps on mobile for better readability
                             
                             return Array.from({ length: steps + 1 }, (_, i) => {
                               const value = minVolume + (range * i / steps);
@@ -217,7 +217,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                               return (
                                 <g key={i}>
                                   <line x1="60" y1={y} x2="780" y2={y} stroke="#e5e7eb" strokeWidth="0.5" opacity="0.5"/>
-                                  <text x="55" y={y + 4} textAnchor="end" className="text-xs fill-gray-500">
+                                  <text x="55" y={y + 4} textAnchor="end" className={`${isMobile ? 'text-xs' : 'text-xs'} fill-gray-500`}>
                                     {formatNumber(Math.round(value))}
                                   </text>
                                 </g>
@@ -263,11 +263,15 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                                 key={`${day.date}-${index}`}
                                 cx={x}
                                 cy={y}
-                                r={isMobile ? "6" : "4"}
+                                r={isMobile ? "8" : "4"}
                                 fill="#10b981"
                                 stroke="white"
                                 strokeWidth={isMobile ? "3" : "2"}
                                 className="hover:r-8 transition-all duration-200 cursor-pointer touch-manipulation"
+                                style={{ 
+                                  cursor: 'pointer',
+                                  touchAction: 'manipulation' // Better touch handling
+                                }}
                               >
                                 <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>
                               </circle>
@@ -279,8 +283,8 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                         <div className="absolute bottom-0 left-0 right-0 flex justify-between px-16 sm:px-20 pb-2">
                           {historicalData.map((day, index) => {
                             // Show fewer labels on mobile, more on desktop
-                            const maxLabels = isMobile ? 5 : 8;
-                            const shouldShow = historicalData.length <= 10 || 
+                            const maxLabels = isMobile ? 4 : 8;
+                            const shouldShow = historicalData.length <= 6 || 
                                              index % Math.ceil(historicalData.length / maxLabels) === 0 ||
                                              index === historicalData.length - 1;
                             
@@ -289,10 +293,11 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           return (
                               <div 
                                 key={`label-${day.date}-${index}`} 
-                                className="text-xs text-gray-500 text-center"
+                                className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 text-center`}
                                 style={{ 
                                   transform: 'translateX(-50%)',
-                                  marginLeft: index === 0 ? '60px' : index === historicalData.length - 1 ? '-60px' : '0'
+                                  marginLeft: index === 0 ? '60px' : index === historicalData.length - 1 ? '-60px' : '0',
+                                  minWidth: isMobile ? '40px' : 'auto'
                                 }}
                               >
                                 {new Date(day.date).toLocaleDateString('en-US', { 
@@ -306,7 +311,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                       </div>
                       
                       {/* Chart Legend */}
-                      <div className="mt-4 flex items-center justify-center space-x-6 text-sm text-gray-600">
+                      <div className={`mt-4 flex ${isMobile ? 'flex-col space-y-2' : 'flex-row items-center justify-center space-x-6'} text-sm text-gray-600`}>
                         <div className="flex items-center space-x-2">
                           <div className="w-4 h-0.5 bg-green-600"></div>
                           <span>Dark Pool Volume</span>
@@ -323,29 +328,29 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Volume</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trades</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Price</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Value</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Date</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Volume</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Trades</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Avg Price</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Total Value</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {historicalData.reverse().map((day) => (
                             <tr key={day.date} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm font-medium text-gray-900`}>
                                 {formatDate(day.date)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm text-gray-900`}>
                                 {formatNumber(day.total_volume)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm text-gray-900`}>
                                 {formatNumber(day.trade_count)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm text-gray-900`}>
                                 {formatPrice(day.avg_price)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm text-gray-900`}>
                                 ${formatValue(day.total_value)}
                               </td>
                             </tr>

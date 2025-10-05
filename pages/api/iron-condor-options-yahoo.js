@@ -250,6 +250,15 @@ async function getOptionsData(ticker, expirationDate) {
     const putCredit = shortPutPrice - longPutPrice;
     const totalCredit = callCredit + putCredit;
     
+    // Debug logging to help identify issues
+    console.log(`Iron Condor Premiums for ${ticker}:`, {
+      shortCall: { strike: shortCallStrike, bid: shortCall.bid, ask: shortCall.ask, mid: shortCallPrice },
+      shortPut: { strike: shortPutStrike, bid: shortPut.bid, ask: shortPut.ask, mid: shortPutPrice },
+      longCall: { strike: longCallStrike, bid: longCall.bid, ask: longCall.ask, mid: longCallPrice },
+      longPut: { strike: longPutStrike, bid: longPut.bid, ask: longPut.ask, mid: longPutPrice },
+      credits: { callCredit, putCredit, totalCredit }
+    });
+    
     const optionsData = {
       ticker: ticker.toUpperCase(),
       currentPrice,

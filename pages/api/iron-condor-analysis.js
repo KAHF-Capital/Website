@@ -41,6 +41,16 @@ export default async function handler(req, res) {
     const upperBreakevenPct = (upperBreakeven - effectivePrice) / effectivePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectivePrice) / effectivePrice;
 
+    // Debug logging
+    console.log(`Iron Condor Analysis for ${ticker}:`, {
+      strikes: { shortCallStrike, shortPutStrike, longCallStrike, longPutStrike },
+      netCredit,
+      breakevens: { upperBreakeven, lowerBreakeven },
+      breakevenPcts: { upperBreakevenPct, lowerBreakevenPct },
+      effectivePrice,
+      daysToExpiration: daysToExpiration || 30
+    });
+
     // Fetch historical data for analysis
     const historicalData = await fetchHistoricalData(ticker, daysToExpiration || 30);
     
@@ -57,7 +67,10 @@ export default async function handler(req, res) {
     res.status(200).json(analysis);
   } catch (error) {
     console.error('Error in Iron Condor analysis:', error);
-    res.status(500).json({ error: 'Failed to perform analysis' });
+    res.status(500).json({ 
+      error: 'Failed to perform analysis',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later'
+    });
   }
 }
 
