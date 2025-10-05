@@ -397,6 +397,7 @@ const IronCondorCalculator = () => {
     setLoading(true);
     setError('');
 
+    const daysToExp = calculateDaysToExpiration();
     console.log('Starting Iron Condor analysis with inputs:', {
       ticker: inputs.ticker,
       shortCallStrike: inputs.shortCallStrike,
@@ -406,8 +407,16 @@ const IronCondorCalculator = () => {
       totalCredit: inputs.totalCredit,
       totalDebit: inputs.totalDebit,
       currentPrice: inputs.currentPrice,
-      daysToExpiration: calculateDaysToExpiration()
+      daysToExpiration: daysToExp
     });
+
+    // Validate inputs before making API call
+    if (!inputs.ticker || inputs.ticker.length === 0) {
+      throw new Error('Ticker is required');
+    }
+    if (daysToExp < 1) {
+      throw new Error('Days to expiration must be at least 1');
+    }
 
     try {
       const response = await fetch('/api/iron-condor-analysis', {
@@ -431,7 +440,14 @@ const IronCondorCalculator = () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Analysis API Error:', errorData);
-        throw new Error(`Analysis failed (${response.status}): ${errorData.error || errorData.details || 'Unknown error'}`);
+        console.error('Response status:', response.status);
+        console.error('Response statusText:', response.statusText);
+        
+        const errorMessage = errorData.details || errorData.error || 'Unknown error';
+        const errorType = errorData.errorType || 'Unknown';
+        const ticker = errorData.ticker || inputs.ticker;
+        
+        throw new Error(`Analysis failed (${response.status}): ${errorMessage}. Error type: ${errorType}, Ticker: ${ticker}`);
       }
       
       const data = await response.json();

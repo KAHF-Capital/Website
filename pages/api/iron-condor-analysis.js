@@ -65,8 +65,18 @@ export default async function handler(req, res) {
     const upperBreakeven = parsedShortCallStrike + netCredit;
     const lowerBreakeven = parsedShortPutStrike - netCredit;
     
+    // Validate effective price to prevent division by zero
+    if (!effectivePrice || effectivePrice <= 0) {
+      throw new Error(`Invalid effective price: ${effectivePrice}. Please provide a valid current price.`);
+    }
+    
     const upperBreakevenPct = (upperBreakeven - effectivePrice) / effectivePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectivePrice) / effectivePrice;
+    
+    // Validate breakeven calculations
+    if (!isFinite(upperBreakevenPct) || !isFinite(lowerBreakevenPct)) {
+      throw new Error(`Invalid breakeven calculations. Upper: ${upperBreakevenPct}, Lower: ${lowerBreakevenPct}`);
+    }
 
     // Debug logging
     console.log(`Iron Condor Analysis for ${ticker}:`, {
@@ -103,10 +113,25 @@ export default async function handler(req, res) {
     res.status(200).json(analysis);
   } catch (error) {
     console.error('Error in Iron Condor analysis:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      ticker,
+      strikes: {
+        shortCallStrike: parsedShortCallStrike,
+        shortPutStrike: parsedShortPutStrike,
+        longCallStrike: parsedLongCallStrike,
+        longPutStrike: parsedLongPutStrike
+      }
+    });
+    
     res.status(500).json({ 
       error: 'Failed to perform analysis',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      errorType: error.name,
+      ticker: ticker
     });
   }
 }
@@ -173,46 +198,59 @@ async function fetchHistoricalData(ticker, daysToExpiration) {
     return movements;
   } catch (error) {
     console.error(`Error fetching historical data for ${ticker}:`, error.message);
+    console.error(`Error type: ${error.name}`);
+    console.error(`Error stack:`, error.stack);
     throw error; // Re-throw the error instead of using mock data
   }
 }
 
     // Calculate price movements over specified period
 function calculatePriceMovements(historicalPrices, daysToExpiration) {
-  const movements = [];
-  
-  // Ensure we have enough data points
-  if (historicalPrices.length < daysToExpiration + 1) {
-    return movements;
-  }
-  
-  // Limit to maximum 100 instances for better performance
-  const maxInstances = 100;
-  const availableInstances = historicalPrices.length - daysToExpiration;
-  const instancesToUse = Math.min(availableInstances, maxInstances);
-  
-  // Start from the most recent data if we have more than 100 instances
-  const startIndex = availableInstances > maxInstances ? availableInstances - maxInstances : 0;
-  
-  for (let i = startIndex; i < startIndex + instancesToUse; i++) {
-    const startPrice = historicalPrices[i].price;
-    const endPrice = historicalPrices[i + daysToExpiration].price;
+  try {
+    console.log(`Calculating price movements for ${historicalPrices.length} prices over ${daysToExpiration} days`);
     
-    // Only include valid price data
-    if (startPrice > 0 && endPrice > 0) {
-      const percentMove = (endPrice - startPrice) / startPrice;
-      
-      movements.push({
-        startDate: historicalPrices[i].date,
-        endDate: historicalPrices[i + daysToExpiration].date,
-        startPrice,
-        endPrice,
-        percentMove
-      });
+    const movements = [];
+    
+    // Ensure we have enough data points
+    if (historicalPrices.length < daysToExpiration + 1) {
+      console.log(`Insufficient data: ${historicalPrices.length} prices for ${daysToExpiration} days`);
+      return movements;
     }
+    
+    // Limit to maximum 100 instances for better performance
+    const maxInstances = 100;
+    const availableInstances = historicalPrices.length - daysToExpiration;
+    const instancesToUse = Math.min(availableInstances, maxInstances);
+    
+    // Start from the most recent data if we have more than 100 instances
+    const startIndex = availableInstances > maxInstances ? availableInstances - maxInstances : 0;
+    
+    console.log(`Using ${instancesToUse} instances starting from index ${startIndex}`);
+    
+    for (let i = startIndex; i < startIndex + instancesToUse; i++) {
+      const startPrice = historicalPrices[i].price;
+      const endPrice = historicalPrices[i + daysToExpiration].price;
+      
+      // Only include valid price data
+      if (startPrice > 0 && endPrice > 0) {
+        const percentMove = (endPrice - startPrice) / startPrice;
+        
+        movements.push({
+          startDate: historicalPrices[i].date,
+          endDate: historicalPrices[i + daysToExpiration].date,
+          startPrice,
+          endPrice,
+          percentMove
+        });
+      }
+    }
+    
+    console.log(`Calculated ${movements.length} valid price movements`);
+    return movements;
+  } catch (error) {
+    console.error('Error in calculatePriceMovements:', error);
+    throw error;
   }
-  
-  return movements;
 }
 
 
