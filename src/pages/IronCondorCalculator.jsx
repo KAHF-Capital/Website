@@ -358,7 +358,7 @@ const IronCondorCalculator = () => {
         upper: lowerBreakeven,
         lower: upperBreakeven
       },
-      isSetupValid: maxRisk > 0 && netCredit > 0
+      isSetupValid: maxRisk > 0 && netCredit > 0 && longPut < shortPut && shortPut <= shortCall && shortCall < longCall
     };
   };
 
@@ -371,12 +371,43 @@ const IronCondorCalculator = () => {
 
     const metrics = calculateIronCondorMetrics();
     if (!metrics || !metrics.isSetupValid) {
-      setError('Invalid Iron Condor setup. Please check your strikes and credit/debit values.');
+      const shortCall = parseFloat(inputs.shortCallStrike) || 0;
+      const shortPut = parseFloat(inputs.shortPutStrike) || 0;
+      const longCall = parseFloat(inputs.longCallStrike) || 0;
+      const longPut = parseFloat(inputs.longPutStrike) || 0;
+      
+      let errorMsg = 'Invalid Iron Condor setup. ';
+      if (longPut >= shortPut) {
+        errorMsg += 'Long Put must be less than Short Put. ';
+      }
+      if (shortPut > shortCall) {
+        errorMsg += 'Short Put must be less than or equal to Short Call. ';
+      }
+      if (shortCall >= longCall) {
+        errorMsg += 'Short Call must be less than Long Call. ';
+      }
+      if (!errorMsg.includes('must be')) {
+        errorMsg += 'Please check your strikes and credit/debit values.';
+      }
+      
+      setError(errorMsg);
       return;
     }
 
     setLoading(true);
     setError('');
+
+    console.log('Starting Iron Condor analysis with inputs:', {
+      ticker: inputs.ticker,
+      shortCallStrike: inputs.shortCallStrike,
+      shortPutStrike: inputs.shortPutStrike,
+      longCallStrike: inputs.longCallStrike,
+      longPutStrike: inputs.longPutStrike,
+      totalCredit: inputs.totalCredit,
+      totalDebit: inputs.totalDebit,
+      currentPrice: inputs.currentPrice,
+      daysToExpiration: calculateDaysToExpiration()
+    });
 
     try {
       const response = await fetch('/api/iron-condor-analysis', {
@@ -399,14 +430,16 @@ const IronCondorCalculator = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Analysis API Error:', errorData);
         throw new Error(`Analysis failed (${response.status}): ${errorData.error || errorData.details || 'Unknown error'}`);
       }
       
       const data = await response.json();
+      console.log('Analysis result:', data);
       setResults(data);
     } catch (error) {
       console.error('Iron Condor Analysis Error:', error);
-      setError('Failed to analyze historical data: ' + error.message);
+      setError(`Failed to analyze historical data: ${error.message}. Please check the console for more details.`);
     } finally {
       setLoading(false);
     }
@@ -763,7 +796,7 @@ const IronCondorCalculator = () => {
                           <span className="font-medium text-orange-800">Setup Validation Issues</span>
                         </div>
                         <div className="text-sm text-orange-700 mt-2">
-                          Please check that your strikes follow the pattern: Long Put &lt; Short Put &lt; Short Call &lt; Long Call
+                          Please check that your strikes follow the pattern: Long Put &lt; Short Put ≤ Short Call &lt; Long Call
                         </div>
                       </div>
                     )}

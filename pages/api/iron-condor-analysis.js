@@ -36,15 +36,22 @@ export default async function handler(req, res) {
   }
 
   // Validate Iron Condor setup
-  if (parsedLongPutStrike >= parsedShortPutStrike || parsedShortPutStrike >= parsedShortCallStrike || 
+  // Correct Iron Condor structure: Long Put < Short Put ≤ Short Call < Long Call
+  if (parsedLongPutStrike >= parsedShortPutStrike || 
+      parsedShortPutStrike > parsedShortCallStrike || 
       parsedShortCallStrike >= parsedLongCallStrike) {
     return res.status(400).json({ 
-      error: 'Invalid Iron Condor setup. Strikes must follow: Long Put < Short Put < Short Call < Long Call',
+      error: 'Invalid Iron Condor setup. Strikes must follow: Long Put < Short Put ≤ Short Call < Long Call',
       details: {
         longPutStrike: parsedLongPutStrike,
         shortPutStrike: parsedShortPutStrike,
         shortCallStrike: parsedShortCallStrike,
-        longCallStrike: parsedLongCallStrike
+        longCallStrike: parsedLongCallStrike,
+        validation: {
+          longPutLessThanShortPut: parsedLongPutStrike < parsedShortPutStrike,
+          shortPutLessOrEqualShortCall: parsedShortPutStrike <= parsedShortCallStrike,
+          shortCallLessThanLongCall: parsedShortCallStrike < parsedLongCallStrike
+        }
       }
     });
   }
@@ -77,9 +84,12 @@ export default async function handler(req, res) {
     });
 
     // Fetch historical data for analysis
+    console.log(`Fetching historical data for ${ticker} with ${daysToExpiration || 30} days to expiration`);
     const historicalData = await fetchHistoricalData(ticker, daysToExpiration || 30);
+    console.log(`Retrieved ${historicalData ? historicalData.length : 0} historical data points`);
     
     // Analyze historical profitability for Iron Condor
+    console.log(`Analyzing Iron Condor profitability with breakevens: ${upperBreakevenPct.toFixed(4)}, ${lowerBreakevenPct.toFixed(4)}`);
     const analysis = analyzeIronCondorProfitability(
       historicalData, 
       upperBreakevenPct, 
@@ -88,6 +98,7 @@ export default async function handler(req, res) {
       parsedShortPutStrike,
       netCredit
     );
+    console.log(`Analysis completed:`, analysis);
 
     res.status(200).json(analysis);
   } catch (error) {
@@ -103,12 +114,22 @@ export default async function handler(req, res) {
 // Fetch historical price data
 async function fetchHistoricalData(ticker, daysToExpiration) {
   try {
+    console.log(`Starting historical data fetch for ${ticker}`);
+    
     // Using Alpha Vantage API for historical data
     const apiKey = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
     const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`;
     
+    console.log(`Fetching from Alpha Vantage API: ${url.replace(apiKey, '***')}`);
     const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error(`Alpha Vantage API response not ok: ${response.status} ${response.statusText}`);
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
     const data = await response.json();
+    console.log(`Alpha Vantage API response received for ${ticker}`);
 
     if (data['Error Message']) {
       console.log(`Alpha Vantage error for ${ticker}:`, data['Error Message']);
@@ -197,29 +218,34 @@ function calculatePriceMovements(historicalPrices, daysToExpiration) {
 
 // Analyze profitability specifically for Iron Condor strategy
 function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lowerBreakevenPct, shortCallStrike, shortPutStrike, netCredit) {
-  let inProfitZoneCount = 0;
-  let aboveUpperBreakevenCount = 0;
-  let belowLowerBreakevenCount = 0;
-  let totalValidSamples = 0;
-  
-  // Ensure we have data to work with
-  if (!historicalData || historicalData.length === 0) {
-    return {
-      inProfitZone: 0,
-      aboveUpperBreakeven: 0,
-      belowLowerBreakeven: 0,
-      totalSamples: 0,
-      profitableRate: 0,
-      maxProfitProbability: 0,
-      maxLossProbability: 0,
-      upperBreakevenPct: upperBreakevenPct * 100,
-      lowerBreakevenPct: lowerBreakevenPct * 100,
-      avgMove: 0,
-      maxMove: 0,
-      minMove: 0,
-      dataQuality: 'none'
-    };
-  }
+  try {
+    console.log(`Starting Iron Condor profitability analysis with ${historicalData ? historicalData.length : 0} data points`);
+    console.log(`Breakeven percentages: upper=${upperBreakevenPct}, lower=${lowerBreakevenPct}`);
+    
+    let inProfitZoneCount = 0;
+    let aboveUpperBreakevenCount = 0;
+    let belowLowerBreakevenCount = 0;
+    let totalValidSamples = 0;
+    
+    // Ensure we have data to work with
+    if (!historicalData || historicalData.length === 0) {
+      console.log('No historical data available for analysis');
+      return {
+        inProfitZone: 0,
+        aboveUpperBreakeven: 0,
+        belowLowerBreakeven: 0,
+        totalSamples: 0,
+        profitableRate: 0,
+        maxProfitProbability: 0,
+        maxLossProbability: 0,
+        upperBreakevenPct: (upperBreakevenPct || 0) * 100,
+        lowerBreakevenPct: (lowerBreakevenPct || 0) * 100,
+        avgMove: 0,
+        maxMove: 0,
+        minMove: 0,
+        dataQuality: 'none'
+      };
+    }
   
   // Filter out extreme outliers (more than 50% moves in either direction)
   let filteredData = historicalData.filter(movement => {
@@ -263,20 +289,42 @@ function analyzeIronCondorProfitability(historicalData, upperBreakevenPct, lower
   const minMove = filteredData.length > 0 ? 
     Math.min(...filteredData.map(m => Math.abs(m.percentMove))) : 0;
   
-  return {
-    inProfitZone: inProfitZoneCount,
-    aboveUpperBreakeven: aboveUpperBreakevenCount,
-    belowLowerBreakeven: belowLowerBreakevenCount,
-    totalSamples: totalValidSamples,
-    profitableRate,
-    maxProfitProbability,
-    maxLossProbability,
-    upperBreakevenPct: upperBreakevenPct * 100,
-    lowerBreakevenPct: lowerBreakevenPct * 100,
-    avgMove: avgMove * 100,
-    maxMove: maxMove * 100,
-    minMove: minMove * 100,
-    dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 20 ? 'medium' : totalValidSamples >= 5 ? 'low' : 'limited'
-  };
+    console.log(`Analysis completed: ${inProfitZoneCount}/${totalValidSamples} profitable (${profitableRate.toFixed(1)}%)`);
+    
+    return {
+      inProfitZone: inProfitZoneCount,
+      aboveUpperBreakeven: aboveUpperBreakevenCount,
+      belowLowerBreakeven: belowLowerBreakevenCount,
+      totalSamples: totalValidSamples,
+      profitableRate,
+      maxProfitProbability,
+      maxLossProbability,
+      upperBreakevenPct: (upperBreakevenPct || 0) * 100,
+      lowerBreakevenPct: (lowerBreakevenPct || 0) * 100,
+      avgMove: avgMove * 100,
+      maxMove: maxMove * 100,
+      minMove: minMove * 100,
+      dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 20 ? 'medium' : totalValidSamples >= 5 ? 'low' : 'limited'
+    };
+    
+  } catch (error) {
+    console.error('Error in analyzeIronCondorProfitability:', error);
+    return {
+      inProfitZone: 0,
+      aboveUpperBreakeven: 0,
+      belowLowerBreakeven: 0,
+      totalSamples: 0,
+      profitableRate: 0,
+      maxProfitProbability: 0,
+      maxLossProbability: 0,
+      upperBreakevenPct: (upperBreakevenPct || 0) * 100,
+      lowerBreakevenPct: (lowerBreakevenPct || 0) * 100,
+      avgMove: 0,
+      maxMove: 0,
+      minMove: 0,
+      dataQuality: 'error',
+      error: error.message
+    };
+  }
 }
 
