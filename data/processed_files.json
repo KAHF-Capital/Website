@@ -166,5 +166,26 @@
     "status": "completed",
     "trades_found": 49881371,
     "dates_processed": 1
+  },
+  "2025-10-06.csv": {
+    "hash": "12761436235_2288912640000",
+    "processed_at": "2025-10-09T22:34:11.942Z",
+    "status": "completed",
+    "trades_found": 53923205,
+    "dates_processed": 1
+  },
+  "2025-10-08.csv": {
+    "hash": "11651750395_2288912640000",
+    "processed_at": "2025-10-09T22:49:04.792Z",
+    "status": "completed",
+    "trades_found": 47387667,
+    "dates_processed": 1
+  },
+  "2025-10-07.csv": {
+    "hash": "12914097255_2288912640000",
+    "processed_at": "2025-10-09T23:01:42.903Z",
+    "status": "completed",
+    "trades_found": 53150527,
+    "dates_processed": 1
   }
 }
