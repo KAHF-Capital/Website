@@ -86,24 +86,26 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <BarChart3 className="h-6 w-6 text-green-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Dark Pool Analysis - {ticker}</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white rounded-none sm:rounded-lg shadow-xl max-w-6xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-hidden">
+        {/* Header - mobile optimized */}
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <BarChart3 className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-green-600`} />
+            <h2 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-gray-900`}>
+              {isMobile ? `${ticker} Analysis` : `Dark Pool Analysis - ${ticker}`}
+            </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
           >
-            <X className="h-6 w-6 text-gray-500" />
+            <X className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-gray-500`} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        {/* Content - mobile optimized */}
+        <div className={`${isMobile ? 'p-3' : 'p-6'} overflow-y-auto ${isMobile ? 'max-h-[calc(100vh-120px)]' : 'max-h-[calc(90vh-120px)]'}`}>
           {loading && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
@@ -188,13 +190,14 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                 
                 {historicalData.length > 0 ? (
                   <div className="space-y-4">
-                    {/* Line chart representation - mobile optimized */}
-                    <div className={`${isMobile ? 'h-64' : 'h-80'} bg-gray-50 rounded-lg p-2 sm:p-4 overflow-x-auto`}>
-                      <div className="relative w-full h-full min-w-max">
+                    {/* Line chart representation - ultra mobile optimized */}
+                    <div className={`${isMobile ? 'h-72' : 'h-80'} bg-gray-50 rounded-lg ${isMobile ? 'p-1' : 'p-4'} overflow-x-auto touch-pan-x`}>
+                      <div className="relative w-full h-full" style={{ minWidth: isMobile ? '100%' : 'auto' }}>
                         <svg 
                           className="w-full h-full" 
-                          viewBox="0 0 800 300" 
+                          viewBox={`0 0 ${isMobile ? '100' : '800'} ${isMobile ? '100' : '300'}`}
                           preserveAspectRatio="xMidYMid meet"
+                          style={{ touchAction: 'pan-y pinch-zoom' }}
                         >
                           {/* Grid lines for better readability */}
                           <defs>
@@ -204,36 +207,53 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           </defs>
                           <rect width="100%" height="100%" fill="url(#grid)" />
                           
-                          {/* Y-axis labels */}
+                          {/* Y-axis labels - mobile optimized */}
                           {(() => {
-                          const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
+                            const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
                             const minVolume = Math.min(...historicalData.map(d => d.total_volume));
                             const range = maxVolume - minVolume;
-                            const steps = isMobile ? 3 : 4; // Fewer steps on mobile for better readability
+                            const steps = isMobile ? 2 : 4; // Fewer steps on mobile
+                            const viewBoxWidth = isMobile ? 100 : 800;
+                            const viewBoxHeight = isMobile ? 100 : 300;
+                            const leftMargin = isMobile ? 12 : 60;
+                            const rightMargin = isMobile ? 98 : 780;
+                            const bottomY = isMobile ? 90 : 280;
+                            const stepHeight = isMobile ? 30 : 60;
                             
                             return Array.from({ length: steps + 1 }, (_, i) => {
                               const value = minVolume + (range * i / steps);
-                              const y = 280 - (i * 60);
+                              const y = bottomY - (i * stepHeight);
                               return (
                                 <g key={i}>
-                                  <line x1="60" y1={y} x2="780" y2={y} stroke="#e5e7eb" strokeWidth="0.5" opacity="0.5"/>
-                                  <text x="55" y={y + 4} textAnchor="end" className={`${isMobile ? 'text-xs' : 'text-xs'} fill-gray-500`}>
-                                    {formatNumber(Math.round(value))}
+                                  <line x1={leftMargin} y1={y} x2={rightMargin} y2={y} stroke="#e5e7eb" strokeWidth={isMobile ? "0.3" : "0.5"} opacity="0.5"/>
+                                  <text 
+                                    x={leftMargin - 2} 
+                                    y={y + (isMobile ? 1.5 : 4)} 
+                                    textAnchor="end" 
+                                    className="fill-gray-500"
+                                    style={{ fontSize: isMobile ? '4px' : '12px' }}
+                                  >
+                                    {isMobile ? `${(value / 1000).toFixed(0)}K` : formatNumber(Math.round(value))}
                                   </text>
                                 </g>
                               );
                             });
                           })()}
                           
-                          {/* Line chart path */}
+                          {/* Line chart path - mobile optimized */}
                           {(() => {
                             const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
                             const minVolume = Math.min(...historicalData.map(d => d.total_volume));
                             const range = maxVolume - minVolume || 1;
+                            const leftMargin = isMobile ? 12 : 80;
+                            const rightMargin = isMobile ? 98 : 780;
+                            const chartWidth = rightMargin - leftMargin;
+                            const bottomY = isMobile ? 90 : 280;
+                            const chartHeight = isMobile ? 60 : 240;
                             
                             const points = historicalData.map((day, index) => {
-                              const x = 80 + (index * (700 / Math.max(historicalData.length - 1, 1)));
-                              const y = 280 - ((day.total_volume - minVolume) / range) * 240;
+                              const x = leftMargin + (index * (chartWidth / Math.max(historicalData.length - 1, 1)));
+                              const y = bottomY - ((day.total_volume - minVolume) / range) * chartHeight;
                               return `${x},${y}`;
                             }).join(' ');
                             
@@ -242,7 +262,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                                 points={points}
                                 fill="none"
                                 stroke="#10b981"
-                                strokeWidth={isMobile ? "4" : "3"}
+                                strokeWidth={isMobile ? "1.5" : "3"}
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 className="drop-shadow-sm"
@@ -250,41 +270,64 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                             );
                           })()}
                           
-                          {/* Data points */}
+                          {/* Data points - mobile optimized with larger touch targets */}
                           {historicalData.map((day, index) => {
                             const maxVolume = Math.max(...historicalData.map(d => d.total_volume));
                             const minVolume = Math.min(...historicalData.map(d => d.total_volume));
                             const range = maxVolume - minVolume || 1;
-                            const x = 80 + (index * (700 / Math.max(historicalData.length - 1, 1)));
-                            const y = 280 - ((day.total_volume - minVolume) / range) * 240;
+                            const leftMargin = isMobile ? 12 : 80;
+                            const rightMargin = isMobile ? 98 : 780;
+                            const chartWidth = rightMargin - leftMargin;
+                            const bottomY = isMobile ? 90 : 280;
+                            const chartHeight = isMobile ? 60 : 240;
+                            const x = leftMargin + (index * (chartWidth / Math.max(historicalData.length - 1, 1)));
+                            const y = bottomY - ((day.total_volume - minVolume) / range) * chartHeight;
                             
                             return (
-                              <circle
-                                key={`${day.date}-${index}`}
-                                cx={x}
-                                cy={y}
-                                r={isMobile ? "8" : "4"}
-                                fill="#10b981"
-                                stroke="white"
-                                strokeWidth={isMobile ? "3" : "2"}
-                                className="hover:r-8 transition-all duration-200 cursor-pointer touch-manipulation"
-                                style={{ 
-                                  cursor: 'pointer',
-                                  touchAction: 'manipulation' // Better touch handling
-                                }}
-                              >
-                                <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>
-                              </circle>
+                              <g key={`${day.date}-${index}`}>
+                                {/* Larger invisible touch target for mobile */}
+                                {isMobile && (
+                                  <circle
+                                    cx={x}
+                                    cy={y}
+                                    r="4"
+                                    fill="transparent"
+                                    style={{ 
+                                      cursor: 'pointer',
+                                      touchAction: 'manipulation'
+                                    }}
+                                  >
+                                    <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>
+                                  </circle>
+                                )}
+                                {/* Visible data point */}
+                                <circle
+                                  cx={x}
+                                  cy={y}
+                                  r={isMobile ? "2" : "4"}
+                                  fill="#10b981"
+                                  stroke="white"
+                                  strokeWidth={isMobile ? "1" : "2"}
+                                  className="transition-all duration-200 cursor-pointer"
+                                  style={{ 
+                                    cursor: 'pointer',
+                                    touchAction: 'manipulation',
+                                    pointerEvents: isMobile ? 'none' : 'auto' // Let parent handle touch on mobile
+                                  }}
+                                >
+                                  {!isMobile && <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>}
+                                </circle>
+                              </g>
                             );
                           })}
                         </svg>
                         
-                        {/* X-axis date labels - mobile optimized */}
-                        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-16 sm:px-20 pb-2">
+                        {/* X-axis date labels - ultra mobile optimized */}
+                        <div className={`absolute bottom-0 left-0 right-0 flex ${isMobile ? 'justify-around' : 'justify-between'} ${isMobile ? 'px-2' : 'px-16 sm:px-20'} pb-1`}>
                           {historicalData.map((day, index) => {
-                            // Show fewer labels on mobile, more on desktop
-                            const maxLabels = isMobile ? 4 : 8;
-                            const shouldShow = historicalData.length <= 6 || 
+                            // Show even fewer labels on mobile
+                            const maxLabels = isMobile ? 3 : 8;
+                            const shouldShow = historicalData.length <= 4 || 
                                              index % Math.ceil(historicalData.length / maxLabels) === 0 ||
                                              index === historicalData.length - 1;
                             
@@ -293,15 +336,16 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           return (
                               <div 
                                 key={`label-${day.date}-${index}`} 
-                                className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500 text-center`}
+                                className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 text-center`}
                                 style={{ 
-                                  transform: 'translateX(-50%)',
-                                  marginLeft: index === 0 ? '60px' : index === historicalData.length - 1 ? '-60px' : '0',
-                                  minWidth: isMobile ? '40px' : 'auto'
+                                  transform: isMobile ? 'none' : 'translateX(-50%)',
+                                  marginLeft: isMobile ? '0' : (index === 0 ? '60px' : index === historicalData.length - 1 ? '-60px' : '0'),
+                                  minWidth: isMobile ? 'auto' : 'auto',
+                                  maxWidth: isMobile ? '60px' : 'auto'
                                 }}
                               >
                                 {new Date(day.date).toLocaleDateString('en-US', { 
-                                  month: 'short', 
+                                  month: isMobile ? 'numeric' : 'short', 
                                   day: 'numeric' 
                                 })}
                             </div>
@@ -310,15 +354,15 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                         </div>
                       </div>
                       
-                      {/* Chart Legend */}
-                      <div className={`mt-4 flex ${isMobile ? 'flex-col space-y-2' : 'flex-row items-center justify-center space-x-6'} text-sm text-gray-600`}>
+                      {/* Chart Legend - mobile optimized */}
+                      <div className={`${isMobile ? 'mt-2' : 'mt-4'} flex ${isMobile ? 'flex-row items-center justify-center space-x-4' : 'flex-row items-center justify-center space-x-6'} ${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>
                         <div className="flex items-center space-x-2">
-                          <div className="w-4 h-0.5 bg-green-600"></div>
-                          <span>Dark Pool Volume</span>
+                          <div className={`${isMobile ? 'w-3 h-0.5' : 'w-4 h-0.5'} bg-green-600`}></div>
+                          <span className="whitespace-nowrap">{isMobile ? 'Volume' : 'Dark Pool Volume'}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-                          <span>Data Points</span>
+                          <div className={`${isMobile ? 'w-2 h-2' : 'w-3 h-3'} bg-green-600 rounded-full`}></div>
+                          <span className="whitespace-nowrap">{isMobile ? 'Points' : 'Data Points'}</span>
                         </div>
                       </div>
                     </div>
