@@ -41,6 +41,36 @@ export default function LearningModules() {
         "Look for dark pool volume spikes before events"
       ]
     },
+    "short-straddle": {
+      name: "Short Straddle",
+      icon: Target,
+      difficulty: "Advanced",
+      description: "Generate income from low volatility with unlimited risk",
+      overview: "The short straddle involves selling both a call and put option at the same strike price and expiration date. This strategy profits from low volatility and time decay, but carries unlimited risk in both directions.",
+      whenToUse: [
+        "Expecting low volatility and sideways movement",
+        "High implied volatility environments (to collect premium)",
+        "After earnings when volatility is expected to collapse",
+        "Strong neutral market outlook"
+      ],
+      keyPoints: [
+        "High premium collection from selling both options",
+        "Benefits significantly from time decay",
+        "Unlimited risk on both upside and downside",
+        "Requires active management and risk control"
+      ],
+      riskProfile: {
+        maxProfit: "Premium collected",
+        maxLoss: "Unlimited",
+        breakeven: "Strike ± Premium collected"
+      },
+      darkPoolInsights: [
+        "Monitor for unexpected dark pool accumulation",
+        "Watch for institutional hedging activity",
+        "Look for signs of breakout positioning that could move price",
+        "Track unusual volume that might indicate directional moves"
+      ]
+    },
     "iron-condor": {
       name: "Iron Condor",
       icon: BarChart3,
