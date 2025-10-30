@@ -1,4 +1,4 @@
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
+import { getOptionsContracts } from '../../lib/polygon-data-service.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -11,22 +11,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ticker is required' });
   }
 
-  if (!POLYGON_API_KEY) {
+  if (!process.env.POLYGON_API_KEY) {
     return res.status(500).json({ error: 'Polygon API key not configured' });
   }
 
   try {
-    // Get all available options contracts for this ticker
-    const response = await fetch(
-      `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${ticker}&limit=1000&apiKey=${POLYGON_API_KEY}`
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch options contracts');
-    }
-
-    const data = await response.json();
-    const contracts = data.results || [];
+    const contracts = await getOptionsContracts(ticker);
 
     if (contracts.length === 0) {
       return res.status(200).json({ expirations: [] });

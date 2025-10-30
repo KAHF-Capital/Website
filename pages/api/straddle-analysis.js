@@ -1,3 +1,5 @@
+import { getHistoricalStockData, calculatePriceMovements } from '../../lib/polygon-data-service.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -7,6 +9,10 @@ export default async function handler(req, res) {
 
   if (!ticker || !totalPremium) {
     return res.status(400).json({ error: 'Missing required parameters: ticker and totalPremium are required' });
+  }
+
+  if (!process.env.POLYGON_API_KEY) {
+    return res.status(500).json({ error: 'Polygon API key not configured' });
   }
 
   // Use a default strike price if not provided (for manual input cases)
@@ -21,12 +27,18 @@ export default async function handler(req, res) {
     const upperBreakevenPct = (upperBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
 
-    // Fetch historical data for analysis
-    const historicalData = await fetchHistoricalData(ticker, daysToExpiration || 30);
+    // Fetch historical data from Polygon
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - (daysToExpiration + 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const historicalData = await getHistoricalStockData(ticker, startDate, endDate);
+    
+    // Calculate price movements for analysis
+    const movements = calculatePriceMovements(historicalData, daysToExpiration || 30);
     
     // Analyze historical profitability
     const analysis = analyzeHistoricalProfitability(
-      historicalData, 
+      movements, 
       upperBreakevenPct, 
       lowerBreakevenPct
     );
@@ -38,99 +50,6 @@ export default async function handler(req, res) {
   }
 }
 
-// Fetch historical price data
-async function fetchHistoricalData(ticker, daysToExpiration) {
-  try {
-    // Using Alpha Vantage API for historical data
-    const apiKey = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`;
-    
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data['Error Message']) {
-      console.log(`Alpha Vantage error for ${ticker}:`, data['Error Message']);
-      throw new Error('Invalid ticker symbol');
-    }
-
-    if (data['Note']) {
-      // API limit reached, throw error
-      throw new Error('API limit reached. Please try again later.');
-    }
-
-    const timeSeries = data['Time Series (Daily)'];
-    if (!timeSeries) {
-      console.log(`No time series data for ${ticker}`);
-      throw new Error('No historical data available');
-    }
-
-    // Convert to array and sort by date
-    const historicalPrices = Object.entries(timeSeries)
-      .map(([date, values]) => ({
-        date,
-        price: parseFloat(values['4. close'])
-      }))
-      .filter(item => !isNaN(item.price) && item.price > 0) // Filter out invalid prices
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if (historicalPrices.length === 0) {
-      console.log(`No valid price data for ${ticker}`);
-      throw new Error('No valid historical price data');
-    }
-
-    // Calculate price movements for the specified period
-    const movements = calculatePriceMovements(historicalPrices, daysToExpiration);
-    
-    if (movements.length === 0) {
-      throw new Error('No valid price movements could be calculated from historical data');
-    }
-
-    // Use all available movements, even if less than 250
-    console.log(`Found ${movements.length} price movements for ${ticker} analysis`);
-    return movements;
-  } catch (error) {
-    console.error(`Error fetching historical data for ${ticker}:`, error.message);
-    throw error; // Re-throw the error instead of using mock data
-  }
-}
-
-// Calculate price movements over specified period
-function calculatePriceMovements(historicalPrices, daysToExpiration) {
-  const movements = [];
-  
-  // Ensure we have enough data points
-  if (historicalPrices.length < daysToExpiration + 1) {
-    return movements;
-  }
-  
-  // Limit to maximum 100 instances for better performance
-  const maxInstances = 100;
-  const availableInstances = historicalPrices.length - daysToExpiration;
-  const instancesToUse = Math.min(availableInstances, maxInstances);
-  
-  // Start from the most recent data if we have more than 100 instances
-  const startIndex = availableInstances > maxInstances ? availableInstances - maxInstances : 0;
-  
-  for (let i = startIndex; i < startIndex + instancesToUse; i++) {
-    const startPrice = historicalPrices[i].price;
-    const endPrice = historicalPrices[i + daysToExpiration].price;
-    
-    // Only include valid price data
-    if (startPrice > 0 && endPrice > 0) {
-      const percentMove = (endPrice - startPrice) / startPrice;
-      
-      movements.push({
-        startDate: historicalPrices[i].date,
-        endDate: historicalPrices[i + daysToExpiration].date,
-        startPrice,
-        endPrice,
-        percentMove
-      });
-    }
-  }
-  
-  return movements;
-}
 
 
 // Analyze historical profitability

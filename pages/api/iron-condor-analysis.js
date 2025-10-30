@@ -1,3 +1,5 @@
+import { getHistoricalStockData, calculatePriceMovements } from '../../lib/polygon-data-service.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -33,6 +35,10 @@ export default async function handler(req, res) {
         longPutStrike: parsedLongPutStrike
       }
     });
+  }
+
+  if (!process.env.POLYGON_API_KEY) {
+    return res.status(500).json({ error: 'Polygon API key not configured' });
   }
 
   // Validate Iron Condor setup
@@ -78,180 +84,38 @@ export default async function handler(req, res) {
       throw new Error(`Invalid breakeven calculations. Upper: ${upperBreakevenPct}, Lower: ${lowerBreakevenPct}`);
     }
 
-    // Debug logging
-    console.log(`Iron Condor Analysis for ${ticker}:`, {
-      strikes: { 
-        shortCallStrike: parsedShortCallStrike, 
-        shortPutStrike: parsedShortPutStrike, 
-        longCallStrike: parsedLongCallStrike, 
-        longPutStrike: parsedLongPutStrike 
-      },
-      netCredit,
-      breakevens: { upperBreakeven, lowerBreakeven },
-      breakevenPcts: { upperBreakevenPct, lowerBreakevenPct },
-      effectivePrice,
-      daysToExpiration: daysToExpiration || 30
-    });
-
-    // Fetch historical data for analysis
-    console.log(`Fetching historical data for ${ticker} with ${daysToExpiration || 30} days to expiration`);
-    const historicalData = await fetchHistoricalData(ticker, daysToExpiration || 30);
-    console.log(`Retrieved ${historicalData ? historicalData.length : 0} historical data points`);
+    // Fetch historical data from Polygon
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - (daysToExpiration + 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const historicalData = await getHistoricalStockData(ticker, startDate, endDate);
+    
+    // Calculate price movements for analysis
+    const movements = calculatePriceMovements(historicalData, daysToExpiration || 30);
     
     // Analyze historical profitability for Iron Condor
-    console.log(`Analyzing Iron Condor profitability with breakevens: ${upperBreakevenPct.toFixed(4)}, ${lowerBreakevenPct.toFixed(4)}`);
     const analysis = analyzeIronCondorProfitability(
-      historicalData, 
+      movements, 
       upperBreakevenPct, 
       lowerBreakevenPct,
       parsedShortCallStrike,
       parsedShortPutStrike,
       netCredit
     );
-    console.log(`Analysis completed:`, analysis);
 
     res.status(200).json(analysis);
   } catch (error) {
     console.error('Error in Iron Condor analysis:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      ticker,
-      strikes: {
-        shortCallStrike: parsedShortCallStrike,
-        shortPutStrike: parsedShortPutStrike,
-        longCallStrike: parsedLongCallStrike,
-        longPutStrike: parsedLongPutStrike
-      }
-    });
     
     res.status(500).json({ 
       error: 'Failed to perform analysis',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Please try again later',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       errorType: error.name,
       ticker: ticker
     });
   }
 }
 
-// Fetch historical price data
-async function fetchHistoricalData(ticker, daysToExpiration) {
-  try {
-    console.log(`Starting historical data fetch for ${ticker}`);
-    
-    // Using Alpha Vantage API for historical data
-    const apiKey = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`;
-    
-    console.log(`Fetching from Alpha Vantage API: ${url.replace(apiKey, '***')}`);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error(`Alpha Vantage API response not ok: ${response.status} ${response.statusText}`);
-      throw new Error(`API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log(`Alpha Vantage API response received for ${ticker}`);
-
-    if (data['Error Message']) {
-      console.log(`Alpha Vantage error for ${ticker}:`, data['Error Message']);
-      throw new Error('Invalid ticker symbol');
-    }
-
-    if (data['Note']) {
-      // API limit reached, throw error
-      throw new Error('API limit reached. Please try again later.');
-    }
-
-    const timeSeries = data['Time Series (Daily)'];
-    if (!timeSeries) {
-      console.log(`No time series data for ${ticker}`);
-      throw new Error('No historical data available');
-    }
-
-    // Convert to array and sort by date
-    const historicalPrices = Object.entries(timeSeries)
-      .map(([date, values]) => ({
-        date,
-        price: parseFloat(values['4. close'])
-      }))
-      .filter(item => !isNaN(item.price) && item.price > 0) // Filter out invalid prices
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if (historicalPrices.length === 0) {
-      console.log(`No valid price data for ${ticker}`);
-      throw new Error('No valid historical price data');
-    }
-
-    // Calculate price movements for the specified period
-    const movements = calculatePriceMovements(historicalPrices, daysToExpiration);
-    
-    if (movements.length === 0) {
-      throw new Error('No valid price movements could be calculated from historical data');
-    }
-
-    // Use all available movements, even if less than traditional minimums
-    console.log(`Found ${movements.length} price movements for ${ticker} Iron Condor analysis`);
-    return movements;
-  } catch (error) {
-    console.error(`Error fetching historical data for ${ticker}:`, error.message);
-    console.error(`Error type: ${error.name}`);
-    console.error(`Error stack:`, error.stack);
-    throw error; // Re-throw the error instead of using mock data
-  }
-}
-
-    // Calculate price movements over specified period
-function calculatePriceMovements(historicalPrices, daysToExpiration) {
-  try {
-    console.log(`Calculating price movements for ${historicalPrices.length} prices over ${daysToExpiration} days`);
-    
-    const movements = [];
-    
-    // Ensure we have enough data points
-    if (historicalPrices.length < daysToExpiration + 1) {
-      console.log(`Insufficient data: ${historicalPrices.length} prices for ${daysToExpiration} days`);
-      return movements;
-    }
-    
-    // Limit to maximum 100 instances for better performance
-    const maxInstances = 100;
-    const availableInstances = historicalPrices.length - daysToExpiration;
-    const instancesToUse = Math.min(availableInstances, maxInstances);
-    
-    // Start from the most recent data if we have more than 100 instances
-    const startIndex = availableInstances > maxInstances ? availableInstances - maxInstances : 0;
-    
-    console.log(`Using ${instancesToUse} instances starting from index ${startIndex}`);
-    
-    for (let i = startIndex; i < startIndex + instancesToUse; i++) {
-      const startPrice = historicalPrices[i].price;
-      const endPrice = historicalPrices[i + daysToExpiration].price;
-      
-      // Only include valid price data
-      if (startPrice > 0 && endPrice > 0) {
-        const percentMove = (endPrice - startPrice) / startPrice;
-        
-        movements.push({
-          startDate: historicalPrices[i].date,
-          endDate: historicalPrices[i + daysToExpiration].date,
-          startPrice,
-          endPrice,
-          percentMove
-        });
-      }
-    }
-    
-    console.log(`Calculated ${movements.length} valid price movements`);
-    return movements;
-  } catch (error) {
-    console.error('Error in calculatePriceMovements:', error);
-    throw error;
-  }
-}
 
 
 // Analyze profitability specifically for Iron Condor strategy
