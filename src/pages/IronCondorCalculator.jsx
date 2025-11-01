@@ -32,10 +32,10 @@ const IronCondorCalculator = () => {
   const [fetchingOptions, setFetchingOptions] = useState(false);
   const [availableExpirations, setAvailableExpirations] = useState([]);
 
-  // Fetch current stock price using Yahoo Finance
+  // Fetch current stock price using Polygon
   const fetchCurrentPrice = async (ticker) => {
     try {
-      const response = await fetch(`/api/stock-price-yahoo?ticker=${ticker.toUpperCase()}`);
+      const response = await fetch(`/api/stock-price?ticker=${ticker.toUpperCase()}`);
       if (!response.ok) throw new Error('Failed to fetch price');
       const data = await response.json();
       return data.price;
@@ -45,33 +45,14 @@ const IronCondorCalculator = () => {
     }
   };
 
-  // Fetch available expiration dates for a ticker using Yahoo Finance
+  // Fetch available expiration dates for a ticker using Polygon
   const fetchAvailableExpirations = async (ticker) => {
     try {
-      const response = await fetch(`/api/available-expirations-yahoo?ticker=${ticker}`);
+      const response = await fetch(`/api/available-expirations?ticker=${ticker}`);
       if (response.ok) {
         const data = await response.json();
-        // Extract just the date strings from the enhanced format
-        const expirationDates = data.expirations ? data.expirations.map(exp => exp.date) : [];
+        const expirationDates = data.expirations || [];
         setAvailableExpirations(expirationDates);
-        
-        // If no expirations found, show a message
-        if (expirationDates.length === 0 && data.message) {
-          setError(
-            <span>
-              {data.message} Please{' '}
-              <a 
-                href={data.yahooFinanceUrl || `https://finance.yahoo.com/quote/${ticker}/options`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-green-600 hover:text-green-800 underline font-medium"
-              >
-                check Yahoo Finance options
-              </a>{' '}
-              to see available dates.
-            </span>
-          );
-        }
       } else {
         console.warn('Failed to fetch available expirations:', response.status);
       }
@@ -80,10 +61,10 @@ const IronCondorCalculator = () => {
     }
   };
 
-  // Fetch Iron Condor options data using Yahoo Finance
+  // Fetch Iron Condor options data using Polygon
   const fetchIronCondorOptions = async (ticker, expiration) => {
     try {
-      const response = await fetch(`/api/iron-condor-options-yahoo?ticker=${ticker}&expiration=${expiration}`);
+      const response = await fetch(`/api/iron-condor-options?ticker=${ticker}&expiration=${expiration}`);
       if (!response.ok) throw new Error('Failed to fetch iron condor options');
       const data = await response.json();
       return data;
