@@ -27,9 +27,13 @@ export default async function handler(req, res) {
     const upperBreakevenPct = (upperBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
 
-    // Fetch historical data from Polygon
+    // Fetch historical data from Massive.com
+    // Need enough data for up to 200 instances with DTE intervals
+    // For 200 instances with DTE=18: need at least 200 + 18 = 218 trading days
+    // Fetch ~2 years of data to ensure we have enough (approx 500 trading days in 2 years)
     const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - (daysToExpiration + 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const daysToFetch = Math.max(500, (daysToExpiration || 30) + 250); // Ensure we have enough data
+    const startDate = new Date(Date.now() - daysToFetch * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     const historicalData = await getHistoricalStockData(ticker, startDate, endDate);
     
