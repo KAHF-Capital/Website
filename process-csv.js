@@ -4,7 +4,7 @@ const csv = require('csv-parser');
 
 // Data directory for CSV files
 const DATA_DIR = path.join(process.cwd(), 'data');
-const DAILY_CSV_DIR = path.join(DATA_DIR, 'daily');
+const DAILY_CSV_DIR = 'D:\\daily';
 const PROCESSED_DIR = path.join(DATA_DIR, 'processed');
 const PROCESSED_TRACKER_FILE = path.join(DATA_DIR, 'processed_files.json');
 
@@ -225,7 +225,7 @@ async function processAllCSV(forceReprocess = false) {
     const tracker = loadProcessedTracker();
     
     if (csvFiles.length === 0) {
-      console.log('No CSV files found in data/daily/ directory');
+      console.log('No CSV files found in D:\\daily directory');
       return;
     }
     

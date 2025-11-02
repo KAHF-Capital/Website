@@ -13,15 +13,7 @@ export default function Header() {
     { href: '/', label: 'Home' },
     { href: '/learning', label: 'Learning' },
     { href: '/scanner', label: 'Scanner' },
-    { 
-      href: '#calculators',
-      label: 'Calculators',
-      dropdown: true,
-      items: [
-        { href: '/straddle-calculator', label: 'ATM Straddle' },
-        { href: '/iron-condor-calculator', label: 'Iron Condor' }
-      ]
-    },
+    { href: '/straddle-calculator', label: 'Straddle Calculator' },
     { 
       href: 'https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00', 
       label: 'Subscriptions',

@@ -167,7 +167,7 @@ const StraddleCalculator = () => {
           // API returned data but with 0 premiums - likely pricing data issue
           setError(
             <span>
-              Options contracts found but pricing data unavailable. This usually means no recent trading data. Please{' '}
+              Options pricing data not found. Please{' '}
               <a 
                 href={getYahooFinanceUrl(inputs.ticker, value)} 
                 target="_blank" 
@@ -176,13 +176,13 @@ const StraddleCalculator = () => {
               >
                 check Yahoo Finance options
               </a>{' '}
-              to enter premium manually. Strike: {straddleData.strikePrice}, Expiration: {straddleData.expiration}
+              to enter premium manually.
             </span>
           );
         } else {
           setError(
             <span>
-              No straddle options found for this expiration date. Please try a different date or{' '}
+              Options pricing data not found. Please try a different date or{' '}
               <a 
                 href={getYahooFinanceUrl(inputs.ticker, value)} 
                 target="_blank" 
@@ -191,7 +191,7 @@ const StraddleCalculator = () => {
               >
                 check Yahoo Finance options
               </a>{' '}
-              to enter premium manually. Available expirations: {availableExpirations.slice(0, 3).join(', ')}
+              to enter premium manually.
             </span>
           );
         }
