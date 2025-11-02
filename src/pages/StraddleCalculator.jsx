@@ -428,17 +428,6 @@ const StraddleCalculator = () => {
                   onChange={(e) => setInputs(prev => ({ ...prev, totalPremium: e.target.value }))}
                   className="w-full"
                 />
-                                                                                           <p className="text-xs text-gray-500 mt-1">
-                          Premium will be automatically calculated when you select an expiration date.{' '}
-                          <a 
-                            href={getYahooFinanceUrl(inputs.ticker || 'AAPL', inputs.expirationDate)} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-green-600 hover:text-green-800 underline"
-                          >
-                            View options on Yahoo Finance
-                          </a>
-                        </p>
               </div>
 
               <Button
