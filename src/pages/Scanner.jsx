@@ -232,18 +232,11 @@ export default function Scanner() {
             <TrendingUp className="h-4 w-4 mr-1" />
             Dark Pool History
           </button>
-          <div className="grid grid-cols-2 gap-2">
-            <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
-              <button className="w-full border border-green-600 text-green-600 bg-transparent hover:bg-green-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
-                ATM Straddle
-              </button>
-            </Link>
-            <Link href={`/iron-condor-calculator?ticker=${ticker.ticker}`}>
-              <button className="w-full border border-green-600 text-green-600 bg-transparent hover:bg-green-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
-                Iron Condor
-              </button>
-            </Link>
-          </div>
+          <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
+            <button className="w-full border border-green-600 text-green-600 bg-transparent hover:bg-green-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
+              ATM Straddle
+            </button>
+          </Link>
         </div>
       </div>
     </div>
