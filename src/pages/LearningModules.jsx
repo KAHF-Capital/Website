@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { TrendingUp, Target, BarChart3, Shield, CheckCircle } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
@@ -9,7 +8,6 @@ import Footer from './Footer';
 export default function LearningModules() {
   const [activeStrategy, setActiveStrategy] = useState("long-straddle");
   const [activeTab, setActiveTab] = useState("overview");
-  const router = useRouter();
 
   const strategies = {
     "long-straddle": {
@@ -316,20 +314,22 @@ export default function LearningModules() {
             </div>
           </div>
 
-          {/* Sidebar - Mobile Optimized */}
+          {/* Sidebar - Free E-book Download */}
           <div className="border border-green-300 bg-green-50 rounded-lg">
             <div className="p-4">
-              <h3 className="text-gray-900 text-lg font-semibold mb-3">Unlock Premium Content</h3>
+              <h3 className="text-gray-900 text-lg font-semibold mb-3">Free E-book Download</h3>
               <p className="text-gray-700 text-base mb-4 leading-relaxed">
-                Get our comprehensive 50-page e-book. Covers everything from placing your first trade to advanced dark pool data analysis, position management, and execution.
+                Get our comprehensive 50-page e-book for free. Covers everything from placing your first trade to advanced dark pool data analysis, position management, and execution.
               </p>
               <div className="space-y-3">
-                <button 
-                                                  onClick={() => router.push('/confirmation')}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation"
+                <a 
+                  href="https://drive.google.com/file/d/1b6daQAjsQqd6rhrZTvJ3h-w7sjtVxWoG/view?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-base font-medium rounded-lg py-3 px-4 touch-manipulation block text-center"
                 >
-                  Get the E-book
-                </button>
+                  Download Free E-book
+                </a>
               </div>
             </div>
           </div>
