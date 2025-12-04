@@ -1,10 +1,8 @@
 # Production Environment Setup
 
-**⚠️ IMPORTANT: All secrets must be set manually as environment variables in Vercel. Never commit secrets to the repository.**
-
 ## Required Environment Variables
 
-Your production deployment needs these environment variables set manually in Vercel:
+Your production deployment needs these environment variables set:
 
 ### 1. Polygon.io API Key
 ```
@@ -19,19 +17,17 @@ NEXTAUTH_URL=https://www.kahfcapital.com
 
 ## How to Set Environment Variables
 
-**⚠️ IMPORTANT: All secrets must be set manually as environment variables in Vercel. Never commit secrets to the repository.**
-
 ### For Vercel Deployment:
 
 1. **Go to your Vercel Dashboard**
 2. **Select your project** (kahf-capital-website)
 3. **Go to Settings → Environment Variables**
-4. **Add these variables manually (do not copy from any file in the repository):**
+4. **Add these variables:**
 
 | Name | Value | Environment |
 |------|-------|-------------|
-| `POLYGON_API_KEY` | `your_polygon_api_key_here` | Production |
-| `NEXTAUTH_SECRET` | `your_nextauth_secret_here` | Production |
+| `POLYGON_API_KEY` | `zGrtVQbRA6bHEbuehwVxooi0z4OD2xvi` | Production |
+| `NEXTAUTH_SECRET` | `UxctQ0sphno+FZfeNx/O9wk2g9eGw1caK+zX9w2t+Cs=` | Production |
 | `NEXTAUTH_URL` | `https://www.kahfcapital.com` | Production |
 
 5. **Redeploy your application** after adding the variables
@@ -51,7 +47,9 @@ After setting the environment variables:
 
 1. **Redeploy your application**
 2. **Visit** `https://www.kahfcapital.com/auth/signin`
-3. **Test authentication** with your credentials
+3. **Test authentication** with demo credentials:
+   - Email: `demo@kahfcapital.com`
+   - Password: `password`
 4. **Check that protected routes work** (scanner, straddle calculator)
 
 ## Troubleshooting
