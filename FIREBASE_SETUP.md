@@ -1,31 +1,56 @@
 # Firebase & Environment Setup Guide
 
+**⚠️ IMPORTANT: All secrets must be set manually as environment variables in Vercel. Never commit secrets to the repository. This file contains placeholders only.**
+
 ## Required Environment Variables
 
-Add these to your `.env.local` file:
+For local development, add these to your `.env.local` file (which is gitignored):
+
+For production deployment on Vercel, set these manually in Vercel Dashboard → Settings → Environment Variables:
 
 ### Firebase (Authentication & Database)
 ```bash
 # Get from Firebase Console > Project Settings > General
+<<<<<<< HEAD
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
+=======
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
+>>>>>>> parent of 41ff540 (Update FIREBASE_SETUP.md)
 
 # Firebase Admin SDK (server-side)
 # Get from Firebase Console > Project Settings > Service Accounts
 # Generate new private key and paste the entire JSON as a single line
+<<<<<<< HEAD
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"your-project-id","private_key_id":"your_private_key_id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n","client_email":"your-service-account@your-project.iam.gserviceaccount.com","client_id":"your_client_id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com","universe_domain":"googleapis.com"}
+
+=======
 FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}
+>>>>>>> parent of 41ff540 (Update FIREBASE_SETUP.md)
 ```
 
 ### Stripe (Payments)
 ```bash
 # Get from Stripe Dashboard > Developers > API keys
+<<<<<<< HEAD
+STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
+
+=======
 STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
 STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+>>>>>>> parent of 41ff540 (Update FIREBASE_SETUP.md)
 ```
 
 ### Twilio (SMS Alerts)
@@ -215,4 +240,5 @@ Use [cron-job.org](https://cron-job.org/) or similar to call the endpoint daily.
 ### "Permission denied" on Firestore
 - Check security rules allow authenticated users
 - Verify user is logged in before writing
+
 
