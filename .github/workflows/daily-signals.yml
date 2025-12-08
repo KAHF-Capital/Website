@@ -1,0 +1,82 @@
+# Daily Dark Pool Signal Automation
+# Triggers at 4:30 PM EST (21:30 UTC) on trading days
+# Also processes new CSV data and sends SMS alerts
+
+name: Daily Dark Pool Signals
+
+on:
+  schedule:
+    # 4:30 PM EST = 21:30 UTC (runs Mon-Fri)
+    - cron: '30 21 * * 1-5'
+  
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      force_alerts:
+        description: 'Force send alerts even if already sent today'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  trigger-signals:
+    runs-on: ubuntu-latest
+    
+    # Skip on US market holidays (add more dates as needed)
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'schedule')
+    
+    steps:
+      - name: Check if US Market is Open Today
+        id: market-check
+        run: |
+          # Get today's date
+          TODAY=$(date -u +%Y-%m-%d)
+          DAY_OF_WEEK=$(date -u +%u)
+          
+          # US Market Holidays 2025 (add more as needed)
+          HOLIDAYS="2025-01-01 2025-01-20 2025-02-17 2025-04-18 2025-05-26 2025-06-19 2025-07-04 2025-09-01 2025-11-27 2025-12-25"
+          
+          # Check if today is a holiday
+          if echo "$HOLIDAYS" | grep -q "$TODAY"; then
+            echo "Today ($TODAY) is a US market holiday. Skipping."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          elif [ "$DAY_OF_WEEK" -gt 5 ]; then
+            echo "Today is a weekend. Skipping."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "Market is open today ($TODAY). Proceeding."
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Automated Scanner
+        if: steps.market-check.outputs.should_run == 'true'
+        run: |
+          echo "Triggering automated scanner at ${{ secrets.WEBSITE_URL }}/api/automated-scanner"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.WEBSITE_URL }}/api/automated-scanner")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response Code: $HTTP_CODE"
+          echo "Response Body: $BODY"
+          
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "Error triggering scanner"
+            exit 1
+          fi
+          
+          echo "Scanner triggered successfully!"
+
+      - name: Log Results
+        if: always()
+        run: |
+          echo "=== Daily Signal Automation Complete ==="
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "Trigger Type: ${{ github.event_name }}"
+

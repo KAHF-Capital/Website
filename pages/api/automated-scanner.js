@@ -1,29 +1,40 @@
 // Automated Scanner - Sends SMS alerts to VolAlert Pro subscribers
-// This endpoint should be called by a cron job (e.g., Vercel Cron, GitHub Actions)
+// This endpoint is called by Vercel Cron at 4 PM EST on trading days
+// Can also be triggered manually via POST with CRON_SECRET
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDarkPoolAlert } from '../../lib/twilio-service';
+import { analyzeAllTickers, formatSMSMessage, generateDailySummary, SEVERITY_LEVELS } from '../../lib/signal-detector';
 import fs from 'fs';
 import path from 'path';
 
-// Security: Require a secret key to trigger alerts
+// Security: Require a secret key for manual triggers
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export default async function handler(req, res) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  // Allow both GET (Vercel Cron) and POST (manual trigger)
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify cron secret (for security)
+  // For Vercel Cron: verify the CRON_SECRET header
+  // Vercel Cron sends: Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers.authorization;
   const providedSecret = authHeader?.replace('Bearer ', '');
   
-  if (CRON_SECRET && providedSecret !== CRON_SECRET) {
+  // Check if request is from Vercel Cron (has correct secret) or valid manual trigger
+  const isVercelCron = req.headers['x-vercel-cron'] === 'true';
+  const isAuthorized = !CRON_SECRET || providedSecret === CRON_SECRET || isVercelCron;
+  
+  if (!isAuthorized) {
     console.warn('Unauthorized automated scanner request');
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  
+  console.log(`Automated scanner triggered via ${req.method} at ${new Date().toISOString()}`);
+  console.log(`Source: ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}`);
+  
 
   try {
     // Get the latest dark pool data
@@ -201,4 +212,5 @@ async function getLatestDarkPoolData() {
     return null;
   }
 }
+
 
