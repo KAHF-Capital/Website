@@ -45,3 +45,4 @@ echo ============================================ >> %LOGFILE%
 
 echo Daily signals automation completed. Check %LOGFILE% for details.
 
+
