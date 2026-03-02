@@ -161,3 +161,9 @@ async function addVolumeRatios(tickers, currentDate) {
 }
 
 
+
+
+
+
+
+
