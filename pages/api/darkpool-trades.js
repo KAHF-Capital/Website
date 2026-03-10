@@ -1,22 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 import fetch from 'node-fetch';
+import { listDataFiles, getDataFile } from '../../lib/blob-data';
 
-// Data directory for processed JSON files
-const DATA_DIR = path.join(process.cwd(), 'data');
-const PROCESSED_DIR = path.join(DATA_DIR, 'processed');
-
-// Ensure directories exist
-function ensureDirectories() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(PROCESSED_DIR)) {
-    fs.mkdirSync(PROCESSED_DIR, { recursive: true });
-  }
-}
-
-// Get performance data for multiple tickers using batch API
 async function getBatchPerformance(tickers) {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/batch-performance`, {
@@ -36,7 +20,6 @@ async function getBatchPerformance(tickers) {
 
     const data = await response.json();
     
-    // Convert array results to object format
     const results = {};
     data.data.forEach(item => {
       if (!item.error) {
@@ -56,56 +39,38 @@ async function getBatchPerformance(tickers) {
   }
 }
 
-// Get the most recently analyzed file with 7-day averages
 async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
   try {
-    // Get all date files (excluding summary files)
-    const dateFiles = fs.readdirSync(PROCESSED_DIR)
-      .filter(file => file.endsWith('.json') && !file.includes('summary'))
-      .map(file => {
-        // Extract date from filename - now files are named like "2025-08-22.json"
-        const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
-        return {
-          date: dateMatch ? dateMatch[1] : null,
-          filename: file,
-          path: path.join(PROCESSED_DIR, file)
-        };
-      })
-      .filter(file => file.date)
-      .sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending
+    const dateFiles = await listDataFiles();
 
     if (dateFiles.length === 0) {
       return null;
     }
 
-    // Use the most recent file (first in the sorted array)
     const targetDateFile = dateFiles[0];
-    
-    const latestDateData = JSON.parse(fs.readFileSync(targetDateFile.path, 'utf8'));
-    
-    // Use the filename date instead of the date inside the JSON file
-    const filenameDate = targetDateFile.date;
+    const latestDateData = await getDataFile(targetDateFile.url);
+    if (!latestDateData) return null;
 
-    // Calculate 7-day average for each ticker using the filename date
+    const filenameDate = targetDateFile.filename.replace('.json', '');
+
     const currentDate = new Date(filenameDate);
     const sevenDaysAgo = new Date(currentDate);
-    sevenDaysAgo.setDate(currentDate.getDate() - 6); // Include current day, so 6 days back
+    sevenDaysAgo.setDate(currentDate.getDate() - 6);
 
-    // Get all dates within the last 7 days (including the current date)
     const recentDateFiles = dateFiles
       .filter(file => {
-        const fileDate = new Date(file.date);
+        const fileDate = new Date(file.filename.replace('.json', ''));
         return fileDate >= sevenDaysAgo && fileDate <= currentDate;
       })
-      .slice(0, 7); // Limit to 7 days
+      .slice(0, 7);
 
-    // Calculate 7-day averages for each ticker
     const tickerAverages = {};
     const tickerCounts = {};
 
-    recentDateFiles.forEach(file => {
+    for (const file of recentDateFiles) {
       try {
-        const dateData = JSON.parse(fs.readFileSync(file.path, 'utf8'));
+        const dateData = await getDataFile(file.url);
+        if (!dateData) continue;
         dateData.tickers.forEach(ticker => {
           if (!tickerAverages[ticker.ticker]) {
             tickerAverages[ticker.ticker] = 0;
@@ -115,27 +80,23 @@ async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
           tickerCounts[ticker.ticker]++;
         });
       } catch (error) {
-        console.error(`Error reading file ${file.path}:`, error);
+        console.error(`Error reading blob ${file.filename}:`, error);
       }
-    });
+    }
 
-    // Calculate averages
     Object.keys(tickerAverages).forEach(ticker => {
       tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
     });
 
-    // Apply volume and price filters if specified
     const filteredTickers = latestDateData.tickers.filter(ticker => {
       const tradingValue = ticker.total_value;
       const avgPrice = ticker.avg_price;
       return tradingValue >= minVolume && avgPrice >= minPrice;
     });
     
-    // Get performance data only for filtered tickers
     const tickerSymbols = filteredTickers.map(t => t.ticker);
     const performanceData = await getBatchPerformance(tickerSymbols);
     
-    // Add 7-day average and performance data to filtered tickers
     const enhancedTickers = filteredTickers.map(ticker => {
       const performance = performanceData[ticker.ticker];
       const volumeRatio = tickerAverages[ticker.ticker] > 0 
@@ -156,8 +117,8 @@ async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
     });
 
     return {
-      date: filenameDate, // Use filename date instead of JSON date
-      filename: targetDateFile.filename, // Include the actual filename
+      date: filenameDate,
+      filename: targetDateFile.filename,
       total_tickers: latestDateData.total_tickers,
       total_volume: latestDateData.total_volume,
       last_updated: latestDateData.processed_at || new Date().toISOString(),
@@ -179,12 +140,8 @@ async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
 
 export default async function handler(req, res) {
   try {
-    ensureDirectories();
-    
-    // Get query parameters for filtering
     const { minVolume, minPrice } = req.query;
     
-    // Parse and validate parameters
     const volumeFilter = minVolume ? parseInt(minVolume) : 0;
     const priceFilter = minPrice ? parseFloat(minPrice) : 0;
     
@@ -212,5 +169,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
-

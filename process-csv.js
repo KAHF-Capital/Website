@@ -1,6 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
+const { uploadDataFile } = require('./lib/blob-data');
+
+// Load .env.local for BLOB_READ_WRITE_TOKEN when running locally
+const envPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+    const [key, ...vals] = line.split('=');
+    if (key && vals.length) process.env[key.trim()] = vals.join('=').trim();
+  });
+}
 
 // Data directory for CSV files
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -159,8 +169,8 @@ function parseDarkPoolTradesChunked(csvFilePath) {
   });
 }
 
-// Save processed data to JSON files
-function saveProcessedData(dateMap, sourceFile) {
+// Save processed data to JSON files and upload to Vercel Blob
+async function saveProcessedData(dateMap, sourceFile) {
   const summary = {
     source_file: path.basename(sourceFile),
     processed_at: new Date().toISOString(),
@@ -197,8 +207,18 @@ function saveProcessedData(dateMap, sourceFile) {
     total_volume: allTickers.reduce((sum, ticker) => sum + ticker.total_volume, 0),
     tickers: allTickers
   };
-  fs.writeFileSync(datePath, JSON.stringify(dateData, null, 2));
-  
+  const jsonString = JSON.stringify(dateData, null, 2);
+  fs.writeFileSync(datePath, jsonString);
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const blob = await uploadDataFile(processedFileName, jsonString);
+      console.log(`☁️  Uploaded ${processedFileName} to Vercel Blob`);
+    } catch (err) {
+      console.error(`⚠️  Blob upload failed for ${processedFileName}: ${err.message}`);
+    }
+  }
+
   return summary;
 }
 
@@ -279,8 +299,7 @@ async function processAllCSV(forceReprocess = false) {
           continue;
         }
         
-        // Save processed data
-        const summary = saveProcessedData(dateMap, csvFile.name);
+        const summary = await saveProcessedData(dateMap, csvFile.name);
         
         const totalTrades = Object.values(dateMap).reduce((sum, tickers) => 
           sum + tickers.reduce((tickerSum, ticker) => tickerSum + ticker.trade_count, 0), 0);

@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { listDataFiles, getDataFile } from '../../lib/blob-data';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -13,36 +12,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const processedDir = path.join(process.cwd(), 'data', 'processed');
-    const files = fs.readdirSync(processedDir);
-    
-    // Filter for JSON files that contain ticker data (not summary files)
-    const dataFiles = files.filter(file => 
-      file.endsWith('.json') && 
-      !file.includes('_summary') &&
-      file.match(/^\d{4}-\d{2}-\d{2}\.json$/)
-    ).sort();
-
-    const historicalData = [];
-    const dateMap = new Map(); // Use Map to track unique dates
+    const dataFiles = await listDataFiles();
+    const dateMap = new Map();
 
     for (const file of dataFiles) {
       try {
-        const filePath = path.join(processedDir, file);
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        const data = JSON.parse(fileContent);
+        const data = await getDataFile(file.url);
+        if (!data) continue;
         
-        // Find the ticker in this day's data
         const tickerData = data.tickers?.find(t => t.ticker === ticker.toUpperCase());
         
         if (tickerData) {
-          // Extract date from filename instead of using data.date
-          // Filename format: YYYY-MM-DD.json
-          const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
+          const dateMatch = file.filename.match(/(\d{4}-\d{2}-\d{2})/);
           const dateKey = dateMatch ? dateMatch[1] : data.date;
           
-          // Only add if we don't already have data for this date
-          // or if this data has higher volume (more recent/complete data)
           if (!dateMap.has(dateKey) || tickerData.total_volume > dateMap.get(dateKey).total_volume) {
             dateMap.set(dateKey, {
               date: dateKey,
@@ -54,13 +37,11 @@ export default async function handler(req, res) {
           }
         }
       } catch (fileError) {
-        console.error(`Error reading file ${file}:`, fileError);
-        // Continue with other files
+        console.error(`Error reading blob ${file.filename}:`, fileError);
       }
     }
 
-    // Convert Map to array and sort by date (oldest first)
-    historicalData.push(...dateMap.values());
+    const historicalData = [...dateMap.values()];
     historicalData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     res.status(200).json({
@@ -74,4 +55,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Failed to fetch dark pool history' });
   }
 }
-

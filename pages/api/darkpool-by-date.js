@@ -1,9 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-
-// Data directory for processed files
-const DATA_DIR = path.join(process.cwd(), 'data');
-const PROCESSED_DIR = path.join(DATA_DIR, 'processed');
+import { listDataFiles, getDataFile } from '../../lib/blob-data';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,19 +7,18 @@ export default async function handler(req, res) {
 
   try {
     const { date, source_file } = req.query;
-    
-    if (!fs.existsSync(PROCESSED_DIR)) {
+
+    const allFiles = await listDataFiles();
+
+    if (allFiles.length === 0) {
       return res.status(404).json({
         error: 'No processed data found',
         message: 'Please run the CSV processor first'
       });
     }
     
-    // If specific date is requested
     if (date) {
-      const dateFiles = fs.readdirSync(PROCESSED_DIR)
-        .filter(file => file.startsWith(date) && file.endsWith('.json'))
-        .sort();
+      const dateFiles = allFiles.filter(f => f.filename.startsWith(date));
       
       if (dateFiles.length === 0) {
         return res.status(404).json({
@@ -34,9 +28,8 @@ export default async function handler(req, res) {
         });
       }
       
-      // If source file is specified, filter by it
       const targetFiles = source_file 
-        ? dateFiles.filter(file => file.includes(source_file))
+        ? dateFiles.filter(f => f.filename.includes(source_file))
         : dateFiles;
       
       if (targetFiles.length === 0) {
@@ -48,12 +41,10 @@ export default async function handler(req, res) {
         });
       }
       
-      // Load the data
       const data = [];
       for (const file of targetFiles) {
-        const filePath = path.join(PROCESSED_DIR, file);
-        const fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        data.push(fileData);
+        const fileData = await getDataFile(file.url);
+        if (fileData) data.push(fileData);
       }
       
       return res.status(200).json({
@@ -64,14 +55,9 @@ export default async function handler(req, res) {
       });
     }
     
-    // If no specific date, return available dates
-    const allFiles = fs.readdirSync(PROCESSED_DIR)
-      .filter(file => file.endsWith('.json'))
-      .filter(file => !file.includes('_summary.json')); // Exclude summary files
-    
-    const dates = [...new Set(allFiles.map(file => file.split('_')[0]))].sort();
-    const sourceFiles = [...new Set(allFiles.map(file => {
-      const parts = file.split('_');
+    const dates = [...new Set(allFiles.map(f => f.filename.split('_')[0].replace('.json', '')))].sort();
+    const sourceFiles = [...new Set(allFiles.map(f => {
+      const parts = f.filename.split('_');
       return parts.slice(1).join('_').replace('.json', '');
     }))].sort();
     
@@ -90,4 +76,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
