@@ -1,0 +1,21 @@
+{
+  "subscribers": [
+    {
+      "id": "manual_1775600736890",
+      "stripeCustomerId": "manual_1775600736890",
+      "email": "owner@kahfcapital.com",
+      "phoneNumber": "+16699002921",
+      "status": "active",
+      "createdAt": "2026-04-07T22:25:36.892Z",
+      "updatedAt": "2026-04-07T22:25:36.893Z",
+      "preferences": {
+        "minVolumeRatio": 3,
+        "watchlist": [],
+        "alertTime": "09:00",
+        "maxAlertsPerDay": 25
+      },
+      "alertsSent": 2,
+      "lastAlertAt": "2026-04-07T22:29:00.326Z"
+    }
+  ]
+}

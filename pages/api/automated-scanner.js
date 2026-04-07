@@ -1,12 +1,14 @@
-// Automated Scanner - Sends SMS alerts to VolAlert Pro subscribers
-// Called by Vercel Cron at 4 PM EST on trading days
+// Automated Scanner - Sends consolidated SMS digest to subscribers
+// Called by Vercel Cron at 9 AM ET (13:00 UTC) on trading days
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
-import { sendDarkPoolAlert } from '../../lib/twilio-service';
-import { analyzeAllTickers, formatSMSMessage, generateDailySummary, SEVERITY_LEVELS } from '../../lib/signal-detector';
+import { sendDailyDigest } from '../../lib/twilio-service';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
 
 const CRON_SECRET = process.env.CRON_SECRET;
+const VOLUME_RATIO_THRESHOLD = 3.0;
+const MIN_TOTAL_VALUE = 250_000_000; // $250M min notional (matches Scanner page)
+const MIN_AVG_PRICE = 50;            // $50 min avg price (matches Scanner page)
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -16,173 +18,149 @@ export default async function handler(req, res) {
 
   const authHeader = req.headers.authorization;
   const providedSecret = authHeader?.replace('Bearer ', '');
-  
   const isVercelCron = req.headers['x-vercel-cron'] === 'true';
   const isAuthorized = !CRON_SECRET || providedSecret === CRON_SECRET || isVercelCron;
-  
+
   if (!isAuthorized) {
-    console.warn('Unauthorized automated scanner request');
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  
-  console.log(`Automated scanner triggered via ${req.method} at ${new Date().toISOString()}`);
-  console.log(`Source: ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}`);
-  
+
+  console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}`);
 
   try {
-    const darkPoolData = await getLatestDarkPoolData();
-    
-    if (!darkPoolData || !darkPoolData.tickers || darkPoolData.tickers.length === 0) {
-      return res.status(200).json({ 
-        success: true, 
+    const darkPoolData = await getLatestDarkPoolDataWithRatios();
+
+    if (!darkPoolData || darkPoolData.tickers.length === 0) {
+      return res.status(200).json({
+        success: true,
         message: 'No dark pool data available',
-        alertsSent: 0 
+        alertsSent: 0
       });
     }
 
-    const alertThreshold = 1.5;
-    const highActivityTickers = darkPoolData.tickers.filter(ticker => {
-      if (ticker.volume_ratio === 'N/A') return false;
-      return parseFloat(ticker.volume_ratio) >= alertThreshold;
+    const hotTickers = darkPoolData.tickers.filter(t => {
+      if (t.volume_ratio === 'N/A') return false;
+      return parseFloat(t.volume_ratio) >= VOLUME_RATIO_THRESHOLD;
     });
 
-    if (highActivityTickers.length === 0) {
-      return res.status(200).json({ 
-        success: true, 
-        message: 'No high-activity tickers found',
-        alertsSent: 0 
+    if (hotTickers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `No tickers above ${VOLUME_RATIO_THRESHOLD}x threshold`,
+        date: darkPoolData.date,
+        alertsSent: 0
       });
     }
 
     const subscribers = getActiveSubscribers();
-    
+
     if (subscribers.length === 0) {
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         message: 'No active subscribers',
-        alertsSent: 0 
+        hotTickers: hotTickers.length,
+        alertsSent: 0
       });
     }
 
-    console.log(`Found ${highActivityTickers.length} high-activity tickers`);
-    console.log(`Sending alerts to ${subscribers.length} subscribers`);
+    console.log(`${hotTickers.length} tickers at ${VOLUME_RATIO_THRESHOLD}x+ → sending to ${subscribers.length} subscribers`);
 
     const results = [];
-    
+
     for (const subscriber of subscribers) {
-      if (!subscriber.phoneNumber) {
-        console.warn(`Subscriber ${subscriber.id} has no phone number`);
-        continue;
-      }
+      if (!subscriber.phoneNumber) continue;
 
-      const minRatio = subscriber.preferences?.minVolumeRatio || 1.5;
-      const maxAlerts = subscriber.preferences?.maxAlertsPerDay || 5;
+      const minRatio = Math.max(subscriber.preferences?.minVolumeRatio || VOLUME_RATIO_THRESHOLD, VOLUME_RATIO_THRESHOLD);
+      let relevant = hotTickers.filter(t => parseFloat(t.volume_ratio) >= minRatio);
+
       const watchlist = subscriber.preferences?.watchlist || [];
-
-      let relevantTickers = highActivityTickers.filter(ticker => {
-        const ratio = parseFloat(ticker.volume_ratio);
-        return ratio >= minRatio;
-      });
-
       if (watchlist.length > 0) {
-        const watchlistTickers = relevantTickers.filter(t => 
-          watchlist.includes(t.ticker)
-        );
-        const otherTickers = relevantTickers.filter(t => 
-          !watchlist.includes(t.ticker)
-        );
-        relevantTickers = [...watchlistTickers, ...otherTickers];
+        const watched = relevant.filter(t => watchlist.includes(t.ticker));
+        const others = relevant.filter(t => !watchlist.includes(t.ticker));
+        relevant = [...watched, ...others];
       }
 
-      relevantTickers = relevantTickers.slice(0, maxAlerts);
+      if (relevant.length === 0) continue;
 
-      for (const ticker of relevantTickers) {
-        try {
-          const result = await sendDarkPoolAlert(
-            subscriber.phoneNumber,
-            ticker.ticker,
-            ticker.volume_ratio,
-            ticker.total_value
-          );
-
-          if (result.success) {
-            recordAlertSent(subscriber.stripeCustomerId);
-            results.push({
-              subscriberId: subscriber.id,
-              ticker: ticker.ticker,
-              success: true
-            });
-          } else {
-            results.push({
-              subscriberId: subscriber.id,
-              ticker: ticker.ticker,
-              success: false,
-              error: result.error
-            });
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 250));
-        } catch (error) {
-          console.error(`Failed to send alert to ${subscriber.id}:`, error.message);
-          results.push({
-            subscriberId: subscriber.id,
-            ticker: ticker.ticker,
-            success: false,
-            error: error.message
-          });
-        }
+      try {
+        const result = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date);
+        recordAlertSent(subscriber.stripeCustomerId || subscriber.id);
+        results.push({ subscriberId: subscriber.id, success: result.success, tickerCount: relevant.length, error: result.error });
+      } catch (error) {
+        console.error(`Failed to send digest to ${subscriber.id}:`, error.message);
+        results.push({ subscriberId: subscriber.id, success: false, error: error.message });
       }
+
+      await new Promise(resolve => setTimeout(resolve, 250));
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
-
-    console.log(`Alerts sent: ${successCount} success, ${failCount} failed`);
+    const sent = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
 
     return res.status(200).json({
       success: true,
       date: darkPoolData.date,
-      highActivityTickers: highActivityTickers.length,
-      subscribersNotified: subscribers.length,
-      alertsSent: successCount,
-      alertsFailed: failCount,
-      results: results
+      hotTickers: hotTickers.length,
+      subscribersNotified: sent,
+      alertsFailed: failed,
+      results
     });
   } catch (error) {
     console.error('Automated scanner error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
 
-async function getLatestDarkPoolData() {
-  try {
-    const files = await listDataFiles();
+async function getLatestDarkPoolDataWithRatios() {
+  const files = await listDataFiles();
+  if (files.length === 0) return null;
 
-    if (files.length === 0) {
-      console.log('No processed data files found');
-      return null;
+  const latestFile = files[0];
+  const latestData = await getDataFile(latestFile.url);
+  if (!latestData || !latestData.tickers) return null;
+
+  const filenameDate = latestFile.filename.replace('.json', '');
+  const currentDate = new Date(filenameDate);
+  const sevenDaysAgo = new Date(currentDate);
+  sevenDaysAgo.setDate(currentDate.getDate() - 6);
+
+  const recentFiles = files
+    .filter(f => {
+      const d = new Date(f.filename.replace('.json', ''));
+      return d >= sevenDaysAgo && d <= currentDate;
+    })
+    .slice(0, 7);
+
+  const tickerTotals = {};
+  const tickerCounts = {};
+
+  for (const file of recentFiles) {
+    try {
+      const data = await getDataFile(file.url);
+      if (!data?.tickers) continue;
+      for (const t of data.tickers) {
+        tickerTotals[t.ticker] = (tickerTotals[t.ticker] || 0) + t.total_volume;
+        tickerCounts[t.ticker] = (tickerCounts[t.ticker] || 0) + 1;
+      }
+    } catch (e) {
+      console.error(`Error reading ${file.filename}:`, e.message);
     }
-
-    const latestFile = files[0];
-    const data = await getDataFile(latestFile.url);
-
-    if (!data) {
-      console.log('Failed to load latest data file');
-      return null;
-    }
-
-    console.log(`Loaded dark pool data from ${latestFile.filename}`);
-    
-    return {
-      date: latestFile.filename.replace('.json', ''),
-      tickers: data.tickers || [],
-      total_volume: data.total_volume || 0
-    };
-  } catch (error) {
-    console.error('Error loading dark pool data:', error);
-    return null;
   }
+
+  const tickerAverages = {};
+  for (const ticker of Object.keys(tickerTotals)) {
+    tickerAverages[ticker] = Math.round(tickerTotals[ticker] / tickerCounts[ticker]);
+  }
+
+  const tickers = latestData.tickers
+    .filter(t => t.total_value >= MIN_TOTAL_VALUE && t.avg_price >= MIN_AVG_PRICE)
+    .map(t => ({
+      ...t,
+      avg_7day_volume: tickerAverages[t.ticker] || 0,
+      volume_ratio: tickerAverages[t.ticker] > 0
+        ? (t.total_volume / tickerAverages[t.ticker]).toFixed(2)
+        : 'N/A'
+    }));
+
+  return { date: filenameDate, tickers };
 }
