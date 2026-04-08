@@ -1,8 +1,9 @@
-// Automated Scanner - Sends consolidated SMS digest to subscribers
+// Automated Scanner - Sends consolidated SMS + email digest to subscribers
 // Called by Vercel Cron at 9 AM ET (13:00 UTC) on trading days
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigest } from '../../lib/twilio-service';
+import { sendDailyDigestEmail } from '../../lib/email-service';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -68,7 +69,9 @@ export default async function handler(req, res) {
     const results = [];
 
     for (const subscriber of subscribers) {
-      if (!subscriber.phoneNumber) continue;
+      const hasPhone = !!subscriber.phoneNumber;
+      const hasEmail = !!subscriber.email;
+      if (!hasPhone && !hasEmail) continue;
 
       const minRatio = Math.max(subscriber.preferences?.minVolumeRatio || VOLUME_RATIO_THRESHOLD, VOLUME_RATIO_THRESHOLD);
       let relevant = hotTickers.filter(t => parseFloat(t.volume_ratio) >= minRatio);
@@ -82,20 +85,35 @@ export default async function handler(req, res) {
 
       if (relevant.length === 0) continue;
 
-      try {
-        const result = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date);
-        recordAlertSent(subscriber.stripeCustomerId || subscriber.id);
-        results.push({ subscriberId: subscriber.id, success: result.success, tickerCount: relevant.length, error: result.error });
-      } catch (error) {
-        console.error(`Failed to send digest to ${subscriber.id}:`, error.message);
-        results.push({ subscriberId: subscriber.id, success: false, error: error.message });
+      const subResult = { subscriberId: subscriber.id, tickerCount: relevant.length, sms: null, email: null };
+
+      // Send SMS (will fail gracefully if toll-free not verified yet)
+      if (hasPhone) {
+        try {
+          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date);
+        } catch (error) {
+          subResult.sms = { success: false, error: error.message };
+        }
       }
+
+      // Send email
+      if (hasEmail) {
+        try {
+          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date);
+        } catch (error) {
+          subResult.email = { success: false, error: error.message };
+        }
+      }
+
+      const anySuccess = subResult.sms?.success || subResult.email?.success;
+      if (anySuccess) recordAlertSent(subscriber.stripeCustomerId || subscriber.id);
+      results.push(subResult);
 
       await new Promise(resolve => setTimeout(resolve, 250));
     }
 
-    const sent = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
+    const sent = results.filter(r => r.sms?.success || r.email?.success).length;
+    const failed = results.filter(r => !r.sms?.success && !r.email?.success).length;
 
     return res.status(200).json({
       success: true,

@@ -14,8 +14,8 @@
         "alertTime": "09:00",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 2,
-      "lastAlertAt": "2026-04-07T22:29:00.326Z"
+      "alertsSent": 4,
+      "lastAlertAt": "2026-04-07T23:20:57.900Z"
     }
   ]
 }
