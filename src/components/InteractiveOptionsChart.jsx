@@ -222,24 +222,49 @@ const InteractiveOptionsChart = ({
           <div className="bg-gradient-to-r from-green-50 to-red-50 rounded-lg p-4 border border-green-200">
             <h5 className="font-semibold text-gray-800 mb-3">Price Zones</h5>
             <div className="space-y-2">
-              <div className="text-sm flex justify-between">
-                <span>Below Lower: Loss Zone</span>
-                <span className="font-semibold text-red-600">
-                  &lt; ${numberFormat(lowerBreakeven)}
-                </span>
-              </div>
-              <div className="text-sm flex justify-between">
-                <span>Profit Zone</span>
-                <span className="font-semibold text-green-600">
-                  ${numberFormat(lowerBreakeven)} - ${numberFormat(upperBreakeven)}
-                </span>
-              </div>
-              <div className="text-sm flex justify-between">
-                <span>Above Upper: Loss Zone</span>
-                <span className="font-semibold text-red-600">
-                  &gt; ${numberFormat(upperBreakeven)}
-                </span>
-              </div>
+              {strategyType === 'straddle' ? (
+                <>
+                  <div className="text-sm flex justify-between">
+                    <span>Below Lower: Profit Zone</span>
+                    <span className="font-semibold text-green-600">
+                      &lt; ${numberFormat(lowerBreakeven)}
+                    </span>
+                  </div>
+                  <div className="text-sm flex justify-between">
+                    <span>Between Breakevens: Max Loss</span>
+                    <span className="font-semibold text-red-600">
+                      ${numberFormat(lowerBreakeven)} – ${numberFormat(upperBreakeven)}
+                    </span>
+                  </div>
+                  <div className="text-sm flex justify-between">
+                    <span>Above Upper: Profit Zone</span>
+                    <span className="font-semibold text-green-600">
+                      &gt; ${numberFormat(upperBreakeven)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm flex justify-between">
+                    <span>Below Lower: Loss Zone</span>
+                    <span className="font-semibold text-red-600">
+                      &lt; ${numberFormat(lowerBreakeven)}
+                    </span>
+                  </div>
+                  <div className="text-sm flex justify-between">
+                    <span>Profit Zone</span>
+                    <span className="font-semibold text-green-600">
+                      ${numberFormat(lowerBreakeven)} – ${numberFormat(upperBreakeven)}
+                    </span>
+                  </div>
+                  <div className="text-sm flex justify-between">
+                    <span>Above Upper: Loss Zone</span>
+                    <span className="font-semibold text-red-600">
+                      &gt; ${numberFormat(upperBreakeven)}
+                    </span>
+                  </div>
+                </>
+              )}
               {currentPrice && (
                 <div className={`text-sm font-bold ${
                   status === 'profit' ? 'text-green-600' : 

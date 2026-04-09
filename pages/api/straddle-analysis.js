@@ -27,25 +27,36 @@ export default async function handler(req, res) {
     const upperBreakevenPct = (upperBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
     const lowerBreakevenPct = (lowerBreakeven - effectiveStrikePrice) / effectiveStrikePrice;
 
-    // Fetch historical data from Massive.com
-    // Need enough data for up to 200 instances with DTE intervals
-    // For 200 instances with DTE=18: need at least 200 + 18 = 218 trading days
-    // Fetch ~2 years of data to ensure we have enough (approx 500 trading days in 2 years)
+    const dte = daysToExpiration || 30;
+    const MIN_PERIODS = 25;
+
+    // Need at least MIN_PERIODS * DTE trading days of history.
+    // 1 calendar year ≈ 252 trading days. Fetch up to 5 years to guarantee
+    // 25+ non-overlapping intervals even for long-dated expirations.
     const endDate = new Date().toISOString().split('T')[0];
-    const daysToFetch = Math.max(500, (daysToExpiration || 30) + 250); // Ensure we have enough data
-    const startDate = new Date(Date.now() - daysToFetch * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
+    const calendarDaysNeeded = Math.max(750, Math.ceil((MIN_PERIODS * dte) / 0.7) + 60);
+    const startDate = new Date(Date.now() - calendarDaysNeeded * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
     const historicalData = await getHistoricalStockData(ticker, startDate, endDate);
+
+    // Use non-overlapping intervals; fall back to overlapping if we can't reach MIN_PERIODS
+    let movements = calculatePriceMovements(historicalData, dte);
+
+    if (movements.length < MIN_PERIODS) {
+      movements = calculateOverlappingMovements(historicalData, dte);
+    }
     
-    // Calculate price movements for analysis
-    const movements = calculatePriceMovements(historicalData, daysToExpiration || 30);
-    
-    // Analyze historical profitability
     const analysis = analyzeHistoricalProfitability(
       movements, 
       upperBreakevenPct, 
       lowerBreakevenPct
     );
+
+    analysis.periodsRequested = MIN_PERIODS;
+    analysis.periodsFound = movements.length;
+    analysis.historyYears = historicalData.length > 0
+      ? ((new Date(historicalData[historicalData.length - 1].date) - new Date(historicalData[0].date)) / (365.25 * 24 * 60 * 60 * 1000)).toFixed(1)
+      : 0;
 
     res.status(200).json(analysis);
   } catch (error) {
@@ -134,6 +145,31 @@ function analyzeHistoricalProfitability(historicalData, upperBreakevenPct, lower
     avgMove: avgMove * 100,
     maxMove: maxMove * 100,
     minMove: minMove * 100,
-    dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 20 ? 'medium' : totalValidSamples >= 5 ? 'low' : 'limited'
+    dataQuality: totalValidSamples >= 50 ? 'high' : totalValidSamples >= 25 ? 'medium' : totalValidSamples >= 10 ? 'low' : 'limited'
   };
+}
+
+// Overlapping (rolling-window) movements — used as fallback when non-overlapping
+// can't produce enough periods (e.g. recently listed stocks or long DTEs).
+function calculateOverlappingMovements(historicalData, daysToExpiration) {
+  if (!historicalData || historicalData.length === 0 || daysToExpiration <= 0) return [];
+
+  const sorted = [...historicalData].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const movements = [];
+
+  for (let i = 0; i + daysToExpiration < sorted.length; i++) {
+    const start = sorted[i];
+    const end = sorted[i + daysToExpiration];
+    if (start.close > 0 && end.close > 0) {
+      movements.push({
+        startDate: start.date,
+        endDate: end.date,
+        startPrice: start.close,
+        endPrice: end.close,
+        percentMove: (start.close - end.close) / end.close
+      });
+    }
+  }
+
+  return movements;
 }
