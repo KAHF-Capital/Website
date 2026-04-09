@@ -145,13 +145,26 @@ const InteractiveOptionsChart = ({
     }
 
 
+    const callPx = inputs.callPrice ? `$${parseFloat(inputs.callPrice).toFixed(2)}` : '—';
+    const putPx = inputs.putPrice ? `$${parseFloat(inputs.putPrice).toFixed(2)}` : '—';
+
     return (
       <div className="space-y-3">
         <div className="bg-blue-50 p-3 rounded-lg">
-          <div className="font-semibold text-blue-700">Straddle Legs</div>
-          <div className="text-blue-600 text-sm">
-            <div>Buy Call: ${inputs.strikePrice} @ ${(inputs.totalPremium/2).toFixed(2)}</div>
-            <div>Buy Put: ${inputs.strikePrice} @ ${(inputs.totalPremium/2).toFixed(2)}</div>
+          <div className="font-semibold text-blue-700 mb-1">Straddle Legs</div>
+          <div className="text-blue-600 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span>Buy Call @ ${inputs.strikePrice}</span>
+              <span className="font-semibold">{callPx}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Buy Put @ ${inputs.strikePrice}</span>
+              <span className="font-semibold">{putPx}</span>
+            </div>
+            <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
+              <span className="font-medium">Total Premium</span>
+              <span className="font-bold">${parseFloat(inputs.totalPremium).toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </div>

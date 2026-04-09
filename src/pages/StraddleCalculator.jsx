@@ -15,7 +15,9 @@ const StraddleCalculator = () => {
     currentPrice: '',
     expirationDate: '',
     strikePrice: '',
-    totalPremium: ''
+    totalPremium: '',
+    callPrice: '',
+    putPrice: ''
   });
 
   const [results, setResults] = useState(null);
@@ -150,7 +152,9 @@ const StraddleCalculator = () => {
           ...prev,
           totalPremium: straddleData.totalPremium.toFixed(2),
           strikePrice: straddleData.strikePrice.toFixed(2),
-          expirationDate: straddleData.expiration
+          expirationDate: straddleData.expiration,
+          callPrice: straddleData.callPrice ? straddleData.callPrice.toFixed(2) : '',
+          putPrice: straddleData.putPrice ? straddleData.putPrice.toFixed(2) : ''
         }));
 
         const newNotices = [];
