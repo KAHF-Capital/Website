@@ -17,7 +17,11 @@ const StraddleCalculator = () => {
     strikePrice: '',
     totalPremium: '',
     callPrice: '',
-    putPrice: ''
+    putPrice: '',
+    callBid: '',
+    callAsk: '',
+    putBid: '',
+    putAsk: ''
   });
 
   const [results, setResults] = useState(null);
@@ -154,13 +158,17 @@ const StraddleCalculator = () => {
           strikePrice: straddleData.strikePrice.toFixed(2),
           expirationDate: straddleData.expiration,
           callPrice: straddleData.callPrice ? straddleData.callPrice.toFixed(2) : '',
-          putPrice: straddleData.putPrice ? straddleData.putPrice.toFixed(2) : ''
+          putPrice: straddleData.putPrice ? straddleData.putPrice.toFixed(2) : '',
+          callBid: straddleData.callBid ?? '',
+          callAsk: straddleData.callAsk ?? '',
+          putBid: straddleData.putBid ?? '',
+          putAsk: straddleData.putAsk ?? ''
         }));
 
         const newNotices = [];
-        if (straddleData.callPrice === 0) newNotices.push("Call option price not available — using estimated value");
-        if (straddleData.putPrice === 0) newNotices.push("Put option price not available — using estimated value");
-        if (straddleData.isEstimated) newNotices.push("Premium values are estimated due to missing pricing data");
+        if (straddleData.callPrice === 0) newNotices.push("Call option price not available");
+        if (straddleData.putPrice === 0) newNotices.push("Put option price not available");
+        if (straddleData.dataQuality === 'low') newNotices.push("Limited pricing data — some values may use previous day's close");
         if (straddleData.requestedExpiration && straddleData.expiration !== straddleData.requestedExpiration) {
           newNotices.push(`Using closest available expiration ${straddleData.expiration} (requested ${straddleData.requestedExpiration})`);
         }

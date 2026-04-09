@@ -145,26 +145,48 @@ const InteractiveOptionsChart = ({
     }
 
 
-    const callPx = inputs.callPrice ? `$${parseFloat(inputs.callPrice).toFixed(2)}` : '—';
-    const putPx = inputs.putPrice ? `$${parseFloat(inputs.putPrice).toFixed(2)}` : '—';
+    const callPx = inputs.callPrice ? parseFloat(inputs.callPrice) : null;
+    const putPx = inputs.putPrice ? parseFloat(inputs.putPrice) : null;
+    const hasBidAsk = inputs.callBid !== '' && inputs.callAsk !== '' &&
+      parseFloat(inputs.callBid) > 0 && parseFloat(inputs.callAsk) > 0;
 
     return (
       <div className="space-y-3">
         <div className="bg-blue-50 p-3 rounded-lg">
-          <div className="font-semibold text-blue-700 mb-1">Straddle Legs</div>
-          <div className="text-blue-600 text-sm space-y-1">
-            <div className="flex justify-between">
-              <span>Buy Call @ ${inputs.strikePrice}</span>
-              <span className="font-semibold">{callPx}</span>
+          <div className="font-semibold text-blue-700 mb-2">Straddle Legs</div>
+          <div className="text-sm space-y-2">
+            {/* Call */}
+            <div>
+              <div className="flex justify-between text-blue-700">
+                <span>Buy Call @ ${inputs.strikePrice}</span>
+                <span className="font-semibold">{callPx ? `$${callPx.toFixed(2)}` : '—'}</span>
+              </div>
+              {hasBidAsk && (
+                <div className="flex justify-end text-xs text-blue-500">
+                  Bid ${parseFloat(inputs.callBid).toFixed(2)} / Ask ${parseFloat(inputs.callAsk).toFixed(2)}
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span>Buy Put @ ${inputs.strikePrice}</span>
-              <span className="font-semibold">{putPx}</span>
+            {/* Put */}
+            <div>
+              <div className="flex justify-between text-blue-700">
+                <span>Buy Put @ ${inputs.strikePrice}</span>
+                <span className="font-semibold">{putPx ? `$${putPx.toFixed(2)}` : '—'}</span>
+              </div>
+              {hasBidAsk && (
+                <div className="flex justify-end text-xs text-blue-500">
+                  Bid ${parseFloat(inputs.putBid).toFixed(2)} / Ask ${parseFloat(inputs.putAsk).toFixed(2)}
+                </div>
+              )}
             </div>
-            <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
-              <span className="font-medium">Total Premium</span>
-              <span className="font-bold">${parseFloat(inputs.totalPremium).toFixed(2)}</span>
+            {/* Total */}
+            <div className="flex justify-between border-t border-blue-200 pt-1.5">
+              <span className="font-medium text-blue-800">Total Premium</span>
+              <span className="font-bold text-blue-800">${parseFloat(inputs.totalPremium).toFixed(2)}</span>
             </div>
+            {hasBidAsk && (
+              <div className="text-xs text-blue-500 text-right">Mid price (bid/ask average)</div>
+            )}
           </div>
         </div>
       </div>

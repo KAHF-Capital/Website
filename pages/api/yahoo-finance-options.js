@@ -11,11 +11,19 @@ const YAHOO_OPTIONS_BASE = 'https://query2.finance.yahoo.com/v7/finance/options'
 const optionsCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+const YAHOO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://finance.yahoo.com/',
+  'Origin': 'https://finance.yahoo.com'
+};
+
 // Get current stock price from Yahoo Finance
 async function getCurrentPrice(ticker) {
   try {
     const url = `${YAHOO_FINANCE_BASE}/${ticker}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: YAHOO_HEADERS });
     
     if (!response.ok) {
       throw new Error(`Yahoo Finance API error: ${response.status}`);
@@ -46,7 +54,7 @@ async function getCurrentPrice(ticker) {
 async function getExpirationDates(ticker) {
   try {
     const url = `${YAHOO_OPTIONS_BASE}/${ticker}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: YAHOO_HEADERS });
     
     if (!response.ok) {
       throw new Error(`Yahoo Finance options API error: ${response.status}`);
@@ -92,7 +100,7 @@ async function getOptionsData(ticker, expirationDate) {
     const expirationTimestamp = Math.floor(new Date(expirationDate).getTime() / 1000);
     const url = `${YAHOO_OPTIONS_BASE}/${ticker}?date=${expirationTimestamp}`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: YAHOO_HEADERS });
     
     if (!response.ok) {
       throw new Error(`Yahoo Finance options API error: ${response.status}`);
@@ -139,10 +147,16 @@ async function getOptionsData(ticker, expirationDate) {
       throw new Error('Could not find ATM call and put options');
     }
     
-    // Calculate straddle premium (use mid price)
-    const callMid = (atmCall.bid + atmCall.ask) / 2;
-    const putMid = (atmPut.bid + atmPut.ask) / 2;
+    // Use mid price when bid/ask spread is available, fall back to lastPrice
+    const callMid = (atmCall.bid > 0 && atmCall.ask > 0)
+      ? (atmCall.bid + atmCall.ask) / 2
+      : (atmCall.lastPrice || 0);
+    const putMid = (atmPut.bid > 0 && atmPut.ask > 0)
+      ? (atmPut.bid + atmPut.ask) / 2
+      : (atmPut.lastPrice || 0);
     const totalPremium = callMid + putMid;
+
+    const priceSource = (atmCall.bid > 0 && atmCall.ask > 0) ? 'mid' : 'lastPrice';
     
     const optionsData = {
       ticker,
@@ -151,22 +165,27 @@ async function getOptionsData(ticker, expirationDate) {
       strikePrice: atmStrike,
       callOption: {
         strike: atmCall.strike,
+        lastPrice: atmCall.lastPrice,
         bid: atmCall.bid,
         ask: atmCall.ask,
         mid: callMid,
         volume: atmCall.volume,
-        openInterest: atmCall.openInterest
+        openInterest: atmCall.openInterest,
+        impliedVolatility: atmCall.impliedVolatility
       },
       putOption: {
         strike: atmPut.strike,
+        lastPrice: atmPut.lastPrice,
         bid: atmPut.bid,
         ask: atmPut.ask,
         mid: putMid,
         volume: atmPut.volume,
-        openInterest: atmPut.openInterest
+        openInterest: atmPut.openInterest,
+        impliedVolatility: atmPut.impliedVolatility
       },
       totalPremium,
-      dataQuality: 'high' // Yahoo Finance data is generally reliable
+      priceSource,
+      dataQuality: priceSource === 'mid' ? 'high' : 'medium'
     };
     
     // Cache the result
