@@ -5,6 +5,7 @@ import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-sto
 import { sendDailyDigest } from '../../lib/twilio-service';
 import { sendDailyDigestEmail } from '../../lib/email-service';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
+import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const VOLUME_RATIO_THRESHOLD = 3.0;
@@ -52,6 +53,30 @@ export default async function handler(req, res) {
         alertsSent: 0
       });
     }
+
+    // Enrich each hot ticker with straddle success rate (~30-day expiry)
+    console.log(`Running straddle analysis on ${hotTickers.length} tickers...`);
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < hotTickers.length; i += BATCH_SIZE) {
+      const batch = hotTickers.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (t) => {
+          try {
+            const result = await getStraddleSuccessRate(t.ticker);
+            t.straddleRate = result?.successRate ?? null;
+            t.straddleDTE = result?.dte ?? null;
+          } catch {
+            t.straddleRate = null;
+            t.straddleDTE = null;
+          }
+        })
+      );
+      if (i + BATCH_SIZE < hotTickers.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    const withRate = hotTickers.filter(t => t.straddleRate !== null).length;
+    console.log(`Straddle analysis complete: ${withRate}/${hotTickers.length} tickers have success rates`);
 
     const subscribers = getActiveSubscribers();
 
