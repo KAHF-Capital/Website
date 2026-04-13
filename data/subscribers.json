@@ -18,13 +18,47 @@
       "lastAlertAt": "2026-04-13T03:17:17.281Z"
     },
     {
-      "id": "manual_1776050616095",
-      "stripeCustomerId": "manual_1776050616095",
-      "email": "billfrissell555@gmail.com",
+      "id": "manual_1776051200014",
+      "stripeCustomerId": "manual_1776051200014",
+      "email": "ozge.asan333@gmail.com",
       "phoneNumber": null,
       "status": "active",
       "createdAt": "2026-04-13T03:22:22.868Z",
-      "updatedAt": "2026-04-13T03:23:36.096Z",
+      "updatedAt": "2026-04-13T03:33:20.016Z",
+      "preferences": {
+        "minVolumeRatio": 3,
+        "watchlist": [],
+        "alertTime": "09:46",
+        "maxAlertsPerDay": 25
+      },
+      "alertsSent": 0,
+      "lastAlertAt": null
+    },
+    {
+      "id": "manual_1776051282570",
+      "stripeCustomerId": "manual_1776051282570",
+      "email": "kianassary@gmail.com",
+      "phoneNumber": null,
+      "status": "active",
+      "createdAt": "2026-04-13T03:34:42.570Z",
+      "updatedAt": "2026-04-13T03:34:42.571Z",
+      "preferences": {
+        "minVolumeRatio": 3,
+        "watchlist": [],
+        "alertTime": "09:46",
+        "maxAlertsPerDay": 25
+      },
+      "alertsSent": 0,
+      "lastAlertAt": null
+    },
+    {
+      "id": "manual_1776051378844",
+      "stripeCustomerId": "manual_1776051378844",
+      "email": "billfrissell555@gmail.com",
+      "phoneNumber": null,
+      "status": "active",
+      "createdAt": "2026-04-13T03:36:18.845Z",
+      "updatedAt": "2026-04-13T03:36:18.845Z",
       "preferences": {
         "minVolumeRatio": 3,
         "watchlist": [],
