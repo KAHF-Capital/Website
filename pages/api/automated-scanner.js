@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       isQuietDay = true;
       tickersToSend = [...darkPoolData.tickers]
         .filter(t => t.volume_ratio !== 'N/A')
-        .sort((a, b) => b.total_volume - a.total_volume)
+        .sort((a, b) => parseFloat(b.volume_ratio) - parseFloat(a.volume_ratio))
         .slice(0, 10);
 
       if (tickersToSend.length === 0) {
