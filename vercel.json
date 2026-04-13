@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/automated-scanner",
-      "schedule": "0 13 * * 1-5"
+      "schedule": "46 13 * * 1-5"
     }
   ]
 }
