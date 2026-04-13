@@ -45,21 +45,37 @@ export default async function handler(req, res) {
       return parseFloat(t.volume_ratio) >= VOLUME_RATIO_THRESHOLD;
     });
 
+    // If nothing hit 3x+, fall back to top 10 tickers by volume
+    let isQuietDay = false;
+    let tickersToSend;
+
     if (hotTickers.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: `No tickers above ${VOLUME_RATIO_THRESHOLD}x threshold`,
-        date: darkPoolData.date,
-        alertsSent: 0
-      });
+      isQuietDay = true;
+      tickersToSend = [...darkPoolData.tickers]
+        .filter(t => t.volume_ratio !== 'N/A')
+        .sort((a, b) => b.total_volume - a.total_volume)
+        .slice(0, 10);
+
+      if (tickersToSend.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: 'No tickers with volume data available',
+          date: darkPoolData.date,
+          alertsSent: 0
+        });
+      }
+
+      console.log(`Quiet day — no 3x+ tickers, sending top ${tickersToSend.length} by volume`);
+    } else {
+      tickersToSend = hotTickers;
     }
 
-    // Enrich each hot ticker with straddle success rate (~30-day expiry)
-    console.log(`Running straddle analysis on ${hotTickers.length} tickers...`);
+    // Enrich each ticker with straddle success rate (~30-day expiry)
+    console.log(`Running straddle analysis on ${tickersToSend.length} tickers...`);
     const BATCH_SIZE = 5;
-    for (let i = 0; i < hotTickers.length; i += BATCH_SIZE) {
-      const batch = hotTickers.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
+    for (let i = 0; i < tickersToSend.length; i += BATCH_SIZE) {
+      const batch = tickersToSend.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(
         batch.map(async (t) => {
           try {
             const result = await getStraddleSuccessRate(t.ticker);
@@ -71,12 +87,12 @@ export default async function handler(req, res) {
           }
         })
       );
-      if (i + BATCH_SIZE < hotTickers.length) {
+      if (i + BATCH_SIZE < tickersToSend.length) {
         await new Promise(r => setTimeout(r, 500));
       }
     }
-    const withRate = hotTickers.filter(t => t.straddleRate !== null).length;
-    console.log(`Straddle analysis complete: ${withRate}/${hotTickers.length} tickers have success rates`);
+    const withRate = tickersToSend.filter(t => t.straddleRate !== null).length;
+    console.log(`Straddle analysis complete: ${withRate}/${tickersToSend.length} tickers have success rates`);
 
     const subscribers = getActiveSubscribers();
 
@@ -84,12 +100,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         message: 'No active subscribers',
-        hotTickers: hotTickers.length,
+        hotTickers: tickersToSend.length,
         alertsSent: 0
       });
     }
 
-    console.log(`${hotTickers.length} tickers at ${VOLUME_RATIO_THRESHOLD}x+ → sending to ${subscribers.length} subscribers`);
+    console.log(`${tickersToSend.length} tickers (${isQuietDay ? 'top by volume' : VOLUME_RATIO_THRESHOLD + 'x+'}) → sending to ${subscribers.length} subscribers`);
 
     const results = [];
 
@@ -98,24 +114,29 @@ export default async function handler(req, res) {
       const hasEmail = !!subscriber.email;
       if (!hasPhone && !hasEmail) continue;
 
-      const minRatio = Math.max(subscriber.preferences?.minVolumeRatio || VOLUME_RATIO_THRESHOLD, VOLUME_RATIO_THRESHOLD);
-      let relevant = hotTickers.filter(t => parseFloat(t.volume_ratio) >= minRatio);
+      let relevant;
+      if (isQuietDay) {
+        relevant = tickersToSend;
+      } else {
+        const minRatio = Math.max(subscriber.preferences?.minVolumeRatio || VOLUME_RATIO_THRESHOLD, VOLUME_RATIO_THRESHOLD);
+        relevant = tickersToSend.filter(t => parseFloat(t.volume_ratio) >= minRatio);
 
-      const watchlist = subscriber.preferences?.watchlist || [];
-      if (watchlist.length > 0) {
-        const watched = relevant.filter(t => watchlist.includes(t.ticker));
-        const others = relevant.filter(t => !watchlist.includes(t.ticker));
-        relevant = [...watched, ...others];
+        const watchlist = subscriber.preferences?.watchlist || [];
+        if (watchlist.length > 0) {
+          const watched = relevant.filter(t => watchlist.includes(t.ticker));
+          const others = relevant.filter(t => !watchlist.includes(t.ticker));
+          relevant = [...watched, ...others];
+        }
+
+        if (relevant.length === 0) continue;
       }
-
-      if (relevant.length === 0) continue;
 
       const subResult = { subscriberId: subscriber.id, tickerCount: relevant.length, sms: null, email: null };
 
       // Send SMS (will fail gracefully if toll-free not verified yet)
       if (hasPhone) {
         try {
-          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date);
+          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date, isQuietDay);
         } catch (error) {
           subResult.sms = { success: false, error: error.message };
         }
@@ -124,7 +145,7 @@ export default async function handler(req, res) {
       // Send email
       if (hasEmail) {
         try {
-          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date);
+          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay);
         } catch (error) {
           subResult.email = { success: false, error: error.message };
         }
