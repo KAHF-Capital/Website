@@ -16,6 +16,23 @@
       },
       "alertsSent": 11,
       "lastAlertAt": "2026-04-13T03:17:17.281Z"
+    },
+    {
+      "id": "manual_1776050616095",
+      "stripeCustomerId": "manual_1776050616095",
+      "email": "billfrissell555@gmail.com",
+      "phoneNumber": null,
+      "status": "active",
+      "createdAt": "2026-04-13T03:22:22.868Z",
+      "updatedAt": "2026-04-13T03:23:36.096Z",
+      "preferences": {
+        "minVolumeRatio": 3,
+        "watchlist": [],
+        "alertTime": "09:00",
+        "maxAlertsPerDay": 25
+      },
+      "alertsSent": 0,
+      "lastAlertAt": null
     }
   ]
 }
