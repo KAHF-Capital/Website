@@ -14,8 +14,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 11,
-      "lastAlertAt": "2026-04-13T03:17:17.281Z"
+      "alertsSent": 12,
+      "lastAlertAt": "2026-04-14T16:12:13.328Z"
     },
     {
       "id": "manual_1776051200014",
@@ -31,25 +31,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 0,
-      "lastAlertAt": null
-    },
-    {
-      "id": "manual_1776051282570",
-      "stripeCustomerId": "manual_1776051282570",
-      "email": "kianassary@gmail.com",
-      "phoneNumber": null,
-      "status": "active",
-      "createdAt": "2026-04-13T03:34:42.570Z",
-      "updatedAt": "2026-04-13T03:34:42.571Z",
-      "preferences": {
-        "minVolumeRatio": 3,
-        "watchlist": [],
-        "alertTime": "09:46",
-        "maxAlertsPerDay": 25
-      },
-      "alertsSent": 0,
-      "lastAlertAt": null
+      "alertsSent": 1,
+      "lastAlertAt": "2026-04-14T16:12:13.907Z"
     },
     {
       "id": "manual_1776051378844",
@@ -65,8 +48,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 0,
-      "lastAlertAt": null
+      "alertsSent": 1,
+      "lastAlertAt": "2026-04-14T16:12:15.136Z"
     }
   ]
 }
