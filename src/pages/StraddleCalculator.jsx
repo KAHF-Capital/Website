@@ -214,14 +214,11 @@ const StraddleCalculator = () => {
 
   const calculateDaysToExpiration = () => {
     if (!inputs.expirationDate) return 0;
-    if (results && results.executionDate) {
-      const execDate = new Date(results.executionDate);
-      const expDate = new Date(inputs.expirationDate);
-      return Math.floor((expDate - execDate) / (1000 * 60 * 60 * 24));
-    }
-    const today = new Date();
-    const expDate = new Date(inputs.expirationDate);
-    return Math.floor((expDate - today) / (1000 * 60 * 60 * 24));
+    const expDate = new Date(inputs.expirationDate + 'T12:00:00');
+    const refDate = results?.executionDate
+      ? new Date(results.executionDate + 'T12:00:00')
+      : new Date();
+    return Math.max(0, Math.ceil((expDate - refDate) / (1000 * 60 * 60 * 24)));
   };
 
   const calculateBreakevens = () => {
