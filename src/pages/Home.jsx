@@ -25,7 +25,7 @@ export default function Home() {
     },
     {
       name: "VolAlert Pro",
-      description: "Get real-time SMS alerts on volatility opportunities",
+      description: "Get daily alerts on volatility opportunities",
       icon: Search,
     }
   ];

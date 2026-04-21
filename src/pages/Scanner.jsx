@@ -4,7 +4,8 @@ import Footer from './Footer';
 import Header from '../components/Header';
 import DraggableFilter from '../components/DraggableFilter';
 import DarkPoolAnalysis from '../components/DarkPoolAnalysis';
-import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp } from 'lucide-react';
+import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -35,6 +36,7 @@ const SafeTrendingUp = () => {
 };
 
 export default function Scanner() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [darkPoolData, setDarkPoolData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -177,6 +179,53 @@ export default function Scanner() {
     return new Intl.NumberFormat().format(Math.round(num / 1000) * 1000);
   };
 
+  const LockedDarkPoolCard = ({ ticker }) => (
+    <div className="relative border border-gray-200 bg-white rounded-lg overflow-hidden group">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-lg font-semibold text-gray-900 select-none">
+            <span className="inline-block bg-gray-300 text-transparent rounded px-3" style={{ filter: 'blur(6px)' }}>
+              ••••
+            </span>
+          </h4>
+          <span className="text-sm text-gray-400 select-none" style={{ filter: 'blur(4px)' }}>
+            ••• trades
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Volume Ratio:</span>
+            <span className={`font-bold text-lg ${ticker.volume_ratio !== 'N/A' && parseFloat(ticker.volume_ratio) > 1 ? 'text-green-600' : 'text-gray-900'}`}>
+              {ticker.volume_ratio !== 'N/A' ? `${ticker.volume_ratio}x` : 'N/A'}
+            </span>
+          </div>
+
+          {['Today\'s Volume', '7-Day Avg', 'Avg Price', 'Total Value'].map((label) => (
+            <div key={label} className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">{label}:</span>
+              <span className="font-medium text-gray-400 select-none" style={{ filter: 'blur(5px)' }}>
+                ••••••
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <Link href={`/signup?redirect=/scanner`}>
+            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm">
+              <Lock className="h-4 w-4 mr-2" />
+              Sign up free to unlock
+            </button>
+          </Link>
+          <p className="mt-2 text-center text-xs text-gray-500">
+            Top 3 signals are members-only
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   const DarkPoolSummaryCard = ({ ticker }) => (
     <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
       <div className="p-6">
@@ -314,8 +363,8 @@ export default function Scanner() {
             <div className="mt-6 mb-6 p-6 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
-                  <h3 className="text-xl font-bold text-green-800 mb-2">Get Real-Time SMS Alerts</h3>
-                  <p className="text-green-700">Never miss dark pool activity again. Subscribe to VolAlert Pro for instant notifications.</p>
+                  <h3 className="text-xl font-bold text-green-800 mb-2">Get Daily Alerts</h3>
+                  <p className="text-green-700">Never miss dark pool activity again. Subscribe to VolAlert Pro for daily alerts.</p>
                 </div>
                 <a 
                   href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
@@ -484,9 +533,25 @@ export default function Scanner() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-                {darkPoolData.tickers.map((ticker, index) => (
-                  <DarkPoolSummaryCard key={ticker.ticker || index} ticker={ticker} />
-                ))}
+                {(() => {
+                  const lockedTickers = new Set(
+                    !authLoading && !isAuthenticated
+                      ? [...darkPoolData.tickers]
+                          .filter((t) => t.volume_ratio !== 'N/A')
+                          .sort((a, b) => parseFloat(b.volume_ratio) - parseFloat(a.volume_ratio))
+                          .slice(0, 3)
+                          .map((t) => t.ticker)
+                      : []
+                  );
+                  return darkPoolData.tickers.map((ticker, index) => {
+                    const shouldLock = lockedTickers.has(ticker.ticker);
+                    return shouldLock ? (
+                      <LockedDarkPoolCard key={ticker.ticker || index} ticker={ticker} />
+                    ) : (
+                      <DarkPoolSummaryCard key={ticker.ticker || index} ticker={ticker} />
+                    );
+                  });
+                })()}
               </div>
 
               {darkPoolData.tickers.length === 0 && (

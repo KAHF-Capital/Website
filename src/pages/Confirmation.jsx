@@ -96,10 +96,10 @@ export default function Confirmation() {
             <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start mb-2">
                 <Bell className="h-6 w-6 text-green-600 mr-2" />
-                <h3 className="text-xl font-bold text-gray-900">Want Real-Time Alerts?</h3>
+                <h3 className="text-xl font-bold text-gray-900">Want Daily Alerts?</h3>
               </div>
               <p className="text-gray-700">
-                Get SMS alerts when dark pool activity spikes. Never miss a volatility opportunity again.
+                Get alerts when dark pool activity spikes. Never miss a volatility opportunity again.
               </p>
             </div>
             <a 

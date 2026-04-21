@@ -1,4 +1,4 @@
-// Add yourself as a subscriber for SMS + email alerts (bypasses Stripe)
+// Add yourself as a subscriber for phone + email alerts (bypasses Stripe)
 // Usage: node add-subscriber.js +15551234567 you@email.com
 
 const { addSubscriber } = require('./lib/subscribers-store');

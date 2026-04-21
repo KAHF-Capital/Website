@@ -210,7 +210,7 @@ export default function Account() {
                   <Zap className="h-6 w-6 text-green-600 mr-3" />
                   <div>
                     <p className="font-semibold text-green-800">VolAlert Pro Active</p>
-                    <p className="text-sm text-green-600">You have full access to SMS alerts</p>
+                    <p className="text-sm text-green-600">You have full access to alerts</p>
                   </div>
                 </div>
                 
@@ -226,7 +226,7 @@ export default function Account() {
             ) : (
               <div className="space-y-4">
                 <p className="text-gray-600">
-                  You're on the free plan. Upgrade to VolAlert Pro for SMS alerts on dark pool activity.
+                  You're on the free plan. Upgrade to VolAlert Pro for alerts on dark pool activity.
                 </p>
                 <a
                   href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01"
@@ -241,17 +241,17 @@ export default function Account() {
             )}
           </div>
 
-          {/* Phone Number Section (for SMS alerts) */}
+          {/* Phone Number Section (alert delivery) */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center mb-4">
               <Phone className="h-5 w-5 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">SMS Alerts Phone</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Phone for alerts</h2>
             </div>
             
             <p className="text-gray-600 text-sm mb-4">
               {hasActiveSubscription() 
-                ? 'Enter your phone number to receive SMS alerts for dark pool activity.'
-                : 'Upgrade to VolAlert Pro to receive SMS alerts.'}
+                ? 'Enter your phone number to receive alerts for dark pool activity.'
+                : 'Upgrade to VolAlert Pro to receive alerts.'}
             </p>
             
             <div className="flex space-x-3">

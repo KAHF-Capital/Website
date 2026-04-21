@@ -1517,5 +1517,40 @@
     "status": "completed",
     "trades_found": 53500806,
     "dates_processed": 1
+  },
+  "2026-04-14.csv": {
+    "hash": "13647501954_1776231180000",
+    "processed_at": "2026-04-15T12:34:18.184Z",
+    "status": "completed",
+    "trades_found": 57312081,
+    "dates_processed": 1
+  },
+  "2026-04-15.csv": {
+    "hash": "14111054907_1776339064000",
+    "processed_at": "2026-04-16T12:23:36.133Z",
+    "status": "completed",
+    "trades_found": 58599150,
+    "dates_processed": 1
+  },
+  "2026-04-16.csv": {
+    "hash": "13965391333_1776426104000",
+    "processed_at": "2026-04-17T12:21:20.529Z",
+    "status": "completed",
+    "trades_found": 57528997,
+    "dates_processed": 1
+  },
+  "2026-04-17.csv": {
+    "hash": "15289174814_1776681966000",
+    "processed_at": "2026-04-21T06:34:08.694Z",
+    "status": "completed",
+    "trades_found": 61550459,
+    "dates_processed": 1
+  },
+  "2026-04-20.csv": {
+    "hash": "12856986282_1776756210000",
+    "processed_at": "2026-04-21T12:11:14.297Z",
+    "status": "completed",
+    "trades_found": 52740938,
+    "dates_processed": 1
   }
 }
