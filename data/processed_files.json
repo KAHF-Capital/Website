@@ -1552,5 +1552,47 @@
     "status": "completed",
     "trades_found": 52740938,
     "dates_processed": 1
+  },
+  "options_day_candlesticks_example.csv": {
+    "hash": "268_1766722600972",
+    "processed_at": "2026-04-22T13:12:25.908Z",
+    "status": "no_dark_pool_trades"
+  },
+  "WAITTIMEBACKLOG.csv": {
+    "hash": "413_1764885233778",
+    "processed_at": "2026-04-22T13:12:25.915Z",
+    "status": "no_dark_pool_trades"
+  },
+  "fa-holdings-template.csv": {
+    "hash": "463_1773798675636",
+    "processed_at": "2026-04-22T13:12:25.923Z",
+    "status": "no_dark_pool_trades"
+  },
+  "fa-clients-template.csv": {
+    "hash": "632_1773798667305",
+    "processed_at": "2026-04-22T13:12:25.929Z",
+    "status": "no_dark_pool_trades"
+  },
+  "sales.csv": {
+    "hash": "3106_1764885224979",
+    "processed_at": "2026-04-22T13:12:25.942Z",
+    "status": "no_dark_pool_trades"
+  },
+  "stocks_day_candlesticks_example.csv": {
+    "hash": "6024_1766722536737",
+    "processed_at": "2026-04-22T13:12:25.952Z",
+    "status": "no_dark_pool_trades"
+  },
+  "stock_trades_sample.csv": {
+    "hash": "8091_1766722584159",
+    "processed_at": "2026-04-22T13:12:25.968Z",
+    "status": "no_dark_pool_trades"
+  },
+  "2026-04-21.csv": {
+    "hash": "14031616988_1776863147244",
+    "processed_at": "2026-04-22T13:51:38.594Z",
+    "status": "completed",
+    "trades_found": 56233186,
+    "dates_processed": 1
   }
 }
