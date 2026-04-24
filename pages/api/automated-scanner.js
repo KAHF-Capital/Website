@@ -27,7 +27,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}`);
+  const emailOnly = req.query.emailOnly === '1' || req.query.emailOnly === 'true';
+  const smsOnly = req.query.smsOnly === '1' || req.query.smsOnly === 'true';
+
+  console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}${emailOnly ? ' [email-only]' : ''}${smsOnly ? ' [sms-only]' : ''}`);
 
   try {
     const darkPoolData = await getLatestDarkPoolDataWithRatios();
@@ -134,7 +137,7 @@ export default async function handler(req, res) {
       const subResult = { subscriberId: subscriber.id, tickerCount: relevant.length, sms: null, email: null };
 
       // Send SMS (will fail gracefully if toll-free not verified yet)
-      if (hasPhone) {
+      if (hasPhone && !emailOnly) {
         try {
           subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date, isQuietDay);
         } catch (error) {
@@ -143,7 +146,7 @@ export default async function handler(req, res) {
       }
 
       // Send email
-      if (hasEmail) {
+      if (hasEmail && !smsOnly) {
         try {
           subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay);
         } catch (error) {

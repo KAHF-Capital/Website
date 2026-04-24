@@ -14,8 +14,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 13,
-      "lastAlertAt": "2026-04-21T06:36:58.886Z"
+      "alertsSent": 14,
+      "lastAlertAt": "2026-04-24T14:02:53.281Z"
     },
     {
       "id": "manual_1776051200014",
@@ -31,8 +31,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 2,
-      "lastAlertAt": "2026-04-21T06:36:59.336Z"
+      "alertsSent": 3,
+      "lastAlertAt": "2026-04-24T14:02:53.875Z"
     },
     {
       "id": "manual_1776051378844",
@@ -48,8 +48,8 @@
         "alertTime": "09:46",
         "maxAlertsPerDay": 25
       },
-      "alertsSent": 2,
-      "lastAlertAt": "2026-04-21T06:36:59.802Z"
+      "alertsSent": 3,
+      "lastAlertAt": "2026-04-24T14:02:54.380Z"
     }
   ]
 }
