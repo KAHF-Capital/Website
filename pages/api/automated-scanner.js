@@ -1,5 +1,5 @@
 // Automated Scanner - Sends consolidated SMS + email digest to subscribers
-// Called by Vercel Cron at 9 AM ET (13:00 UTC) on trading days
+// Called by Vercel Cron at 10 AM ET (14:00 UTC) on trading days
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigest } from '../../lib/twilio-service';
