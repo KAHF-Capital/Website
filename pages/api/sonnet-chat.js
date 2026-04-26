@@ -5,8 +5,8 @@ import { verifyIdToken, getFirestoreAdmin } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 
-const ANON_LIMIT = 1;
-const ACCOUNT_LIMIT = 1;
+const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
+const ACCOUNT_LIMIT = parseInt(process.env.KAHF_AI_ACCOUNT_MESSAGE_LIMIT || '1', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
