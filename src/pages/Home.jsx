@@ -1,7 +1,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Zap } from 'lucide-react';
+import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Zap, Bot } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 
@@ -27,6 +27,11 @@ export default function Home() {
       name: "VolAlert Pro",
       description: "Get daily alerts on volatility opportunities",
       icon: Search,
+    },
+    {
+      name: "KAHF AI",
+      description: "Ask for brief AI reads on scanner signals, straddles, and volatility setups",
+      icon: Bot,
     }
   ];
 
@@ -88,6 +93,8 @@ export default function Home() {
                     return '/straddle-calculator';
                   case 'VolAlert Pro':
                     return 'https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01';
+                  case 'KAHF AI':
+                    return '/sonnet';
                   default:
                     return '#';
                 }

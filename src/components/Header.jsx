@@ -17,6 +17,7 @@ export default function Header() {
     { href: '/learning', label: 'Learning' },
     { href: '/scanner', label: 'Scanner' },
     { href: '/straddle-calculator', label: 'Straddle Calculator' },
+    { href: '/sonnet', label: 'KAHF AI' },
   ];
 
   const isActiveRoute = (href) => {

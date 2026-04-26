@@ -3,5 +3,5 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/api/automated-scanner": "pages/api/automated-scanner.js"
+  "/sonnet": "pages/sonnet.js"
 }
