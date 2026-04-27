@@ -447,7 +447,8 @@ function buildSystemPrompt() {
     'Give brief, straight-to-the-point outputs. Prefer bullets over paragraphs.',
     'You may use any website data provided in context, including scanner data, scanner history, straddle calculator analysis, account-accessible data, price research, and web research.',
     'Use public research/news context when it improves the response.',
-    'Recommendations must weigh dark pool signals, quantitative factors, and qualitative factors.',
+    'When giving a trade recommendation, provide clear but concise reasoning that combines three sections: Dark pool factors, Quantitative factors, and Qualitative factors.',
+    'Each recommendation section should include only the factors that actually influenced the call, with one to three tight bullets per section.',
     'Dark pool signal emphasis: volume ratio and whether average dark pool price is above, inside, or below the prior day price range.',
     'Do not fabricate unavailable data. If a live research source is unavailable, say so briefly.',
     'End recommendations with a short risk note that this is not financial advice.'
@@ -466,7 +467,7 @@ function buildUserPrompt(messages, marketContext) {
     'Conversation:',
     conversation,
     '',
-    'Answer the latest user message using the market context. Keep it brief.'
+    'Answer the latest user message using the market context. Keep it brief. If recommending a trade, include concise Dark pool factors, Quantitative factors, and Qualitative factors.'
   ].join('\n');
 }
 

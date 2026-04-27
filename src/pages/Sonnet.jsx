@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { AlertCircle, Bot, Loader2, Lock, Send, Sparkles, Zap } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
@@ -20,6 +22,62 @@ function getOrCreateSessionId() {
     window.localStorage.setItem(key, sessionId);
   }
   return sessionId;
+}
+
+function MessageContent({ message }) {
+  if (message.role === 'user') {
+    return <span className="whitespace-pre-wrap">{message.content}</span>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => <h1 className="text-base font-bold text-gray-900 mt-1">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-base font-bold text-gray-900 mt-1">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-semibold text-gray-900 mt-1">{children}</h3>,
+          p: ({ children }) => <p className="text-sm leading-relaxed">{children}</p>,
+          ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-700 underline hover:text-green-800"
+            >
+              {children}
+            </a>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-green-200 pl-3 text-gray-700">{children}</blockquote>
+          ),
+          code: ({ inline, children }) => (
+            inline ? (
+              <code className="rounded bg-white px-1 py-0.5 text-xs text-gray-900">{children}</code>
+            ) : (
+              <code className="block overflow-x-auto rounded bg-gray-900 p-3 text-xs text-white">{children}</code>
+            )
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-xs">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border border-gray-300 bg-gray-50 px-2 py-1 text-left font-semibold">{children}</th>
+          ),
+          td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>
+        }}
+      >
+        {message.content}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 export default function Sonnet() {
@@ -203,13 +261,13 @@ export default function Sonnet() {
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed ${
                       message.role === 'user'
                         ? 'bg-green-600 text-white'
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    {message.content}
+                    <MessageContent message={message} />
                   </div>
                 </div>
               ))}
