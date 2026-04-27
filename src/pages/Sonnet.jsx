@@ -109,7 +109,7 @@ export default function Sonnet() {
       return { label: 'VolAlert Pro', description: 'Unlimited KAHF AI usage', icon: Zap };
     }
     if (user) {
-      return { label: 'Account', description: '1 free KAHF AI message', icon: Sparkles };
+      return { label: 'Account', description: 'Unlimited KAHF AI usage', icon: Sparkles };
     }
     return { label: 'Free', description: '1 free KAHF AI message', icon: Lock };
   }, [authLoading, user, hasActiveSubscription]);

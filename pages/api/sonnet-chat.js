@@ -1,12 +1,11 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
-import { verifyIdToken, getFirestoreAdmin } from '../../lib/firebase-admin';
+import { verifyIdToken } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 
 const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
-const ACCOUNT_LIMIT = parseInt(process.env.KAHF_AI_ACCOUNT_MESSAGE_LIMIT || '1', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
@@ -48,17 +47,6 @@ function extractTickers(messages) {
   return [...new Set(matches.filter((ticker) => !ignored.has(ticker)))].slice(0, MAX_CONTEXT_TICKERS);
 }
 
-async function getFirestoreOrNull() {
-  try {
-    const db = getFirestoreAdmin();
-    await db.collection('_health').limit(1).get();
-    return db;
-  } catch (error) {
-    console.warn('Firestore Admin unavailable for KAHF AI usage tracking:', error.message);
-    return null;
-  }
-}
-
 async function getIdentity(req) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -84,27 +72,15 @@ async function getIdentity(req) {
     throw error;
   }
 
-  const db = await getFirestoreOrNull();
-  if (!db) {
-    const error = new Error('Firebase Admin is required for authenticated KAHF AI usage tracking');
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const userDoc = await db.collection('users').doc(verified.uid).get();
-  const userData = userDoc.exists ? userDoc.data() : null;
-  const hasActiveSubscription = userData?.subscription?.status === 'active';
-
   return {
     type: 'account',
     key: `uid:${verified.uid}`,
     uid: verified.uid,
     email: verified.email,
-    tier: hasActiveSubscription ? 'volalert-pro' : 'account',
-    limit: hasActiveSubscription ? null : ACCOUNT_LIMIT,
-    isUnlimited: hasActiveSubscription,
-    userData,
-    db
+    tier: 'account',
+    limit: null,
+    isUnlimited: true,
+    userData: null
   };
 }
 
@@ -123,45 +99,6 @@ async function reserveUsage(identity) {
   }
 
   const limit = identity.limit;
-
-  if (identity.db) {
-    const usageKey = `${period}:${identity.key}`;
-    const docRef = identity.db.collection('sonnetUsage').doc(hashValue(usageKey));
-    const doc = await docRef.get();
-    const currentCount = doc.exists ? doc.data()?.count || 0 : 0;
-
-    if (currentCount >= limit) {
-      const error = new Error('You used your free KAHF AI message. Upgrade to VolAlert Pro for unlimited access.');
-      error.statusCode = 429;
-      error.usage = {
-        tier: identity.tier,
-        limit,
-        used: currentCount,
-        remaining: 0,
-        isUnlimited: false,
-        period
-      };
-      throw error;
-    }
-
-    const nextCount = currentCount + 1;
-    await docRef.set({
-      period,
-      identityType: identity.type,
-      tier: identity.tier,
-      count: nextCount,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-
-    return {
-      tier: identity.tier,
-      limit,
-      used: nextCount,
-      remaining: Math.max(limit - nextCount, 0),
-      isUnlimited: false,
-      period
-    };
-  }
 
   const fallbackKey = `${period}:${identity.key}`;
   const currentCount = anonymousUsage.get(fallbackKey) || 0;

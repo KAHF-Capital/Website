@@ -3,5 +3,6 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/api/sonnet-chat": "pages/api/sonnet-chat.js"
+  "/api/sonnet-chat": "pages/api/sonnet-chat.js",
+  "/sonnet": "pages/sonnet.js"
 }
