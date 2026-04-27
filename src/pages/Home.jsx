@@ -1,18 +1,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, Target, Shield, ArrowRight, Search, Zap, Bot } from 'lucide-react';
+import { TrendingUp, BarChart3, ArrowRight, Search, Zap, Bot } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 
 export default function Home() {
 
   const platformFeatures = [
-    {
-      name: "Learning Modules",
-      description: "Master volatility trading strategies with comprehensive educational content and real-world examples",
-      icon: Target,
-    },
     {
       name: "Dark Pool Scanner",
       description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
@@ -67,6 +62,12 @@ export default function Home() {
                 <ArrowRight className="ml-2 h-5 w-5 inline" />
               </button>
             </Link>
+            <Link href="/sonnet" className="w-full sm:w-auto">
+              <button className="w-full border border-green-600 text-green-600 bg-white hover:bg-green-50 px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
+                <Bot className="mr-2 h-5 w-5 inline" />
+                Try KAHF AI
+              </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -85,8 +86,6 @@ export default function Home() {
             {platformFeatures.map((feature, index) => {
               const getFeatureLink = (featureName) => {
                 switch (featureName) {
-                  case 'Learning Modules':
-                    return '/learning';
                   case 'Dark Pool Scanner':
                     return '/scanner';
                   case 'Straddle Calculator':

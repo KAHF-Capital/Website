@@ -14,7 +14,6 @@ export default function Header() {
 
   const navigationItems = [
     { href: '/', label: 'Home' },
-    { href: '/learning', label: 'Learning' },
     { href: '/scanner', label: 'Scanner' },
     { href: '/straddle-calculator', label: 'Straddle Calculator' },
     { href: '/sonnet', label: 'KAHF AI' },
@@ -210,7 +209,7 @@ export default function Header() {
             />
             <div>
               <h1 className="text-xl font-bold text-gray-900">KAHF Capital</h1>
-              <p className="text-gray-600 text-sm hidden sm:block">Volatility Trading Platform</p>
+              <p className="text-gray-600 text-sm hidden sm:block">Dark Pool Insights</p>
             </div>
           </Link>
 
