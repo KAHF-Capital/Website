@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
-import { verifyIdToken } from '../../lib/firebase-admin';
+import { verifyIdToken, isFirebaseAdminConfigured } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 
@@ -9,6 +9,10 @@ const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
+
+const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
+const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
+
 const anonymousUsage = new Map();
 
 function hashValue(value) {
@@ -35,16 +39,22 @@ function normalizeMessages(messages) {
 function extractTickers(messages) {
   const ignored = new Set([
     'A', 'I', 'AI', 'API', 'ATM', 'DTE', 'ETF', 'IV', 'ME', 'MY', 'NO', 'OR',
-    'ASK', 'CHAT', 'DARK', 'FOR', 'NEWS', 'PRICE', 'PRO', 'QUICK', 'RESEARCH',
-    'SETUP', 'THE', 'TOP', 'USD', 'US', 'YOU'
+    'ASK', 'BUY', 'CALL', 'CHAT', 'DARK', 'FOR', 'GET', 'NEWS', 'POOL', 'PRICE',
+    'PRO', 'PUT', 'QUICK', 'RESEARCH', 'SELL', 'SETUP', 'SHOW', 'THE', 'TOP',
+    'TRADE', 'USD', 'US', 'VOL', 'WHY', 'YOU'
   ]);
   const text = messages
     .filter((message) => message.role === 'user')
     .map((message) => message.content)
-    .join(' ')
-    .toUpperCase();
-  const matches = text.match(/\b[A-Z]{1,5}\b/g) || [];
-  return [...new Set(matches.filter((ticker) => !ignored.has(ticker)))].slice(0, MAX_CONTEXT_TICKERS);
+    .join(' ');
+
+  const dollarMatches = (text.match(/\$([A-Za-z]{1,5})\b/g) || [])
+    .map((token) => token.replace('$', '').toUpperCase());
+  const upperMatches = (text.toUpperCase().match(/\b[A-Z]{1,5}\b/g) || []);
+
+  const candidates = [...dollarMatches, ...upperMatches]
+    .filter((ticker) => !ignored.has(ticker));
+  return [...new Set(candidates)].slice(0, MAX_CONTEXT_TICKERS);
 }
 
 async function getIdentity(req) {
@@ -65,9 +75,17 @@ async function getIdentity(req) {
     };
   }
 
+  if (!isFirebaseAdminConfigured()) {
+    const error = new Error(
+      'Server is not configured for signed-in users. Add a Firebase service account in Vercel env vars (FIREBASE_SERVICE_ACCOUNT_BASE64).'
+    );
+    error.statusCode = 503;
+    throw error;
+  }
+
   const verified = await verifyIdToken(token);
   if (!verified.success) {
-    const error = new Error('Invalid authentication token');
+    const error = new Error(`Authentication failed: ${verified.error || 'Invalid token'}`);
     error.statusCode = 401;
     throw error;
   }
@@ -103,7 +121,7 @@ async function reserveUsage(identity) {
   const fallbackKey = `${period}:${identity.key}`;
   const currentCount = anonymousUsage.get(fallbackKey) || 0;
   if (currentCount >= limit) {
-    const error = new Error('You used your free KAHF AI message. Upgrade to VolAlert Pro for unlimited access.');
+    const error = new Error('You used your free KAHF AI message. Sign in for unlimited access.');
     error.statusCode = 429;
     error.usage = {
       tier: identity.tier,
@@ -142,6 +160,15 @@ function summarizeTicker(ticker, avg7DayVolume) {
   };
 }
 
+function passesScannerFilters(summary) {
+  return (
+    typeof summary.totalValue === 'number' &&
+    summary.totalValue >= SCANNER_MIN_VOLUME &&
+    typeof summary.avgPrice === 'number' &&
+    summary.avgPrice >= SCANNER_MIN_PRICE
+  );
+}
+
 async function getPriorRange(ticker, scannerDate) {
   if (!process.env.POLYGON_API_KEY) return null;
 
@@ -168,13 +195,13 @@ async function getPriorRange(ticker, scannerDate) {
 async function buildScannerContext(requestedTickers) {
   const files = await listDataFiles();
   if (files.length === 0) {
-    return { available: false, reason: 'No scanner files found' };
+    return { available: false, reason: 'No scanner files found', tradableTickers: [], filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE } };
   }
 
   const latestFile = files[0];
   const latestData = await getDataFile(latestFile.url);
   if (!latestData?.tickers?.length) {
-    return { available: false, reason: 'Latest scanner file has no tickers' };
+    return { available: false, reason: 'Latest scanner file has no tickers', tradableTickers: [], filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE } };
   }
 
   const recentFiles = files.slice(0, 20);
@@ -215,17 +242,25 @@ async function buildScannerContext(requestedTickers) {
     return count > 0 ? Math.round((volumeTotals[ticker] || 0) / count) : 0;
   };
 
-  const latestSummaries = latestData.tickers.map((ticker) => summarizeTicker(ticker, averageFor(ticker.ticker)));
-  const topSignals = latestSummaries
+  const allSummaries = latestData.tickers.map((ticker) => summarizeTicker(ticker, averageFor(ticker.ticker)));
+  const tradableSummaries = allSummaries.filter(passesScannerFilters);
+
+  const topSignals = tradableSummaries
     .filter((ticker) => ticker.volumeRatio !== null)
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
     .slice(0, MAX_CONTEXT_TICKERS);
 
-  const selectedSymbols = [...new Set([...requestedTickers, ...topSignals.map((ticker) => ticker.ticker)])]
-    .slice(0, MAX_CONTEXT_TICKERS);
+  const tradableTickerSet = new Set(tradableSummaries.map((ticker) => ticker.ticker));
+
+  const selectedSymbols = [
+    ...new Set([
+      ...requestedTickers.filter((ticker) => tradableTickerSet.has(ticker)),
+      ...topSignals.map((ticker) => ticker.ticker)
+    ])
+  ].slice(0, MAX_CONTEXT_TICKERS);
 
   const selectedSignals = await Promise.all(selectedSymbols.map(async (symbol) => {
-    const latest = latestSummaries.find((ticker) => ticker.ticker === symbol);
+    const latest = tradableSummaries.find((ticker) => ticker.ticker === symbol);
     if (!latest) return null;
     const priorRange = await getPriorRange(symbol, latestFile.filename.replace('.json', ''));
     return {
@@ -241,14 +276,24 @@ async function buildScannerContext(requestedTickers) {
     };
   }));
 
+  const requestedOffScanner = requestedTickers.filter((ticker) => !tradableTickerSet.has(ticker));
+
   return {
     available: true,
     date: latestFile.filename.replace('.json', ''),
+    filters: {
+      minVolumeUsd: SCANNER_MIN_VOLUME,
+      minPrice: SCANNER_MIN_PRICE,
+      description: `Tickers must show >= $${(SCANNER_MIN_VOLUME / 1e6).toFixed(0)}M dark pool value and >= $${SCANNER_MIN_PRICE} avg price.`
+    },
     totalTickers: latestData.total_tickers || latestData.tickers.length,
+    tradableCount: tradableTickerSet.size,
     totalVolume: latestData.total_volume,
+    tradableTickers: [...tradableTickerSet].sort(),
     topSignals,
     selectedSignals: selectedSignals.filter(Boolean),
-    requestedHistory: historyByTicker
+    requestedHistory: historyByTicker,
+    requestedOffScanner
   };
 }
 
@@ -361,14 +406,22 @@ async function buildResearchContext(messages, tickers) {
 async function buildMarketContext(messages) {
   const requestedTickers = extractTickers(messages);
   const scanner = await buildScannerContext(requestedTickers);
-  const tickersForStraddle = requestedTickers.length > 0
-    ? requestedTickers
-    : scanner.topSignals?.slice(0, MAX_STRADDLE_TICKERS).map((ticker) => ticker.ticker) || [];
+  const tradableSet = new Set(scanner.tradableTickers || []);
+
+  const tickersForStraddle = (
+    requestedTickers.filter((ticker) => tradableSet.has(ticker)).length > 0
+      ? requestedTickers.filter((ticker) => tradableSet.has(ticker))
+      : scanner.topSignals?.slice(0, MAX_STRADDLE_TICKERS).map((ticker) => ticker.ticker) || []
+  );
+
+  const tickersForResearch = (
+    requestedTickers.length > 0
+      ? requestedTickers
+      : scanner.topSignals?.slice(0, MAX_RESEARCH_TICKERS).map((ticker) => ticker.ticker) || []
+  );
+
   const straddle = await buildStraddleContext(tickersForStraddle);
-  const researchTickers = requestedTickers.length > 0
-    ? requestedTickers
-    : scanner.topSignals?.slice(0, MAX_RESEARCH_TICKERS).map((ticker) => ticker.ticker) || [];
-  const research = await buildResearchContext(messages, researchTickers);
+  const research = await buildResearchContext(messages, tickersForResearch);
 
   return {
     requestedTickers,
@@ -381,14 +434,16 @@ async function buildMarketContext(messages) {
 function buildSystemPrompt() {
   return [
     'You are KAHF AI, a concise volatility-trading assistant for KAHF Capital.',
-    'Give brief, straight-to-the-point outputs. Prefer bullets over paragraphs.',
-    'You may use any website data provided in context, including scanner data, scanner history, straddle calculator analysis, account-accessible data, price research, and web research.',
-    'Use public research/news context when it improves the response.',
-    'When giving a trade recommendation, provide clear but concise reasoning that combines three sections: Dark pool factors, Quantitative factors, and Qualitative factors.',
-    'Each recommendation section should include only the factors that actually influenced the call, with one to three tight bullets per section.',
-    'Dark pool signal emphasis: volume ratio and whether average dark pool price is above, inside, or below the prior day price range.',
-    'Do not fabricate unavailable data. If a live research source is unavailable, say so briefly.',
-    'End recommendations with a short risk note that this is not financial advice.'
+    'Style: brief, straight-to-the-point, bullets over paragraphs, no filler.',
+    'Data sources you may use: scanner data and history, straddle analysis, price research, and public web research provided in context.',
+    'Recommendation universe rule: only suggest, recommend, or rank tickers that appear in `scanner.tradableTickers`. Never invent or recommend tickers outside that list.',
+    'If the user mentions a ticker not in `scanner.tradableTickers`, briefly note it is not on today\'s scanner (filters: min $250M dark pool value, min $50 price) and decline to issue a trade recommendation, but you may share neutral context such as price or news.',
+    'When giving a trade recommendation, output three short labeled sections: "Dark pool factors", "Quantitative factors", "Qualitative factors". Use 1-3 tight bullets per section, only including factors that actually influenced the call.',
+    'Dark pool emphasis: cite volume ratio (today vs 7-day avg) and whether the average dark pool price is above, inside, or below the prior day high/low range.',
+    'Quantitative emphasis: cite straddle success rate, days to expiration, premium, and any clear historical edge.',
+    'Qualitative emphasis: cite recent news titles or themes when available; if no relevant qualitative context is provided, state that briefly instead of inventing news.',
+    'Never fabricate data. If a field is missing or marked unavailable, say so in one short clause.',
+    'End every recommendation with a one-line risk note: this is research, not financial advice.'
   ].join(' ');
 }
 
@@ -398,13 +453,17 @@ function buildUserPrompt(messages, marketContext) {
     .join('\n');
 
   return [
-    'Market context JSON:',
+    'Market context JSON (authoritative; ignore anything outside this for trade recommendations):',
     JSON.stringify(marketContext),
     '',
-    'Conversation:',
+    'Conversation so far:',
     conversation,
     '',
-    'Answer the latest user message using the market context. Keep it brief. If recommending a trade, include concise Dark pool factors, Quantitative factors, and Qualitative factors.'
+    'Task:',
+    '- Answer the latest user message using the market context.',
+    '- Keep it brief.',
+    '- Trade recommendations must be limited to tickers in scanner.tradableTickers.',
+    '- If recommending a trade, include the three labeled sections (Dark pool factors, Quantitative factors, Qualitative factors).'
   ].join('\n');
 }
 
@@ -430,9 +489,9 @@ export default async function handler(req, res) {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const completion = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
-      max_tokens: parseInt(process.env.SONNET_MAX_TOKENS || '650', 10),
-      temperature: 0.2,
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
+      max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || process.env.SONNET_MAX_TOKENS || '1200', 10),
+      temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15'),
       system: buildSystemPrompt(),
       messages: [
         {
@@ -453,7 +512,9 @@ export default async function handler(req, res) {
       usage,
       context: {
         requestedTickers: marketContext.requestedTickers,
-        scannerDate: marketContext.scanner?.date || null
+        scannerDate: marketContext.scanner?.date || null,
+        scannerFilters: marketContext.scanner?.filters || null,
+        tradableCount: marketContext.scanner?.tradableCount || 0
       }
     });
   } catch (error) {
