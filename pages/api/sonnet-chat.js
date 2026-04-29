@@ -14,6 +14,10 @@ const TOP_PER_DAY = 5;
 
 const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
 const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
+const SIGNAL_MIN_VOLUME_RATIO = parseFloat(process.env.KAHF_AI_MIN_VOLUME_RATIO || '2.0');
+
+const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
+const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
 
 const POLYGON_API_BASE = 'https://api.massive.com';
 const CATALYST_KEYWORDS = [
@@ -271,7 +275,7 @@ async function buildScannerContext(requestedTickers) {
         const summaries = data.tickers
           .map((ticker) => summarizeTicker(ticker, sevenDayAvg(ticker.ticker)))
           .filter(passesScannerFilters)
-          .filter((ticker) => ticker.volumeRatio !== null);
+          .filter((ticker) => ticker.volumeRatio !== null && ticker.volumeRatio >= SIGNAL_MIN_VOLUME_RATIO);
 
         const top = summaries
           .sort((a, b) => b.volumeRatio - a.volumeRatio)
@@ -313,15 +317,17 @@ async function buildScannerContext(requestedTickers) {
   const allSummaries = latestData.tickers.map((ticker) => summarizeTicker(ticker, averageFor(ticker.ticker)));
   const tradableSummaries = allSummaries.filter(passesScannerFilters);
 
-  const topSignals = tradableSummaries
-    .filter((ticker) => ticker.volumeRatio !== null)
+  const qualifyingSummaries = tradableSummaries
+    .filter((ticker) => ticker.volumeRatio !== null && ticker.volumeRatio >= SIGNAL_MIN_VOLUME_RATIO);
+
+  const topSignals = qualifyingSummaries
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
     .slice(0, MAX_CONTEXT_TICKERS);
 
   const tradableTickerSet = new Set(tradableSummaries.map((ticker) => ticker.ticker));
 
   const recurringSignals = Object.values(tickerAppearances)
-    .filter((entry) => entry.daysInTop >= 2)
+    .filter((entry) => entry.daysInTop >= 2 && entry.maxRatio >= SIGNAL_MIN_VOLUME_RATIO)
     .sort((a, b) => b.daysInTop - a.daysInTop || b.maxRatio - a.maxRatio)
     .slice(0, MAX_CONTEXT_TICKERS);
 
@@ -518,8 +524,7 @@ async function getPriceResearch(ticker) {
   }
 }
 
-async function buildResearchContext(messages, tickers) {
-  const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user')?.content || '';
+async function buildResearchContext(tickers) {
   const researchTickers = tickers.slice(0, MAX_RESEARCH_TICKERS);
   const [prices, news] = await Promise.all([
     Promise.all(researchTickers.map(getPriceResearch)),
@@ -535,8 +540,8 @@ async function buildResearchContext(messages, tickers) {
 
   return {
     enabled: true,
-    scope: 'Polygon news (primary) + Yahoo Finance (fallback) for catalysts and qualitative context. Site price API for last close.',
-    latestQuery: latestUserMessage,
+    scope: 'Polygon news (primary) + Yahoo Finance (fallback) pre-fetched for top scanner tickers. Use the web_search tool for live questions or anything outside this list.',
+    webSearchEnabled: WEB_SEARCH_ENABLED,
     prices,
     news,
     catalystMap
@@ -561,7 +566,7 @@ async function buildMarketContext(messages) {
   );
 
   const straddle = await buildStraddleContext(tickersForStraddle);
-  const research = await buildResearchContext(messages, tickersForResearch);
+  const research = await buildResearchContext(tickersForResearch);
 
   return {
     requestedTickers,
@@ -577,9 +582,10 @@ function buildSystemPrompt() {
     'You are KAHF AI, a concise volatility-trading assistant for KAHF Capital. Speak like a calm, experienced trader briefing a teammate. Plain English, no jargon dumps, no hype.',
 
     '# Data you have',
-    'Scanner: dark pool dollar volume, average dark pool price, trade count, 7-day avg volume, volume ratio, prior-day high/low range, plus a multi-day lookback (`scanner.dailySnapshots`) and `scanner.recurringSignals` (tickers in the top list multiple days).',
+    'Scanner: dark pool dollar volume, average dark pool price, trade count, 7-day avg volume, volume ratio, prior-day high/low range. The provided `scanner.topSignals`, `scanner.recurringSignals`, and `scanner.dailySnapshots` are PRE-FILTERED to volume ratio >= 2.0 and our scanner filters - assume any ticker absent from these lists is already weak.',
     'Straddle: ATM 30-day straddle premium, days to expiration, historical success rate, sample size, data quality, plus liquidity (call/put volume, open interest, bid-ask spread, IV).',
     'Research: latest news headlines from Polygon (primary) and Yahoo (fallback), each tagged with detected `catalysts` (earnings, fda, m&a, analyst, product, capital, macro, legal). Last close price from Polygon.',
+    'Web search: you have a `web_search` tool. USE IT whenever the pre-fetched news is empty/unavailable, the user asks about a current event, or you need to confirm an upcoming earnings/FDA date. Search with concise queries like "AAPL earnings date next" or "NVDA analyst upgrade November 2026".',
 
     '# Universe rule',
     'Only recommend, suggest, or rank tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker not on the list, say so in one line, share neutral context (price/news) only, and do not issue a trade idea.',
@@ -589,26 +595,31 @@ function buildSystemPrompt() {
     '1. Volume ratio >= 3.0 (today vs 7-day avg). 2x is borderline; 3x+ is unusual; 5x+ is exceptional.',
     '2. Straddle success rate >= 55% with sample size >= 25 ("medium" data quality or better).',
     '3. Liquid options: `straddle.liquidity.rating` is "medium" or "high" (preferred), or call+put OI >= 1,000 and total day volume >= 500. Bid-ask spread under ~10% of premium.',
-    '4. A real qualitative catalyst in the next ~30 days or just hit (earnings, FDA, M&A, analyst action, product launch). Cite the catalyst tag from `research.catalystMap` plus the headline.',
-    'A setup that meets 3 of 4 is "watchlist". Fewer than 3 is "skip" - say so plainly.',
+    '4. A real qualitative catalyst in the next ~30 days or just hit (earnings, FDA, M&A, analyst action, product launch). Cite the catalyst tag from `research.catalystMap` plus the headline. If `research.catalystMap` is empty for a ticker, run a `web_search` before concluding "no catalyst".',
+    'Score each candidate: 4/4 = Trade. 3/4 = Watch. <3 = Skip.',
 
     '# Multi-day perspective',
     'Always check `scanner.dailySnapshots` and `scanner.recurringSignals`. A ticker that printed 3x+ volume two or three days in a row is a stronger signal than a one-day spike. If a setup from 1-3 days ago still has no catalyst yet has held above the prior range, flag it as still-valid.',
 
-    '# Output format',
-    'For trade recommendations use this exact structure (markdown):',
-    '**Verdict:** Trade / Watch / Skip',
+    '# What to show the user (CRITICAL)',
+    'NEVER show, list, or name tickers that you would Skip. Only surface Trade or Watch verdicts.',
+    'If asked for "top setups" or "find me a trade", evaluate every qualifying candidate silently and respond ONLY with the Trade/Watch winners (max 3). Do not enumerate the rejects or explain who you skipped.',
+    'If nothing qualifies as Trade or Watch, say exactly: "No qualifying setups today. Best to wait." then offer ONE concrete next step (e.g., "Want me to look back 3-5 days?" or "I can lower the bar to 2x volume - say the word.").',
+    'Never use the word "Skip" in the output. Internal scoring only.',
+
+    '# Output format for trades',
+    'For each Trade or Watch you surface, use this exact markdown structure:',
+    '**Verdict:** Trade or Watch',
     '**Setup:** one-line summary (ticker, strategy, expiration).',
     '**Dark pool factors:** 1-3 bullets. Always cite volume ratio and avg price vs prior range.',
     '**Quantitative factors:** 1-3 bullets. Always cite straddle success rate, DTE, premium, liquidity rating.',
-    '**Qualitative factors:** 1-3 bullets. Cite catalyst type + headline + publish date. If no catalyst found, say "No catalyst found in available news" and downgrade verdict.',
+    '**Qualitative factors:** 1-3 bullets. Cite catalyst type + headline + publish date or web_search source.',
     '**Why now:** one line tying it together.',
-    '**Risk note:** one line. Always close with: "Research, not financial advice."',
+    '**Risk note:** one line. Always close each recommendation with: "Research, not financial advice."',
 
     '# General behavior',
     'Be brief. Bullets over paragraphs. Numbers over adjectives.',
-    'Never invent data. If a field is missing or `unavailable: true`, say "unavailable" in one short clause.',
-    'If asked to "find me a trade", scan `scanner.topSignals` and `scanner.recurringSignals`, score each by the four criteria, and surface the top 1-3 with verdicts.',
+    'Never invent data. If a field is missing or `unavailable: true`, run a web_search first, then say "unavailable" only if the search also turns up nothing.',
     'If the user is new or asks "what is this", give a 3-bullet primer on the dark pool signal and offer one example, no jargon.'
   ].join('\n');
 }
@@ -626,10 +637,10 @@ function buildUserPrompt(messages, marketContext) {
     conversation,
     '',
     'Task:',
-    '- Answer the latest user message using the market context.',
-    '- Keep it brief and use the trade-recommendation structure when issuing a verdict.',
-    '- Trade recommendations must be limited to tickers in scanner.tradableTickers.',
+    '- Answer the latest user message using the market context. Use the web_search tool for live questions or to fill in missing catalysts/news.',
     '- Apply the four high-conviction criteria (volume ratio >= 3x, success rate >= 55%, liquid options, catalyst).',
+    '- Show ONLY Trade or Watch verdicts. Never list, name, or describe tickers you would skip. If none qualify, say "No qualifying setups today. Best to wait." and offer one concrete next step.',
+    '- Trade recommendations must be limited to tickers in scanner.tradableTickers.',
     '- Use scanner.dailySnapshots and scanner.recurringSignals to consider setups from the past few days that still make sense.'
   ].join('\n');
 }
@@ -655,7 +666,7 @@ export default async function handler(req, res) {
     const marketContext = await buildMarketContext(messages);
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const completion = await anthropic.messages.create({
+    const requestPayload = {
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
       max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || process.env.SONNET_MAX_TOKENS || '1500', 10),
       temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15'),
@@ -666,13 +677,40 @@ export default async function handler(req, res) {
           content: buildUserPrompt(messages, marketContext)
         }
       ]
-    });
+    };
+
+    if (WEB_SEARCH_ENABLED) {
+      requestPayload.tools = [
+        {
+          type: 'web_search_20250305',
+          name: 'web_search',
+          max_uses: WEB_SEARCH_MAX_USES
+        }
+      ];
+    }
+
+    let completion;
+    try {
+      completion = await anthropic.messages.create(requestPayload);
+    } catch (toolError) {
+      if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(toolError.message || '')) {
+        console.warn('Anthropic web_search rejected, retrying without tool:', toolError.message);
+        delete requestPayload.tools;
+        completion = await anthropic.messages.create(requestPayload);
+      } else {
+        throw toolError;
+      }
+    }
 
     const reply = completion.content
       ?.filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join('\n')
       .trim();
+
+    const webSearchesUsed = (completion.content || []).filter((part) =>
+      part.type === 'server_tool_use' || part.type === 'web_search_tool_result'
+    ).length;
 
     return res.status(200).json({
       reply: reply || 'No response generated.',
@@ -681,7 +719,9 @@ export default async function handler(req, res) {
         requestedTickers: marketContext.requestedTickers,
         scannerDate: marketContext.scanner?.date || null,
         scannerFilters: marketContext.scanner?.filters || null,
-        tradableCount: marketContext.scanner?.tradableCount || 0
+        tradableCount: marketContext.scanner?.tradableCount || 0,
+        webSearchEnabled: WEB_SEARCH_ENABLED,
+        webSearchesUsed
       }
     });
   } catch (error) {
