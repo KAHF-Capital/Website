@@ -7,10 +7,10 @@ import Footer from './Footer';
 import { useAuth } from '../context/AuthContext';
 
 const starterPrompts = [
-  'Top dark pool setups today',
-  'Analyze AAPL straddle',
-  'Find bullish dark pool signals',
-  'Research AAPL news and options'
+  'Find me a high-conviction trade right now',
+  'Any setups from the last 3 days that still make sense?',
+  'Score the top scanner tickers (3x vol, 55%+, liquid, catalyst)',
+  'Upcoming earnings or FDA catalysts on the scanner'
 ];
 
 function getOrCreateSessionId() {
@@ -85,7 +85,16 @@ export default function Sonnet() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Ask for quick volatility setups, straddle reads, or dark pool signal checks.'
+      content: [
+        "Hey - I'm KAHF AI. I score dark pool setups against four checks before I ever say \"trade\":",
+        '',
+        '- **Unusual volume** (today vs 7-day avg) - 3x or higher',
+        '- **Historical edge** - straddle success rate >= 55%',
+        '- **Liquid options** - tight spreads, decent open interest',
+        '- **Real catalyst** - earnings, FDA, M&A, analyst action, etc.',
+        '',
+        "I look at the last few scanner days too, so I can flag setups from a day or two ago that still hold up. Ask me anything below, or pick a starter prompt."
+      ].join('\n')
     }
   ]);
   const [input, setInput] = useState('');
@@ -226,13 +235,24 @@ export default function Sonnet() {
             </div>
 
             <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">What KAHF AI Can Use</h3>
-              <div className="space-y-3 text-sm text-gray-600">
-                <p>Anything available on the website, including scanner history and signals.</p>
-                <p>Straddle calculator data, option pricing, and historical profitability APIs.</p>
-                <p>Public web research for news, qualitative context, and price checks.</p>
-                <p>Dark pool, quantitative, and qualitative factors for recommendations.</p>
-              </div>
+              <h3 className="font-semibold text-gray-900 mb-3">How KAHF AI scores a trade</h3>
+              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
+                <li><span className="font-semibold text-gray-900">Volume ratio:</span> 3x+ today vs 7-day avg.</li>
+                <li><span className="font-semibold text-gray-900">Success rate:</span> 55%+ on the 30-day ATM straddle.</li>
+                <li><span className="font-semibold text-gray-900">Liquidity:</span> tight spreads, OI &gt; 1k, day vol &gt; 500.</li>
+                <li><span className="font-semibold text-gray-900">Catalyst:</span> earnings, FDA, M&amp;A, analyst, product.</li>
+              </ul>
+              <p className="text-xs text-gray-500 mt-3">All four = trade. Three = watchlist. Fewer = skip.</p>
+            </div>
+
+            <div className="border border-gray-200 bg-white rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 mb-3">Data sources</h3>
+              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
+                <li>Scanner history (5-day lookback for recurring signals).</li>
+                <li>Straddle calculator: premium, success rate, liquidity, IV.</li>
+                <li>Polygon news (catalyst-tagged) + Yahoo Finance fallback.</li>
+                <li>Last close from the site price API.</li>
+              </ul>
             </div>
           </aside>
 

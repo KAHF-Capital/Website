@@ -9,9 +9,23 @@ const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
+const SCANNER_LOOKBACK_DAYS = parseInt(process.env.KAHF_AI_LOOKBACK_DAYS || '5', 10);
+const TOP_PER_DAY = 5;
 
 const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
 const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
+
+const POLYGON_API_BASE = 'https://api.massive.com';
+const CATALYST_KEYWORDS = [
+  { kind: 'earnings', words: ['earnings', 'q1 results', 'q2 results', 'q3 results', 'q4 results', 'eps', 'guidance', 'pre-announce', 'preliminary results'] },
+  { kind: 'fda', words: ['fda', 'phase 1', 'phase 2', 'phase 3', 'clinical trial', 'approval', 'pdufa', 'breakthrough designation'] },
+  { kind: 'm&a', words: ['acquire', 'acquisition', 'merger', 'buyout', 'takeover', 'tender offer'] },
+  { kind: 'analyst', words: ['upgrade', 'downgrade', 'price target', 'initiates coverage', 'reiterates'] },
+  { kind: 'product', words: ['launch', 'unveil', 'announces partnership', 'contract win', 'patent'] },
+  { kind: 'capital', words: ['buyback', 'share repurchase', 'dividend', 'secondary offering', 'spin-off', 'split'] },
+  { kind: 'macro', words: ['cpi', 'fomc', 'fed minutes', 'jobs report', 'payrolls'] },
+  { kind: 'legal', words: ['lawsuit', 'settlement', 'investigation', 'doj', 'sec charges'] }
+];
 
 const anonymousUsage = new Map();
 
@@ -195,13 +209,23 @@ async function getPriorRange(ticker, scannerDate) {
 async function buildScannerContext(requestedTickers) {
   const files = await listDataFiles();
   if (files.length === 0) {
-    return { available: false, reason: 'No scanner files found', tradableTickers: [], filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE } };
+    return {
+      available: false,
+      reason: 'No scanner files found',
+      tradableTickers: [],
+      filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE }
+    };
   }
 
   const latestFile = files[0];
   const latestData = await getDataFile(latestFile.url);
   if (!latestData?.tickers?.length) {
-    return { available: false, reason: 'Latest scanner file has no tickers', tradableTickers: [], filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE } };
+    return {
+      available: false,
+      reason: 'Latest scanner file has no tickers',
+      tradableTickers: [],
+      filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE }
+    };
   }
 
   const recentFiles = files.slice(0, 20);
@@ -210,11 +234,16 @@ async function buildScannerContext(requestedTickers) {
   const volumeCounts = {};
   const requestedSet = new Set(requestedTickers);
   const historyByTicker = {};
+  const dailySnapshots = [];
+  const tickerAppearances = {};
 
-  for (const file of recentFiles) {
+  for (const [index, file] of recentFiles.entries()) {
     try {
       const data = file.url === latestFile.url ? latestData : await getDataFile(file.url);
       if (!data?.tickers) continue;
+
+      const date = file.filename.replace('.json', '');
+
       for (const ticker of data.tickers) {
         if (averageFiles.some((averageFile) => averageFile.filename === file.filename)) {
           volumeTotals[ticker.ticker] = (volumeTotals[ticker.ticker] || 0) + ticker.total_volume;
@@ -224,12 +253,51 @@ async function buildScannerContext(requestedTickers) {
         if (requestedSet.has(ticker.ticker)) {
           if (!historyByTicker[ticker.ticker]) historyByTicker[ticker.ticker] = [];
           historyByTicker[ticker.ticker].push({
-            date: file.filename.replace('.json', ''),
+            date,
             totalVolume: ticker.total_volume,
             avgPrice: ticker.avg_price,
             totalValue: ticker.total_value,
             tradeCount: ticker.trade_count
           });
+        }
+      }
+
+      if (index < SCANNER_LOOKBACK_DAYS) {
+        const sevenDayAvg = (ticker) => {
+          const c = volumeCounts[ticker] || 0;
+          return c > 0 ? Math.round((volumeTotals[ticker] || 0) / c) : 0;
+        };
+
+        const summaries = data.tickers
+          .map((ticker) => summarizeTicker(ticker, sevenDayAvg(ticker.ticker)))
+          .filter(passesScannerFilters)
+          .filter((ticker) => ticker.volumeRatio !== null);
+
+        const top = summaries
+          .sort((a, b) => b.volumeRatio - a.volumeRatio)
+          .slice(0, TOP_PER_DAY);
+
+        dailySnapshots.push({
+          date,
+          isLatest: index === 0,
+          topByVolumeRatio: top.map((ticker) => ({
+            ticker: ticker.ticker,
+            volumeRatio: ticker.volumeRatio,
+            avgPrice: ticker.avgPrice,
+            totalValue: ticker.totalValue
+          }))
+        });
+
+        for (const ticker of top) {
+          if (!tickerAppearances[ticker.ticker]) {
+            tickerAppearances[ticker.ticker] = { ticker: ticker.ticker, daysInTop: 0, dates: [], maxRatio: 0 };
+          }
+          tickerAppearances[ticker.ticker].daysInTop += 1;
+          tickerAppearances[ticker.ticker].dates.push(date);
+          tickerAppearances[ticker.ticker].maxRatio = Math.max(
+            tickerAppearances[ticker.ticker].maxRatio,
+            ticker.volumeRatio
+          );
         }
       }
     } catch (error) {
@@ -252,10 +320,16 @@ async function buildScannerContext(requestedTickers) {
 
   const tradableTickerSet = new Set(tradableSummaries.map((ticker) => ticker.ticker));
 
+  const recurringSignals = Object.values(tickerAppearances)
+    .filter((entry) => entry.daysInTop >= 2)
+    .sort((a, b) => b.daysInTop - a.daysInTop || b.maxRatio - a.maxRatio)
+    .slice(0, MAX_CONTEXT_TICKERS);
+
   const selectedSymbols = [
     ...new Set([
       ...requestedTickers.filter((ticker) => tradableTickerSet.has(ticker)),
-      ...topSignals.map((ticker) => ticker.ticker)
+      ...topSignals.map((ticker) => ticker.ticker),
+      ...recurringSignals.map((entry) => entry.ticker)
     ])
   ].slice(0, MAX_CONTEXT_TICKERS);
 
@@ -263,6 +337,7 @@ async function buildScannerContext(requestedTickers) {
     const latest = tradableSummaries.find((ticker) => ticker.ticker === symbol);
     if (!latest) return null;
     const priorRange = await getPriorRange(symbol, latestFile.filename.replace('.json', ''));
+    const recurrence = tickerAppearances[symbol] || null;
     return {
       ...latest,
       priorRange,
@@ -272,7 +347,9 @@ async function buildScannerContext(requestedTickers) {
           : latest.avgPrice < priorRange.low
             ? 'below prior range'
             : 'inside prior range'
-        : 'unavailable'
+        : 'unavailable',
+      daysInTopOverLookback: recurrence ? recurrence.daysInTop : 1,
+      lookbackDates: recurrence ? recurrence.dates : []
     };
   }));
 
@@ -281,6 +358,7 @@ async function buildScannerContext(requestedTickers) {
   return {
     available: true,
     date: latestFile.filename.replace('.json', ''),
+    lookbackDays: SCANNER_LOOKBACK_DAYS,
     filters: {
       minVolumeUsd: SCANNER_MIN_VOLUME,
       minPrice: SCANNER_MIN_PRICE,
@@ -292,6 +370,8 @@ async function buildScannerContext(requestedTickers) {
     tradableTickers: [...tradableTickerSet].sort(),
     topSignals,
     selectedSignals: selectedSignals.filter(Boolean),
+    dailySnapshots,
+    recurringSignals,
     requestedHistory: historyByTicker,
     requestedOffScanner
   };
@@ -316,11 +396,12 @@ async function buildStraddleContext(tickers) {
   };
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'KAHF-Capital-AI/1.0'
+      'User-Agent': 'KAHF-Capital-AI/1.0',
+      ...(options.headers || {})
     }
   });
 
@@ -331,37 +412,88 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function getYahooResearch(ticker) {
+function detectCatalysts(text) {
+  if (!text) return [];
+  const lowered = text.toLowerCase();
+  const hits = new Set();
+  for (const group of CATALYST_KEYWORDS) {
+    for (const word of group.words) {
+      if (lowered.includes(word)) {
+        hits.add(group.kind);
+        break;
+      }
+    }
+  }
+  return [...hits];
+}
+
+async function getPolygonNews(ticker) {
+  if (!process.env.POLYGON_API_KEY) {
+    return { ticker, unavailable: true, reason: 'Polygon API key not configured', source: 'polygon' };
+  }
   try {
     const data = await fetchJson(
-      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(ticker)}&quotesCount=1&newsCount=5`
+      `${POLYGON_API_BASE}/v2/reference/news?ticker=${encodeURIComponent(ticker)}&limit=8&order=desc&sort=published_utc&apiKey=${process.env.POLYGON_API_KEY}`
     );
-
-    return {
-      ticker,
-      quotes: (data.quotes || []).slice(0, 2).map((quote) => ({
-        symbol: quote.symbol,
-        shortname: quote.shortname,
-        exchange: quote.exchange,
-        quoteType: quote.quoteType
-      })),
-      news: (data.news || []).slice(0, 5).map((item) => ({
+    const items = (data.results || []).slice(0, 8);
+    if (items.length === 0) {
+      return { ticker, source: 'polygon', news: [], catalysts: [] };
+    }
+    const news = items.map((item) => {
+      const titleAndDesc = `${item.title || ''} ${item.description || ''}`;
+      return {
         title: item.title,
-        publisher: item.publisher,
-        link: item.link,
-        publishTime: item.providerPublishTime
-          ? new Date(item.providerPublishTime * 1000).toISOString()
-          : null
-      }))
-    };
+        publisher: item.publisher?.name || item.author || null,
+        publishedAt: item.published_utc || null,
+        url: item.article_url || null,
+        catalysts: detectCatalysts(titleAndDesc),
+        keywords: Array.isArray(item.keywords) ? item.keywords.slice(0, 6) : []
+      };
+    });
+    const catalysts = [...new Set(news.flatMap((item) => item.catalysts))];
+    return { ticker, source: 'polygon', news, catalysts };
   } catch (error) {
-    console.warn(`Yahoo research unavailable for ${ticker}:`, error.message);
-    return {
-      ticker,
-      unavailable: true,
-      reason: error.message
-    };
+    console.warn(`Polygon news unavailable for ${ticker}:`, error.message);
+    return { ticker, source: 'polygon', unavailable: true, reason: error.message };
   }
+}
+
+async function getYahooFallback(ticker) {
+  try {
+    const data = await fetchJson(
+      `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(ticker)}&quotesCount=1&newsCount=5`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; KAHFAI/1.0)',
+          Accept: 'application/json,text/plain,*/*'
+        }
+      }
+    );
+    const news = (data.news || []).slice(0, 5).map((item) => ({
+      title: item.title,
+      publisher: item.publisher,
+      publishedAt: item.providerPublishTime
+        ? new Date(item.providerPublishTime * 1000).toISOString()
+        : null,
+      url: item.link,
+      catalysts: detectCatalysts(item.title || '')
+    }));
+    return { ticker, source: 'yahoo', news, catalysts: [...new Set(news.flatMap((n) => n.catalysts))] };
+  } catch (error) {
+    return { ticker, source: 'yahoo', unavailable: true, reason: error.message };
+  }
+}
+
+async function getNewsResearch(ticker) {
+  const polygon = await getPolygonNews(ticker);
+  if (!polygon.unavailable && Array.isArray(polygon.news) && polygon.news.length > 0) {
+    return polygon;
+  }
+  const yahoo = await getYahooFallback(ticker);
+  if (!yahoo.unavailable && Array.isArray(yahoo.news) && yahoo.news.length > 0) {
+    return yahoo;
+  }
+  return polygon.unavailable ? polygon : yahoo;
 }
 
 async function getPriceResearch(ticker) {
@@ -389,17 +521,25 @@ async function getPriceResearch(ticker) {
 async function buildResearchContext(messages, tickers) {
   const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user')?.content || '';
   const researchTickers = tickers.slice(0, MAX_RESEARCH_TICKERS);
-  const [prices, financeNews] = await Promise.all([
+  const [prices, news] = await Promise.all([
     Promise.all(researchTickers.map(getPriceResearch)),
-    Promise.all(researchTickers.map(getYahooResearch))
+    Promise.all(researchTickers.map(getNewsResearch))
   ]);
+
+  const catalystMap = {};
+  for (const item of news) {
+    if (item.catalysts && item.catalysts.length > 0) {
+      catalystMap[item.ticker] = item.catalysts;
+    }
+  }
 
   return {
     enabled: true,
-    scope: 'Use website data plus public web research for news, qualitative context, and price checks.',
+    scope: 'Polygon news (primary) + Yahoo Finance (fallback) for catalysts and qualitative context. Site price API for last close.',
     latestQuery: latestUserMessage,
     prices,
-    financeNews
+    news,
+    catalystMap
   };
 }
 
@@ -433,18 +573,44 @@ async function buildMarketContext(messages) {
 
 function buildSystemPrompt() {
   return [
-    'You are KAHF AI, a concise volatility-trading assistant for KAHF Capital.',
-    'Style: brief, straight-to-the-point, bullets over paragraphs, no filler.',
-    'Data sources you may use: scanner data and history, straddle analysis, price research, and public web research provided in context.',
-    'Recommendation universe rule: only suggest, recommend, or rank tickers that appear in `scanner.tradableTickers`. Never invent or recommend tickers outside that list.',
-    'If the user mentions a ticker not in `scanner.tradableTickers`, briefly note it is not on today\'s scanner (filters: min $250M dark pool value, min $50 price) and decline to issue a trade recommendation, but you may share neutral context such as price or news.',
-    'When giving a trade recommendation, output three short labeled sections: "Dark pool factors", "Quantitative factors", "Qualitative factors". Use 1-3 tight bullets per section, only including factors that actually influenced the call.',
-    'Dark pool emphasis: cite volume ratio (today vs 7-day avg) and whether the average dark pool price is above, inside, or below the prior day high/low range.',
-    'Quantitative emphasis: cite straddle success rate, days to expiration, premium, and any clear historical edge.',
-    'Qualitative emphasis: cite recent news titles or themes when available; if no relevant qualitative context is provided, state that briefly instead of inventing news.',
-    'Never fabricate data. If a field is missing or marked unavailable, say so in one short clause.',
-    'End every recommendation with a one-line risk note: this is research, not financial advice.'
-  ].join(' ');
+    '# Role',
+    'You are KAHF AI, a concise volatility-trading assistant for KAHF Capital. Speak like a calm, experienced trader briefing a teammate. Plain English, no jargon dumps, no hype.',
+
+    '# Data you have',
+    'Scanner: dark pool dollar volume, average dark pool price, trade count, 7-day avg volume, volume ratio, prior-day high/low range, plus a multi-day lookback (`scanner.dailySnapshots`) and `scanner.recurringSignals` (tickers in the top list multiple days).',
+    'Straddle: ATM 30-day straddle premium, days to expiration, historical success rate, sample size, data quality, plus liquidity (call/put volume, open interest, bid-ask spread, IV).',
+    'Research: latest news headlines from Polygon (primary) and Yahoo (fallback), each tagged with detected `catalysts` (earnings, fda, m&a, analyst, product, capital, macro, legal). Last close price from Polygon.',
+
+    '# Universe rule',
+    'Only recommend, suggest, or rank tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker not on the list, say so in one line, share neutral context (price/news) only, and do not issue a trade idea.',
+
+    '# High-conviction trade criteria (use these to score and filter)',
+    'A "good" setup typically has all four:',
+    '1. Volume ratio >= 3.0 (today vs 7-day avg). 2x is borderline; 3x+ is unusual; 5x+ is exceptional.',
+    '2. Straddle success rate >= 55% with sample size >= 25 ("medium" data quality or better).',
+    '3. Liquid options: `straddle.liquidity.rating` is "medium" or "high" (preferred), or call+put OI >= 1,000 and total day volume >= 500. Bid-ask spread under ~10% of premium.',
+    '4. A real qualitative catalyst in the next ~30 days or just hit (earnings, FDA, M&A, analyst action, product launch). Cite the catalyst tag from `research.catalystMap` plus the headline.',
+    'A setup that meets 3 of 4 is "watchlist". Fewer than 3 is "skip" - say so plainly.',
+
+    '# Multi-day perspective',
+    'Always check `scanner.dailySnapshots` and `scanner.recurringSignals`. A ticker that printed 3x+ volume two or three days in a row is a stronger signal than a one-day spike. If a setup from 1-3 days ago still has no catalyst yet has held above the prior range, flag it as still-valid.',
+
+    '# Output format',
+    'For trade recommendations use this exact structure (markdown):',
+    '**Verdict:** Trade / Watch / Skip',
+    '**Setup:** one-line summary (ticker, strategy, expiration).',
+    '**Dark pool factors:** 1-3 bullets. Always cite volume ratio and avg price vs prior range.',
+    '**Quantitative factors:** 1-3 bullets. Always cite straddle success rate, DTE, premium, liquidity rating.',
+    '**Qualitative factors:** 1-3 bullets. Cite catalyst type + headline + publish date. If no catalyst found, say "No catalyst found in available news" and downgrade verdict.',
+    '**Why now:** one line tying it together.',
+    '**Risk note:** one line. Always close with: "Research, not financial advice."',
+
+    '# General behavior',
+    'Be brief. Bullets over paragraphs. Numbers over adjectives.',
+    'Never invent data. If a field is missing or `unavailable: true`, say "unavailable" in one short clause.',
+    'If asked to "find me a trade", scan `scanner.topSignals` and `scanner.recurringSignals`, score each by the four criteria, and surface the top 1-3 with verdicts.',
+    'If the user is new or asks "what is this", give a 3-bullet primer on the dark pool signal and offer one example, no jargon.'
+  ].join('\n');
 }
 
 function buildUserPrompt(messages, marketContext) {
@@ -461,9 +627,10 @@ function buildUserPrompt(messages, marketContext) {
     '',
     'Task:',
     '- Answer the latest user message using the market context.',
-    '- Keep it brief.',
+    '- Keep it brief and use the trade-recommendation structure when issuing a verdict.',
     '- Trade recommendations must be limited to tickers in scanner.tradableTickers.',
-    '- If recommending a trade, include the three labeled sections (Dark pool factors, Quantitative factors, Qualitative factors).'
+    '- Apply the four high-conviction criteria (volume ratio >= 3x, success rate >= 55%, liquid options, catalyst).',
+    '- Use scanner.dailySnapshots and scanner.recurringSignals to consider setups from the past few days that still make sense.'
   ].join('\n');
 }
 
@@ -490,7 +657,7 @@ export default async function handler(req, res) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const completion = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
-      max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || process.env.SONNET_MAX_TOKENS || '1200', 10),
+      max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || process.env.SONNET_MAX_TOKENS || '1500', 10),
       temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15'),
       system: buildSystemPrompt(),
       messages: [
