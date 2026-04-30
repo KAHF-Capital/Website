@@ -19,6 +19,10 @@ const SIGNAL_MIN_VOLUME_RATIO = parseFloat(process.env.KAHF_AI_MIN_VOLUME_RATIO 
 const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
 const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
 
+const MCP_PUBLIC_URL = process.env.MCP_PUBLIC_URL || (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, '')}/api/mcp` : '');
+const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || '';
+const MCP_ENABLED = (process.env.KAHF_AI_MCP_ENABLED || 'true').toLowerCase() !== 'false' && Boolean(MCP_PUBLIC_URL);
+
 const POLYGON_API_BASE = 'https://api.massive.com';
 const CATALYST_KEYWORDS = [
   { kind: 'earnings', words: ['earnings', 'q1 results', 'q2 results', 'q3 results', 'q4 results', 'eps', 'guidance', 'pre-announce', 'preliminary results'] },
@@ -553,6 +557,19 @@ async function buildMarketContext(messages) {
   const scanner = await buildScannerContext(requestedTickers);
   const tradableSet = new Set(scanner.tradableTickers || []);
 
+  if (MCP_ENABLED) {
+    return {
+      requestedTickers,
+      scanner,
+      straddle: { available: false, reason: 'Use the kahf-data MCP tool `get_straddle_analysis` on demand.' },
+      research: {
+        enabled: true,
+        webSearchEnabled: WEB_SEARCH_ENABLED,
+        scope: 'Live data via the kahf-data MCP server tools (get_news, get_stock_price, get_scanner_history, etc.) plus web_search.'
+      }
+    };
+  }
+
   const tickersForStraddle = (
     requestedTickers.filter((ticker) => tradableSet.has(ticker)).length > 0
       ? requestedTickers.filter((ticker) => tradableSet.has(ticker))
@@ -577,15 +594,33 @@ async function buildMarketContext(messages) {
 }
 
 function buildSystemPrompt() {
+  const mcpBlock = MCP_ENABLED
+    ? [
+        '# Tools (kahf-data MCP server) - PREFER these over relying on context alone',
+        'You have direct access to KAHF\'s data via these MCP tools. Call them as needed:',
+        '- `get_scanner_signals(minVolumeRatio?, limit?)` - today\'s top scanner candidates.',
+        '- `get_recurring_signals(minDaysInTop?, lookbackDays?, minVolumeRatio?)` - tickers in the top list multiple days.',
+        '- `get_scanner_history(ticker, days?)` - per-day scanner history for one ticker (max 30 days).',
+        '- `get_prior_range(ticker, asOfDate?)` - prior trading day high/low/close.',
+        '- `get_straddle_analysis(ticker)` - 30-day ATM straddle premium, success rate, liquidity, IV.',
+        '- `get_stock_price(ticker)` - latest close.',
+        '- `get_news(ticker, limit?)` - recent headlines tagged with catalyst categories.',
+        'Tool-use rules: call the smallest tool you need; chain calls if a question needs multiple data points; never guess values you can fetch.'
+      ].join('\n')
+    : '';
+
   return [
     '# Role',
     'You are KAHF AI, a concise volatility-trading assistant for KAHF Capital. Speak like a calm, experienced trader briefing a teammate. Plain English, no jargon dumps, no hype.',
 
-    '# Data you have',
-    'Scanner: dark pool dollar volume, average dark pool price, trade count, 7-day avg volume, volume ratio, prior-day high/low range. The provided `scanner.topSignals`, `scanner.recurringSignals`, and `scanner.dailySnapshots` are PRE-FILTERED to volume ratio >= 2.0 and our scanner filters - assume any ticker absent from these lists is already weak.',
-    'Straddle: ATM 30-day straddle premium, days to expiration, historical success rate, sample size, data quality, plus liquidity (call/put volume, open interest, bid-ask spread, IV).',
-    'Research: latest news headlines from Polygon (primary) and Yahoo (fallback), each tagged with detected `catalysts` (earnings, fda, m&a, analyst, product, capital, macro, legal). Last close price from Polygon.',
-    'Web search: you have a `web_search` tool. USE IT whenever the pre-fetched news is empty/unavailable, the user asks about a current event, or you need to confirm an upcoming earnings/FDA date. Search with concise queries like "AAPL earnings date next" or "NVDA analyst upgrade November 2026".',
+    mcpBlock,
+
+    '# Data you have in the prompt',
+    'Scanner snapshot is pre-attached: `scanner.tradableTickers` (the universe), `scanner.topSignals` (today, pre-filtered to volume ratio >= 2.0), `scanner.recurringSignals`, and `scanner.dailySnapshots` (5-day lookback). Anything absent from these lists is already weak.',
+    MCP_ENABLED
+      ? 'For straddle analysis, news, prior range, and any ticker history, use the MCP tools above (do not assume they are pre-fetched).'
+      : 'Straddle analysis and news are pre-fetched into context for the top scanner tickers.',
+    'Web search: you have a `web_search` tool. USE IT for live questions, current events, or to confirm upcoming earnings/FDA dates. Search with concise queries like "AAPL earnings date next".',
 
     '# Universe rule',
     'Only recommend, suggest, or rank tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker not on the list, say so in one line, share neutral context (price/news) only, and do not issue a trade idea.',
@@ -594,8 +629,8 @@ function buildSystemPrompt() {
     'A "good" setup typically has all four:',
     '1. Volume ratio >= 3.0 (today vs 7-day avg). 2x is borderline; 3x+ is unusual; 5x+ is exceptional.',
     '2. Straddle success rate >= 55% with sample size >= 25 ("medium" data quality or better).',
-    '3. Liquid options: `straddle.liquidity.rating` is "medium" or "high" (preferred), or call+put OI >= 1,000 and total day volume >= 500. Bid-ask spread under ~10% of premium.',
-    '4. A real qualitative catalyst in the next ~30 days or just hit (earnings, FDA, M&A, analyst action, product launch). Cite the catalyst tag from `research.catalystMap` plus the headline. If `research.catalystMap` is empty for a ticker, run a `web_search` before concluding "no catalyst".',
+    '3. Liquid options: `straddle.liquidity.rating` is "medium" or "high" (preferred), or call+put OI >= 1,000 and total day volume >= 500. Bid-ask spread under ~10% of premium. Fetch via `get_straddle_analysis` when MCP is enabled.',
+    '4. A real qualitative catalyst in the next ~30 days or just hit (earnings, FDA, M&A, analyst action, product launch). Use `get_news` first; if no clear catalyst, run a `web_search` before concluding "no catalyst".',
     'Score each candidate: 4/4 = Trade. 3/4 = Watch. <3 = Skip.',
 
     '# Multi-day perspective',
@@ -689,16 +724,50 @@ export default async function handler(req, res) {
       ];
     }
 
+    const requestOptions = {};
+    if (MCP_ENABLED) {
+      requestPayload.mcp_servers = [
+        {
+          type: 'url',
+          url: MCP_PUBLIC_URL,
+          name: 'kahf-data',
+          ...(MCP_AUTH_TOKEN ? { authorization_token: MCP_AUTH_TOKEN } : {})
+        }
+      ];
+      requestOptions.headers = { 'anthropic-beta': 'mcp-client-2025-04-04' };
+    }
+
     let completion;
+    let mcpDisabledForRetry = false;
+    let webSearchDisabledForRetry = false;
     try {
-      completion = await anthropic.messages.create(requestPayload);
-    } catch (toolError) {
-      if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(toolError.message || '')) {
-        console.warn('Anthropic web_search rejected, retrying without tool:', toolError.message);
+      completion = await anthropic.messages.create(requestPayload, requestOptions);
+    } catch (firstError) {
+      const msg = firstError.message || '';
+      if (MCP_ENABLED && /mcp|mcp_server|mcp-client/i.test(msg)) {
+        console.warn('Anthropic MCP connector rejected, retrying without MCP:', msg);
+        delete requestPayload.mcp_servers;
+        delete requestOptions.headers;
+        mcpDisabledForRetry = true;
+        try {
+          completion = await anthropic.messages.create(requestPayload, requestOptions);
+        } catch (secondError) {
+          if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(secondError.message || '')) {
+            console.warn('Anthropic web_search also rejected, retrying without tools:', secondError.message);
+            delete requestPayload.tools;
+            webSearchDisabledForRetry = true;
+            completion = await anthropic.messages.create(requestPayload, requestOptions);
+          } else {
+            throw secondError;
+          }
+        }
+      } else if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(msg)) {
+        console.warn('Anthropic web_search rejected, retrying without tool:', msg);
         delete requestPayload.tools;
-        completion = await anthropic.messages.create(requestPayload);
+        webSearchDisabledForRetry = true;
+        completion = await anthropic.messages.create(requestPayload, requestOptions);
       } else {
-        throw toolError;
+        throw firstError;
       }
     }
 
@@ -708,9 +777,17 @@ export default async function handler(req, res) {
       .join('\n')
       .trim();
 
-    const webSearchesUsed = (completion.content || []).filter((part) =>
+    const contentParts = completion.content || [];
+    const webSearchesUsed = contentParts.filter((part) =>
       part.type === 'server_tool_use' || part.type === 'web_search_tool_result'
     ).length;
+    const mcpToolUses = contentParts.filter((part) =>
+      part.type === 'mcp_tool_use' || part.type === 'mcp_tool_result'
+    ).length;
+    const mcpToolNames = contentParts
+      .filter((part) => part.type === 'mcp_tool_use')
+      .map((part) => part.name)
+      .filter(Boolean);
 
     return res.status(200).json({
       reply: reply || 'No response generated.',
@@ -720,8 +797,11 @@ export default async function handler(req, res) {
         scannerDate: marketContext.scanner?.date || null,
         scannerFilters: marketContext.scanner?.filters || null,
         tradableCount: marketContext.scanner?.tradableCount || 0,
-        webSearchEnabled: WEB_SEARCH_ENABLED,
-        webSearchesUsed
+        webSearchEnabled: WEB_SEARCH_ENABLED && !webSearchDisabledForRetry,
+        webSearchesUsed,
+        mcpEnabled: MCP_ENABLED && !mcpDisabledForRetry,
+        mcpToolUses,
+        mcpToolNames
       }
     });
   } catch (error) {
