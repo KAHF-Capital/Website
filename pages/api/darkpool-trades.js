@@ -1,16 +1,15 @@
 import fetch from 'node-fetch';
-import { listDataFiles, getDataFile } from '../../lib/blob-data';
+import { getScannerSnapshot } from '../../lib/scanner-snapshot';
 
 async function getBatchPerformance(tickers) {
+  if (tickers.length === 0) return {};
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/batch-performance`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        tickers: tickers
-      })
+      body: JSON.stringify({ tickers })
     });
 
     if (!response.ok) {
@@ -19,7 +18,7 @@ async function getBatchPerformance(tickers) {
     }
 
     const data = await response.json();
-    
+
     const results = {};
     data.data.forEach(item => {
       if (!item.error) {
@@ -31,7 +30,7 @@ async function getBatchPerformance(tickers) {
         };
       }
     });
-    
+
     return results;
   } catch (error) {
     console.error('Error fetching batch performance:', error.message);
@@ -39,114 +38,67 @@ async function getBatchPerformance(tickers) {
   }
 }
 
-async function getLatestTradingDayWithAverages(minVolume = 0, minPrice = 0) {
-  try {
-    const dateFiles = await listDataFiles();
+async function buildScannerResponse(minVolume = 0, minPrice = 0) {
+  const snapshot = await getScannerSnapshot();
+  if (!snapshot) return null;
 
-    if (dateFiles.length === 0) {
-      return null;
-    }
+  const filteredTickers = snapshot.tickers.filter((ticker) => {
+    const tradingValue = ticker.total_value;
+    const avgPrice = ticker.avg_price;
+    return tradingValue >= minVolume && avgPrice >= minPrice;
+  });
 
-    const targetDateFile = dateFiles[0];
-    const latestDateData = await getDataFile(targetDateFile.url);
-    if (!latestDateData) return null;
+  const tickerSymbols = filteredTickers.map((t) => t.ticker);
+  const performanceData = await getBatchPerformance(tickerSymbols);
 
-    const filenameDate = targetDateFile.filename.replace('.json', '');
-
-    const currentDate = new Date(filenameDate);
-    const sevenDaysAgo = new Date(currentDate);
-    sevenDaysAgo.setDate(currentDate.getDate() - 6);
-
-    const recentDateFiles = dateFiles
-      .filter(file => {
-        const fileDate = new Date(file.filename.replace('.json', ''));
-        return fileDate >= sevenDaysAgo && fileDate <= currentDate;
-      })
-      .slice(0, 7);
-
-    const tickerAverages = {};
-    const tickerCounts = {};
-
-    for (const file of recentDateFiles) {
-      try {
-        const dateData = await getDataFile(file.url);
-        if (!dateData) continue;
-        dateData.tickers.forEach(ticker => {
-          if (!tickerAverages[ticker.ticker]) {
-            tickerAverages[ticker.ticker] = 0;
-            tickerCounts[ticker.ticker] = 0;
-          }
-          tickerAverages[ticker.ticker] += ticker.total_volume;
-          tickerCounts[ticker.ticker]++;
-        });
-      } catch (error) {
-        console.error(`Error reading blob ${file.filename}:`, error);
-      }
-    }
-
-    Object.keys(tickerAverages).forEach(ticker => {
-      tickerAverages[ticker] = Math.round(tickerAverages[ticker] / tickerCounts[ticker]);
-    });
-
-    const filteredTickers = latestDateData.tickers.filter(ticker => {
-      const tradingValue = ticker.total_value;
-      const avgPrice = ticker.avg_price;
-      return tradingValue >= minVolume && avgPrice >= minPrice;
-    });
-    
-    const tickerSymbols = filteredTickers.map(t => t.ticker);
-    const performanceData = await getBatchPerformance(tickerSymbols);
-    
-    const enhancedTickers = filteredTickers.map(ticker => {
-      const performance = performanceData[ticker.ticker];
-      const volumeRatio = tickerAverages[ticker.ticker] > 0 
-        ? (ticker.total_volume / tickerAverages[ticker.ticker]).toFixed(2)
-        : 'N/A';
-      
-      return {
-        ...ticker,
-        avg_7day_volume: tickerAverages[ticker.ticker] || 0,
-        volume_ratio: volumeRatio,
-        performance: performance ? {
-          currentPrice: performance.currentPrice,
-          previousClose: performance.previousClose,
-          change: performance.change,
-          changePercent: performance.changePercent
-        } : null
-      };
-    });
+  // The Scanner UI expects volume_ratio as a string ("3.04" or "N/A"); keep
+  // that shape here while the shared snapshot exposes the numeric form.
+  const enhancedTickers = filteredTickers.map((ticker) => {
+    const performance = performanceData[ticker.ticker];
+    const ratioDisplay = ticker.volume_ratio != null
+      ? ticker.volume_ratio.toFixed(2)
+      : 'N/A';
 
     return {
-      date: filenameDate,
-      filename: targetDateFile.filename,
-      total_tickers: latestDateData.total_tickers,
-      total_volume: latestDateData.total_volume,
-      last_updated: latestDateData.processed_at || new Date().toISOString(),
-      filters: {
-        minVolume: minVolume,
-        minPrice: minPrice,
-        appliedFilters: minVolume > 0 || minPrice > 0,
-        filteredCount: filteredTickers.length,
-        totalCount: latestDateData.tickers.length
-      },
-      tickers: enhancedTickers
+      ...ticker,
+      volume_ratio: ratioDisplay,
+      performance: performance
+        ? {
+            currentPrice: performance.currentPrice,
+            previousClose: performance.previousClose,
+            change: performance.change,
+            changePercent: performance.changePercent
+          }
+        : null
     };
+  });
 
-  } catch (error) {
-    console.error('Error reading processed data:', error);
-    return null;
-  }
+  return {
+    date: snapshot.date,
+    filename: snapshot.filename,
+    total_tickers: snapshot.total_tickers,
+    total_volume: snapshot.total_volume,
+    last_updated: snapshot.last_updated,
+    filters: {
+      minVolume,
+      minPrice,
+      appliedFilters: minVolume > 0 || minPrice > 0,
+      filteredCount: filteredTickers.length,
+      totalCount: snapshot.tickers.length
+    },
+    average_window: snapshot.averageWindow,
+    tickers: enhancedTickers
+  };
 }
 
 export default async function handler(req, res) {
   try {
     const { minVolume, minPrice } = req.query;
-    
     const volumeFilter = minVolume ? parseInt(minVolume) : 0;
     const priceFilter = minPrice ? parseFloat(minPrice) : 0;
-    
-    const latestData = await getLatestTradingDayWithAverages(volumeFilter, priceFilter);
-    
+
+    const latestData = await buildScannerResponse(volumeFilter, priceFilter);
+
     if (!latestData) {
       return res.status(404).json({
         error: 'No processed data found',
@@ -160,7 +112,6 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json(latestData);
-
   } catch (error) {
     console.error('Error in darkpool-trades API:', error);
     return res.status(500).json({

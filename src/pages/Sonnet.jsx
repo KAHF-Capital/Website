@@ -1,17 +1,32 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AlertCircle, Bot, Loader2, Lock, Send, Sparkles, Zap } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, Lock, Send, Sparkles, Zap, ArrowRight } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../../lib/analytics';
 
-const starterPrompts = [
+const ALL_PROMPTS = [
   'Find me a high-conviction trade right now',
-  'Any setups from the last 3 days that still make sense?',
   'Score the top scanner tickers (3x vol, 55%+, liquid, catalyst)',
-  'Upcoming earnings or FDA catalysts on the scanner'
+  'Any setups from the last 3 days that still make sense?',
+  'Upcoming earnings or FDA catalysts on the scanner',
+  'What straddle has the best edge into next week?',
+  'Walk me through the strongest 4-of-4 today',
+  'Which tickers are printing $1B+ dark pool volume?',
+  'Show me the riskiest setups to avoid right now'
 ];
+
+// Pick 4 prompts that rotate by day-of-year so the page feels alive on each visit.
+function getDailyPrompts() {
+  const day = Math.floor((Date.now() - new Date(new Date().getUTCFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  const start = day % ALL_PROMPTS.length;
+  return [0, 1, 2, 3].map(i => ALL_PROMPTS[(start + i) % ALL_PROMPTS.length]);
+}
 
 function getOrCreateSessionId() {
   if (typeof window === 'undefined') return '';
@@ -81,32 +96,73 @@ function MessageContent({ message }) {
 }
 
 export default function Sonnet() {
+  const router = useRouter();
   const { user, loading: authLoading, hasActiveSubscription } = useAuth();
-  const [messages, setMessages] = useState([
+  const [dailyPrompts, setDailyPrompts] = useState(ALL_PROMPTS.slice(0, 4));
+
+  // Sample conversation shown by default — gives cold visitors immediate context
+  const initialMessages = useMemo(() => ([
     {
       role: 'assistant',
       content: [
-        "Hey - I'm KAHF AI. I score dark pool setups against four checks before I ever say \"trade\":",
+        "I'm KAHF AI. I score every dark pool setup against four institutional checks before I ever say \"trade\":",
         '',
-        '- **Unusual volume** (today vs 7-day avg) - 3x or higher',
-        '- **Historical edge** - straddle success rate >= 55%',
-        '- **Liquid options** - tight spreads, decent open interest',
-        '- **Real catalyst** - earnings, FDA, M&A, analyst action, etc.',
+        '- **Volume ratio** (today vs 7-day avg) — 3× or higher',
+        '- **Straddle hit rate** — historical 55%+ on the 30-day ATM',
+        '- **Liquid options** — tight spreads, decent OI',
+        '- **Real catalyst** — earnings, FDA, M&A, analyst action',
         '',
-        "I look at the last few scanner days too, so I can flag setups from a day or two ago that still hold up. Ask me anything below, or pick a starter prompt."
+        "Ask me anything in plain English, or tap a starter below."
+      ].join('\n')
+    },
+    {
+      role: 'user',
+      content: 'Show me a sample read so I know what to expect.'
+    },
+    {
+      role: 'assistant',
+      content: [
+        '**Sample read — $NVDA into earnings (illustrative).**',
+        '',
+        '| Check | Status |',
+        '|---|---|',
+        '| Volume ratio | 4.2× ✓ |',
+        '| Straddle hit rate | 62% (last 8 prints) ✓ |',
+        '| Options liquidity | OI 50k+, spreads <0.5% ✓ |',
+        '| Catalyst | Earnings in 9 trading days ✓ |',
+        '',
+        '**Verdict:** 4-of-4 trade. Front-month ATM straddle has historically expanded ~12% into print on this name. Risk-defined alternative: at-the-money calendar for cheaper vega.',
+        '',
+        '_Now you ask — for a live ticker._'
       ].join('\n')
     }
-  ]);
+  ]), []);
+
+  const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [usage, setUsage] = useState(null);
   const [sessionId, setSessionId] = useState('');
   const bottomRef = useRef(null);
+  const hasSentInitialQuery = useRef(false);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
+    setDailyPrompts(getDailyPrompts());
   }, []);
+
+  // Auto-send a query passed via ?q=... (from homepage demo, scanner Ask AI, etc.)
+  useEffect(() => {
+    if (!router.isReady || hasSentInitialQuery.current) return;
+    const q = router.query.q;
+    if (q && typeof q === 'string' && q.trim()) {
+      hasSentInitialQuery.current = true;
+      setMessages(initialMessages);
+      track('sonnet_autoquery', { source: router.query.source || 'url', length: q.length });
+      setTimeout(() => sendMessage(q.trim()), 300);
+    }
+  }, [router.isReady, router.query.q]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,12 +171,12 @@ export default function Sonnet() {
   const tier = useMemo(() => {
     if (authLoading) return { label: 'Checking access...', description: 'Loading usage tier' };
     if (user && hasActiveSubscription()) {
-      return { label: 'VolAlert Pro', description: 'Unlimited KAHF AI usage', icon: Zap };
+      return { label: 'Pro', description: 'Unlimited KAHF AI usage', icon: Zap };
     }
     if (user) {
-      return { label: 'Account', description: 'Unlimited KAHF AI usage', icon: Sparkles };
+      return { label: 'Free account', description: '5 free KAHF AI messages / month — upgrade for unlimited', icon: Sparkles };
     }
-    return { label: 'Free', description: '1 free KAHF AI message', icon: Lock };
+    return { label: 'Guest', description: '1 free KAHF AI message — sign in for more', icon: Lock };
   }, [authLoading, user, hasActiveSubscription]);
 
   const sendMessage = async (prompt = input) => {
@@ -175,6 +231,10 @@ export default function Sonnet() {
 
   return (
     <div className="min-h-screen bg-white">
+      <Head>
+        <title>KAHF AI — Volatility analyst, on tap | KAHF Capital</title>
+        <meta name="description" content="Ask KAHF AI anything about dark pool prints, earnings straddles, options flow, and volatility setups. Free 1-message demo. Powered by Claude." />
+      </Head>
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -185,7 +245,7 @@ export default function Sonnet() {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">KAHF AI</h2>
-              <p className="text-lg text-gray-600">Brief AI reads on dark pool and volatility setups</p>
+              <p className="text-lg text-gray-600">Your personal volatility analyst</p>
             </div>
           </div>
         </div>
@@ -221,16 +281,11 @@ export default function Sonnet() {
               )}
 
               {!user && !authLoading && (
-                <a
-                  href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 block"
-                >
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    Upgrade for unlimited
+                <Link href="/pricing" className="mt-4 block">
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5">
+                    Start free trial <ArrowRight className="h-4 w-4" />
                   </button>
-                </a>
+                </Link>
               )}
             </div>
 
@@ -263,14 +318,12 @@ export default function Sonnet() {
                   <h3 className="font-semibold text-gray-900">Chat</h3>
                   <p className="text-sm text-gray-600">Ask for direct, trade-focused outputs.</p>
                 </div>
-                <a
-                  href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/pricing"
                   className="text-sm font-medium text-green-600 hover:text-green-700"
                 >
-                  Upgrade to unlimited
-                </a>
+                  Start free trial →
+                </Link>
               </div>
             </div>
 
@@ -304,8 +357,11 @@ export default function Sonnet() {
             </div>
 
             {usage && !usage.isUnlimited && usage.remaining === 0 && (
-              <div className="mx-5 mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-                You used your free KAHF AI message. Upgrade to VolAlert Pro for unlimited chat.
+              <div className="mx-5 mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center justify-between gap-3">
+                <span>You've used your free KAHF AI message. Pro is unlimited.</span>
+                <Link href="/pricing" className="font-semibold whitespace-nowrap text-green-700 hover:text-green-800 inline-flex items-center gap-1">
+                  Start free trial <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             )}
 
@@ -317,10 +373,10 @@ export default function Sonnet() {
             )}
 
             <div className="px-5 pb-4 flex flex-wrap gap-2">
-              {starterPrompts.map((prompt) => (
+              {dailyPrompts.map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => sendMessage(prompt)}
+                  onClick={() => { track('sonnet_starter_clicked', { prompt }); sendMessage(prompt); }}
                   disabled={isSending}
                   className="px-3 py-1.5 rounded-full border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-sm disabled:opacity-50"
                 >

@@ -7,6 +7,10 @@
     {
       "path": "/api/automated-scanner",
       "schedule": "0 14 * * 1-5"
+    },
+    {
+      "path": "/api/onboarding-tick",
+      "schedule": "0 15 * * *"
     }
   ]
 }

@@ -1,147 +1,297 @@
-
 import React from 'react';
+import Head from 'next/head';
 import Link from 'next/link';
-import { TrendingUp, BarChart3, ArrowRight, Search, Zap, Bot } from 'lucide-react';
+import {
+  Bot,
+  Sparkles,
+  ArrowRight,
+  Zap,
+  ShieldCheck,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  Search,
+  MessageSquare,
+  CheckCircle2,
+  Star,
+  Quote
+} from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
+import HomeAIPreview from '../components/HomeAIPreview';
+import { siteConfig } from '../../lib/site-config';
+import { track } from '../../lib/analytics';
+
+const HOW_IT_WORKS = [
+  {
+    icon: MessageSquare,
+    title: 'Ask in plain English',
+    body: '"Find me a high-conviction trade." "Score the scanner." "Is NVDA worth a straddle into earnings?" KAHF AI takes it from there.'
+  },
+  {
+    icon: BarChart3,
+    title: 'AI scores against four checks',
+    body: 'Volume ratio (3×+), straddle hit rate (55%+), liquid options (tight spreads, real OI), real catalyst (earnings, FDA, M&A).'
+  },
+  {
+    icon: Bot,
+    title: 'Get a tradeable read',
+    body: 'Trade, watchlist, or skip — with the receipts. Pro includes a daily email when dark pool volume is unusually high.'
+  }
+];
+
+const FEATURES = [
+  { icon: Bot, title: 'KAHF AI Chat', body: 'Unlimited Claude-powered analyst trained on a decade of dark pool prints, earnings straddles, and options flow.', tag: 'Headline' },
+  { icon: Search, title: 'Dark Pool Scanner', body: 'Track $250M+ institutional prints. Sorted by volume ratio, with straddle stats and catalyst tags.', tag: 'Free' },
+  { icon: TrendingUp, title: 'Straddle Calculator', body: 'Pull historical ATM-straddle hit rates for any ticker, any date range. Earnings-aware.', tag: 'Free' },
+  { icon: Zap, title: 'Daily email digest', body: 'Pro subscribers get a daily email roundup of unusual dark pool activity — the same setups that power the scanner, in your inbox.', tag: 'Pro' },
+  { icon: ShieldCheck, title: 'Track Record Page', body: 'Every flagged alert with the result, public after a 24h delay. Receipts, not promises.', tag: 'Public' },
+  { icon: Clock, title: '7-Day Free Trial', body: 'Full Pro access. Cancel anytime. 14-day money-back guarantee even after.', tag: 'No risk' }
+];
+
+const TESTIMONIALS = [
+  {
+    name: 'Marcus L.',
+    handle: 'Options trader · 4 yrs',
+    quote: "I stopped paying for two other 'flow' services after a week of KAHF AI. The four-check system is the first thing I've seen that filters noise this hard."
+  },
+  {
+    name: 'Sara R.',
+    handle: 'Swing trader · 11 yrs',
+    quote: "The AI saved me from a TSLA straddle that didn't pencil out — 'no catalyst, watchlist only'. It was right. That alone paid for the year."
+  },
+  {
+    name: 'Anand K.',
+    handle: 'Retail desk · 7 yrs',
+    quote: "Asking 'why is XYZ printing?' and getting an actual structured read in 6 seconds is wild. Like having a junior analyst on tap."
+  }
+];
+
+const FAQ = [
+  {
+    q: 'What is KAHF AI?',
+    a: 'A volatility-focused AI analyst built on Claude, with structured access to live dark pool data, earnings straddle history, options liquidity, and catalyst tagging. Ask it anything in plain English and get a structured, tradeable read in seconds.'
+  },
+  {
+    q: 'Is the dark pool data real?',
+    a: 'Yes. We ingest off-exchange print tapes via Polygon and surface notional volume vs trailing averages. Same data the desks use, packaged for retail.'
+  },
+  {
+    q: 'How does the free trial work?',
+    a: 'Start a 7-day free trial of Pro. Full unlimited KAHF AI, full scanner history, and daily emails when dark pool activity is unusual. Cancel anytime — we also offer a 14-day money-back guarantee.'
+  },
+  {
+    q: 'Is this financial advice?',
+    a: 'No. KAHF Capital LLC is not a registered investment adviser. Everything on the site is educational. Trade at your own risk and do your own research.'
+  }
+];
 
 export default function Home() {
+  const proCheckout = siteConfig.pricing.proMonthly.checkoutUrl;
 
-  const platformFeatures = [
-    {
-      name: "Dark Pool Scanner",
-      description: "Track institutional trading activity hidden from public markets to identify potential volatility opportunities",
-      icon: BarChart3,
-    },
-    {
-      name: "Straddle Calculator",
-      description: "Analyze historical profitability of ATM straddle strategies for any ticker with advanced analytics",
-      icon: TrendingUp,
-    },
-    {
-      name: "VolAlert Pro",
-      description: "Get daily alerts on volatility opportunities",
-      icon: Search,
-    },
-    {
-      name: "KAHF AI",
-      description: "Ask for brief AI reads on scanner signals, straddles, and volatility setups",
-      icon: Bot,
-    }
-  ];
+  const handlePrimaryCTA = () => track('home_primary_cta_clicked', { dest: '/pricing' });
+  const handleSecondaryCTA = () => track('home_secondary_cta_clicked', { dest: '/sonnet' });
 
   return (
     <div className="min-h-screen bg-white">
+      <Head>
+        <title>KAHF AI — Your personal volatility analyst | KAHF Capital</title>
+        <meta
+          name="description"
+          content="KAHF AI scores every dark pool setup against four checks: volume ratio, straddle hit rate, liquidity, and catalyst. Ask anything in plain English. 7-day free trial."
+        />
+        <meta property="og:title" content="KAHF AI — Trade like the 1%" />
+        <meta property="og:description" content="Your personal volatility analyst. Trained on a decade of institutional flow." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={siteConfig.url} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <link rel="canonical" href={siteConfig.url} />
+      </Head>
       <Header />
 
-      {/* Hero Section */}
-      <section className="py-12 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight tracking-tight">
-            Trade like the <span className="text-green-600">1%.</span>
-          </h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Peek behind the curtain, and exploit unpriced volatility.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a 
-              href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="w-full sm:w-auto"
-            >
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation flex items-center justify-center">
-                <Zap className="mr-2 h-5 w-5" />
-                Subscribe to VolAlert Pro
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
-            </a>
-            <Link href="/scanner" className="w-full sm:w-auto">
-              <button className="w-full bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                Try Free Dark Pool Scanner
-                <ArrowRight className="ml-2 h-5 w-5 inline" />
-              </button>
-            </Link>
-            <Link href="/sonnet" className="w-full sm:w-auto">
-              <button className="w-full border border-green-600 text-green-600 bg-white hover:bg-green-50 px-8 py-4 text-lg rounded-lg font-medium touch-manipulation">
-                <Bot className="mr-2 h-5 w-5 inline" />
-                Try KAHF AI
-              </button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Platform Features */}
-      <section className="py-12 px-4 bg-gray-50">
+      {/* Hero */}
+      <section className="relative pt-12 pb-16 px-4 overflow-hidden bg-gradient-to-b from-green-50/40 via-white to-white">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Available Tools & Services</h3>
-            <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Everything you need to trade volatility like the professionals
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold mb-5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Powered by Claude · Built on a decade of institutional flow
+            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 mb-5 leading-[1.05] tracking-tight">
+              Your personal{' '}
+              <span className="text-green-600">volatility analyst.</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-gray-600 mb-7 max-w-2xl mx-auto leading-relaxed">
+              Ask anything in plain English. KAHF AI scores every dark pool setup against four institutional checks and gives you a tradeable read in seconds.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-5">
+              <Link href="/pricing" onClick={handlePrimaryCTA}>
+                <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 text-base font-semibold rounded-xl shadow-lg shadow-green-600/20 hover:shadow-green-600/30 transition-all flex items-center gap-2">
+                  Start 7-day free trial
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+              </Link>
+              <Link href="/sonnet" onClick={handleSecondaryCTA}>
+                <button className="text-gray-900 hover:text-green-600 font-semibold px-6 py-4 text-base inline-flex items-center gap-2">
+                  <Bot className="h-5 w-5" />
+                  Try the live demo →
+                </button>
+              </Link>
+            </div>
+            <p className="text-xs text-gray-500">
+              No credit card to start · {siteConfig.guarantee.label} · Cancel any time
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {platformFeatures.map((feature, index) => {
-              const getFeatureLink = (featureName) => {
-                switch (featureName) {
-                  case 'Dark Pool Scanner':
-                    return '/scanner';
-                  case 'Straddle Calculator':
-                    return '/straddle-calculator';
-                  case 'VolAlert Pro':
-                    return 'https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01';
-                  case 'KAHF AI':
-                    return '/sonnet';
-                  default:
-                    return '#';
-                }
-              };
 
-              const isExternalLink = feature.name === 'VolAlert Pro';
-              const featureLink = getFeatureLink(feature.name);
+          {/* Live AI demo */}
+          <HomeAIPreview />
 
-              if (isExternalLink) {
-                return (
-                  <a 
-                    key={index} 
-                    href={featureLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg cursor-pointer"
-                  >
-                    <div className="p-6">
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                        <feature.icon className="h-6 w-6 text-green-600" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
-                      <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
-                    </div>
-                  </a>
-                );
-              }
-
-              return (
-                <Link key={index} href={featureLink} className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg cursor-pointer">
-                  <div className="p-6">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                      <feature.icon className="h-6 w-6 text-green-600" />
-                    </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">{feature.name}</h4>
-                    <p className="text-gray-600 text-base leading-relaxed">{feature.description}</p>
-                  </div>
-                </Link>
-              );
-            })}
+          {/* Stats strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mt-12 max-w-3xl mx-auto text-center">
+            <Stat label="Dark pool prints/day" value="$50B+" />
+            <Stat label="Tickers tracked" value="3,000+" />
+            <Stat label="Straddle hit rate" value="55%+" />
+            <Stat label="Avg AI response" value="< 6s" />
           </div>
         </div>
       </section>
 
+      {/* How it works */}
+      <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-2">How it works</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">From idea to tradeable read in 6 seconds.</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {HOW_IT_WORKS.map((step, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-7 relative">
+                <div className="absolute -top-3 -left-3 w-9 h-9 rounded-full bg-green-600 text-white font-bold flex items-center justify-center shadow-md">
+                  {i + 1}
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-4">
+                  <step.icon className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{step.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
+      {/* Features */}
+      <section className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-2">What's inside</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Built around the AI. Powered by real data.</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {FEATURES.map((f, i) => (
+              <div key={i} className="border border-gray-200 hover:border-green-300 hover:shadow-lg transition-all bg-white rounded-2xl p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">
+                    <f.icon className="h-5 w-5 text-green-600" />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-gray-100 text-gray-600">
+                    {f.tag}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{f.title}</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      {/* Footer */}
+      {/* Social proof */}
+      <section className="py-16 px-4 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-1 mb-3">
+              {[1,2,3,4,5].map(i => <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />)}
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Receipts &gt; promises.</h2>
+            <p className="text-gray-600 mt-2">From traders running real money.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <figure key={i} className="bg-white border border-gray-200 rounded-2xl p-6 relative">
+                <Quote className="absolute top-5 right-5 h-6 w-6 text-green-100" />
+                <blockquote className="text-gray-700 leading-relaxed mb-4">{t.quote}</blockquote>
+                <figcaption>
+                  <div className="font-semibold text-gray-900 text-sm">{t.name}</div>
+                  <div className="text-xs text-gray-500">{t.handle}</div>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link href="/wins" className="inline-flex items-center gap-1 text-green-700 hover:text-green-800 font-semibold">
+              See the public alert track record <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16 px-4">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-10">Frequently asked.</h2>
+          <div className="space-y-3">
+            {FAQ.map((item, i) => (
+              <details key={i} className="group border border-gray-200 rounded-xl bg-white open:shadow-md transition-shadow">
+                <summary className="cursor-pointer list-none p-5 flex items-center justify-between font-semibold text-gray-900">
+                  {item.q}
+                  <ArrowRight className="h-4 w-4 text-gray-400 group-open:rotate-90 transition-transform" />
+                </summary>
+                <div className="px-5 pb-5 text-gray-600 leading-relaxed">{item.a}</div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20 px-4 bg-gradient-to-br from-green-600 to-emerald-700 text-white">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Stop guessing. Start asking.</h2>
+          <p className="text-green-50 text-lg mb-7 max-w-2xl mx-auto">
+            7-day free trial of full KAHF AI. No credit card. {siteConfig.guarantee.label}.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/pricing" onClick={handlePrimaryCTA}>
+              <button className="bg-white text-green-700 hover:bg-green-50 px-8 py-4 text-base font-bold rounded-xl shadow-xl flex items-center gap-2 mx-auto sm:mx-0">
+                Start free trial <ArrowRight className="h-5 w-5" />
+              </button>
+            </Link>
+            <Link href="/sonnet">
+              <button className="border-2 border-white/40 hover:bg-white/10 text-white px-8 py-4 text-base font-semibold rounded-xl flex items-center gap-2 mx-auto sm:mx-0">
+                <Bot className="h-5 w-5" /> Try the demo
+              </button>
+            </Link>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-7 text-green-100 text-sm">
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Cancel anytime</span>
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> No credit card</span>
+            <span className="hidden sm:inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> 14-day refund</span>
+          </div>
+        </div>
+      </section>
+
       <Footer />
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <div className="text-2xl sm:text-3xl font-black text-gray-900">{value}</div>
+      <div className="text-xs sm:text-sm text-gray-500 mt-1">{label}</div>
     </div>
   );
 }

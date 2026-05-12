@@ -90,29 +90,24 @@ export default function Confirmation() {
           </div>
         </div>
 
-        {/* VolAlert Pro Upsell */}
+        {/* Pro upsell — daily digest */}
         <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-6 mb-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start mb-2">
                 <Bell className="h-6 w-6 text-green-600 mr-2" />
-                <h3 className="text-xl font-bold text-gray-900">Want Daily Alerts?</h3>
+                <h3 className="text-xl font-bold text-gray-900">Daily unusual-activity digest</h3>
               </div>
               <p className="text-gray-700">
-                Get alerts when dark pool activity spikes. Never miss a volatility opportunity again.
+                Pro includes a daily email when dark pool volume is unusually high — plus unlimited KAHF AI and full scanner history.
               </p>
             </div>
-            <a 
-              href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex-shrink-0"
-            >
+            <Link href="/pricing" className="flex-shrink-0">
               <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center">
                 <Zap className="mr-2 h-5 w-5" />
-                Subscribe to VolAlert Pro
+                View Pro pricing
               </button>
-            </a>
+            </Link>
           </div>
         </div>
 

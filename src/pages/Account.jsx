@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { 
-  User, Mail, Phone, Bell, Shield, CreditCard, 
+import {
+  User, Mail, Phone, Bell, Shield, CreditCard,
   Settings, Save, AlertCircle, CheckCircle, Zap,
-  ArrowLeft
+  ArrowLeft, Gift, Copy, Check
 } from 'lucide-react';
+import { siteConfig } from '../../lib/site-config';
+import { track } from '../../lib/analytics';
 import { useAuth } from '../context/AuthContext';
 import { updateUserPhone, updateUserPreferences } from '../../lib/firebase';
 import Header from '../components/Header';
@@ -41,6 +43,20 @@ export default function Account() {
   const [watchlistInput, setWatchlistInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [refCopied, setRefCopied] = useState(false);
+
+  const refCode = user?.uid ? `kahf_${user.uid.slice(0, 8)}` : '';
+  const refLink = refCode ? `${siteConfig.url}/?ref=${refCode}` : '';
+
+  const copyRefLink = async () => {
+    if (!refLink) return;
+    try {
+      await navigator.clipboard.writeText(refLink);
+      setRefCopied(true);
+      track('referral_link_copied', { refCode });
+      setTimeout(() => setRefCopied(false), 1800);
+    } catch {}
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -209,13 +225,13 @@ export default function Account() {
                 <div className="flex items-center p-4 bg-green-50 rounded-lg">
                   <Zap className="h-6 w-6 text-green-600 mr-3" />
                   <div>
-                    <p className="font-semibold text-green-800">VolAlert Pro Active</p>
-                    <p className="text-sm text-green-600">You have full access to alerts</p>
+                    <p className="font-semibold text-green-800">Pro Active</p>
+                    <p className="text-sm text-green-600">Unlimited KAHF AI · Daily email digest · Full history</p>
                   </div>
                 </div>
-                
+
                 <a
-                  href="https://billing.stripe.com/p/login/cNi28tdb74N6d8L6lz0oM00"
+                  href={siteConfig.manageBillingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
@@ -226,32 +242,75 @@ export default function Account() {
             ) : (
               <div className="space-y-4">
                 <p className="text-gray-600">
-                  You're on the free plan. Upgrade to VolAlert Pro for alerts on dark pool activity.
+                  You're on the free plan. Upgrade to Pro for unlimited KAHF AI, full scanner history, and the daily unusual dark pool email digest.
                 </p>
-                <a
-                  href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/pricing"
                   className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 >
                   <Zap className="h-5 w-5 mr-2" />
-                  Upgrade to VolAlert Pro
-                </a>
+                  Start 7-day free trial
+                </Link>
               </div>
             )}
           </div>
 
-          {/* Phone Number Section (alert delivery) */}
+          {/* Referral Section */}
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200 p-6">
+            <div className="flex items-center mb-3">
+              <Gift className="h-5 w-5 text-amber-700 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-900">Refer & earn</h2>
+            </div>
+            <p className="text-gray-700 text-sm mb-4">
+              Share your link. Every paid signup gives <strong>you 1 free month</strong> and gives <strong>them 1 free month</strong>. Stack up to 12 months on us.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                readOnly
+                value={refLink}
+                className="flex-1 px-3 py-2 border border-amber-200 bg-white rounded-lg text-sm text-gray-700 font-mono"
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={copyRefLink}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                {refCopied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
+              </button>
+            </div>
+            <div className="flex gap-2 mt-3 text-sm">
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('I\'ve been running KAHF AI for my volatility setups — it scores every dark pool print against four institutional checks. Wild edge.')}&url=${encodeURIComponent(refLink)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => track('referral_share_clicked', { channel: 'twitter' })}
+                className="text-amber-800 hover:underline font-semibold"
+              >
+                Share on X →
+              </a>
+              <span className="text-amber-300">·</span>
+              <a
+                href={`mailto:?subject=${encodeURIComponent('Try KAHF AI')}&body=${encodeURIComponent(`KAHF AI is a volatility analyst trained on a decade of dark pool prints. ${refLink}`)}`}
+                onClick={() => track('referral_share_clicked', { channel: 'email' })}
+                className="text-amber-800 hover:underline font-semibold"
+              >
+                Email a friend →
+              </a>
+            </div>
+          </div>
+
+          {/* Phone (optional contact — alerts go to your email) */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center mb-4">
               <Phone className="h-5 w-5 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">Phone for alerts</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Mobile number (optional)</h2>
             </div>
             
             <p className="text-gray-600 text-sm mb-4">
               {hasActiveSubscription() 
-                ? 'Enter your phone number to receive alerts for dark pool activity.'
-                : 'Upgrade to VolAlert Pro to receive alerts.'}
+                ? 'Daily unusual dark pool digests go to your account email on file. Optionally add a phone number here — not required for email alerts.'
+                : 'Upgrade to Pro for daily email alerts on unusual dark pool activity.'}
             </p>
             
             <div className="flex space-x-3">
@@ -274,20 +333,23 @@ export default function Account() {
             </div>
           </div>
 
-          {/* Alert Preferences Section */}
+          {/* Digest preferences — apply to daily email roundup */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center mb-4">
               <Bell className="h-5 w-5 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">Alert Preferences</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Daily digest preferences</h2>
             </div>
             
+            <p className="text-sm text-gray-600 mb-4">
+              Tune what shows up in your Pro daily unusual dark pool email (sent to your account email).
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Minimum Volume Ratio
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  Only alert when dark pool volume is X times higher than the 7-day average
+                  Only include tickers when dark pool volume is at least X times higher than the 7-day average
                 </p>
                 <select
                   value={preferences.minVolumeRatio}
@@ -305,7 +367,7 @@ export default function Account() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Max Alerts Per Day
+                  Max tickers per digest
                 </label>
                 <select
                   value={preferences.maxAlertsPerDay}

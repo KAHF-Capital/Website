@@ -53,23 +53,24 @@ function detectCatalysts(text) {
 
 function summarizeTicker(ticker, avg7DayVolume) {
   const ratio = avg7DayVolume > 0 ? Number((ticker.total_volume / avg7DayVolume).toFixed(2)) : null;
+  const avgPriceRounded = typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null;
   return {
     ticker: ticker.ticker,
-    totalVolume: ticker.total_volume,
-    totalValue: ticker.total_value,
-    avgPrice: ticker.avg_price,
-    tradeCount: ticker.trade_count,
-    avg7DayVolume,
+    darkPoolVolume: ticker.total_volume,
+    darkPoolValue: ticker.total_value,
+    darkPoolAvgPrice: avgPriceRounded,
+    darkPoolTradeCount: ticker.trade_count,
+    avg7DayDarkPoolVolume: avg7DayVolume,
     volumeRatio: ratio
   };
 }
 
 function passesScannerFilters(summary) {
   return (
-    typeof summary.totalValue === 'number' &&
-    summary.totalValue >= SCANNER_MIN_VOLUME &&
-    typeof summary.avgPrice === 'number' &&
-    summary.avgPrice >= SCANNER_MIN_PRICE
+    typeof summary.darkPoolValue === 'number' &&
+    summary.darkPoolValue >= SCANNER_MIN_VOLUME &&
+    typeof summary.darkPoolAvgPrice === 'number' &&
+    summary.darkPoolAvgPrice >= SCANNER_MIN_PRICE
   );
 }
 
@@ -108,7 +109,7 @@ function compute7DayAvg(averageFiles, dataMap) {
   };
 }
 
-async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 10 } = {}) {
+async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 10, includeCurrentPrice = true } = {}) {
   const { windowFiles, averageFiles, data } = await loadScannerWindow(7);
   if (windowFiles.length === 0) return { available: false, reason: 'No scanner files' };
   const latest = windowFiles[0];
@@ -121,10 +122,28 @@ async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RAT
     .filter((s) => s.volumeRatio !== null && s.volumeRatio >= minVolumeRatio)
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
     .slice(0, Math.max(1, Math.min(limit, 25)));
+
+  if (includeCurrentPrice && process.env.POLYGON_API_KEY) {
+    await Promise.all(signals.map(async (sig) => {
+      try {
+        const price = await getCurrentStockPrice(sig.ticker);
+        sig.currentStockPrice = typeof price === 'number' ? Number(price.toFixed(2)) : null;
+      } catch {
+        sig.currentStockPrice = null;
+      }
+    }));
+  }
+
   return {
     available: true,
+    sourceEndpoint: '/api/darkpool-trades (same as Scanner page)',
     date: latest.filename.replace('.json', ''),
     filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE, minVolumeRatio },
+    fieldGlossary: {
+      darkPoolAvgPrice: 'Volume-weighted avg dark pool price today (matches Scanner UI Price column).',
+      currentStockPrice: 'Last regular-session close from Polygon.',
+      volumeRatio: 'Today darkPoolVolume / 7-day avg, format as "Nx".'
+    },
     signals
   };
 }
@@ -170,10 +189,10 @@ async function tool_get_scanner_history({ ticker, days = 14 } = {}) {
     if (match) {
       history.push({
         date: file.filename.replace('.json', ''),
-        totalVolume: match.total_volume,
-        totalValue: match.total_value,
-        avgPrice: match.avg_price,
-        tradeCount: match.trade_count
+        darkPoolVolume: match.total_volume,
+        darkPoolValue: match.total_value,
+        darkPoolAvgPrice: typeof match.avg_price === 'number' ? Number(match.avg_price.toFixed(2)) : null,
+        darkPoolTradeCount: match.trade_count
       });
     }
   }
@@ -249,12 +268,13 @@ const TOOLS = [
   {
     name: 'get_scanner_signals',
     description:
-      'Return today\'s scanner signals (tradable tickers with volume ratio above the threshold), sorted by volume ratio. Use this to find the freshest dark-pool unusual-volume candidates.',
+      'Return today\'s scanner signals (tradable tickers above the volume-ratio threshold), sorted by volume ratio. THIS IS THE SAME DATA THE SCANNER PAGE SHOWS. Each signal includes darkPoolAvgPrice (Scanner Price column), currentStockPrice (last close), volumeRatio, darkPoolVolume, darkPoolValue. ALWAYS use these verbatim - never invent numbers.',
     inputSchema: {
       type: 'object',
       properties: {
         minVolumeRatio: { type: 'number', description: 'Minimum volume ratio (today vs 7-day avg). Default 2.0.', default: 2.0 },
-        limit: { type: 'integer', description: 'Max signals to return (1-25).', default: 10 }
+        limit: { type: 'integer', description: 'Max signals to return (1-25).', default: 10 },
+        includeCurrentPrice: { type: 'boolean', description: 'Whether to fetch the live last-close stock price for each signal. Default true.', default: true }
       }
     },
     handler: tool_get_scanner_signals

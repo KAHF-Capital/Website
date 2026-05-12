@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Head from 'next/head';
 import Footer from './Footer';
 import Header from '../components/Header';
 import DraggableFilter from '../components/DraggableFilter';
 import DarkPoolAnalysis from '../components/DarkPoolAnalysis';
-import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock } from 'lucide-react';
+import EmailCaptureModal from '../components/EmailCaptureModal';
+import AskAIButton from '../components/AskAIButton';
+import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../../lib/analytics';
 
 // Safe icon components
 const SafeRefreshCw = () => {
@@ -49,6 +53,16 @@ export default function Scanner() {
   const [showFilters, setShowFilters] = useState(false);
   const [showDarkPoolAnalysis, setShowDarkPoolAnalysis] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState(null);
+  const [emailUnlocked, setEmailUnlocked] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage.getItem('kahf_lead_email')) {
+        setEmailUnlocked(true);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     // Check if we have cached data first
@@ -212,14 +226,15 @@ export default function Scanner() {
         </div>
 
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <Link href={`/signup?redirect=/scanner`}>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm">
-              <Lock className="h-4 w-4 mr-2" />
-              Sign up free to unlock
-            </button>
-          </Link>
+          <button
+            onClick={() => { track('scanner_email_unlock_click'); setShowEmailModal(true); }}
+            className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm"
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Unlock with email
+          </button>
           <p className="mt-2 text-center text-xs text-gray-500">
-            Top 3 signals are members-only
+            Top signals — free, no credit card
           </p>
         </div>
       </div>
@@ -230,7 +245,9 @@ export default function Scanner() {
     <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-semibold text-gray-900">{ticker.ticker}</h4>
+          <Link href={`/ticker/${ticker.ticker}`} className="text-lg font-semibold text-gray-900 hover:text-green-700 transition-colors">
+            ${ticker.ticker}
+          </Link>
           <span className="text-sm text-gray-600">{ticker.trade_count} trades</span>
         </div>
         
@@ -274,15 +291,25 @@ export default function Scanner() {
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-          <button 
-            onClick={() => openDarkPoolAnalysis(ticker.ticker)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-sm"
+          <AskAIButton
+            prompt={`Give me a structured 4-of-4 read on ${ticker.ticker}. Volume ratio, straddle hit rate, liquidity, catalyst — should I trade it, watch it, or skip?`}
+            ticker={ticker.ticker}
+            source="scanner_card"
+            variant="primary"
+            size="md"
+            className="w-full justify-center"
           >
-            <TrendingUp className="h-4 w-4 mr-1" />
+            <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Ask KAHF AI</span>
+          </AskAIButton>
+          <button
+            onClick={() => openDarkPoolAnalysis(ticker.ticker)}
+            className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-xs"
+          >
+            <TrendingUp className="h-3.5 w-3.5 mr-1" />
             Dark Pool History
           </button>
           <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
-            <button className="w-full border border-green-600 text-green-600 bg-transparent hover:bg-green-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
+            <button className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
               ATM Straddle
             </button>
           </Link>
@@ -316,6 +343,10 @@ export default function Scanner() {
 
   return (
     <div className="min-h-screen bg-white">
+      <Head>
+        <title>Dark Pool Scanner — Live Institutional Prints | KAHF Capital</title>
+        <meta name="description" content="Real-time dark pool scanner with volume ratio, straddle hit rate, and AI-graded setups. Free to use." />
+      </Head>
       <Header />
           
 
@@ -358,26 +389,28 @@ export default function Scanner() {
               </button>
             </div>
             <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
-            
-            {/* VolAlert Pro CTA */}
-            <div className="mt-6 mb-6 p-6 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg">
+
+            {/* AI-first CTA */}
+            <div className="mt-6 mb-6 p-5 bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-800 rounded-xl text-white">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
-                  <h3 className="text-xl font-bold text-green-800 mb-2">Get Daily Alerts</h3>
-                  <p className="text-green-700">Never miss dark pool activity again. Subscribe to VolAlert Pro for daily alerts.</p>
+                  <div className="inline-flex items-center gap-1.5 text-green-300 text-xs font-semibold uppercase tracking-wider mb-1">
+                    <Sparkles className="h-3 w-3" /> KAHF AI · 4-of-4 grader
+                  </div>
+                  <h3 className="text-xl font-bold mb-1">Don't read the table — let the AI score it.</h3>
+                  <p className="text-gray-300 text-sm">Ask for a structured trade/watch/skip read on every ticker on the board, in seconds.</p>
                 </div>
-                <a 
-                  href="https://buy.stripe.com/4gM8wR0ol1AU1q3eS50oM01" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0"
+                <AskAIButton
+                  prompt="Score the top tickers on today's scanner. For each: volume ratio, straddle hit rate, liquidity, catalyst, verdict (trade/watch/skip)."
+                  source="scanner_top_cta"
+                  variant="primary"
+                  size="lg"
+                  className="flex-shrink-0 bg-green-500 hover:bg-green-400 text-white"
                 >
-                  <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center">
-                    <Bell className="mr-2 h-5 w-5" />
-                    Subscribe to VolAlert Pro
-                    <Zap className="ml-2 h-5 w-5" />
-                  </button>
-                </a>
+                  <span className="inline-flex items-center gap-2">
+                    <Bot className="h-4 w-4" /> Grade today's board
+                  </span>
+                </AskAIButton>
               </div>
             </div>
 
@@ -534,8 +567,9 @@ export default function Scanner() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                 {(() => {
+                  const showLocked = !authLoading && !isAuthenticated && !emailUnlocked;
                   const lockedTickers = new Set(
-                    !authLoading && !isAuthenticated
+                    showLocked
                       ? [...darkPoolData.tickers]
                           .filter((t) => t.volume_ratio !== 'N/A')
                           .sort((a, b) => parseFloat(b.volume_ratio) - parseFloat(a.volume_ratio))
@@ -583,6 +617,17 @@ export default function Scanner() {
         isOpen={showDarkPoolAnalysis}
         onClose={() => setShowDarkPoolAnalysis(false)}
         ticker={selectedTicker}
+      />
+
+      {/* Email capture modal — unlocks the locked top-3 cards */}
+      <EmailCaptureModal
+        open={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onSuccess={() => { setEmailUnlocked(true); track('scanner_email_unlocked'); }}
+        source="scanner_locked_card"
+        title="Unlock the top 3 signals"
+        subtitle="Free, no credit card. Your email gets the daily digest, plus instant access to the highest-conviction tickers on the board."
+        cta="Unlock now"
       />
     </div>
   );

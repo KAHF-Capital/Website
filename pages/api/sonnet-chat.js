@@ -1,11 +1,14 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
-import { verifyIdToken, isFirebaseAdminConfigured } from '../../lib/firebase-admin';
+import { getScannerSnapshot } from '../../lib/scanner-snapshot';
+import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 
 const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
+// Signed-in but not subscribed: small monthly quota (encourages signup, gates Pro).
+const FREE_ACCOUNT_LIMIT = parseInt(process.env.KAHF_AI_FREE_ACCOUNT_LIMIT || '5', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
@@ -112,16 +115,63 @@ async function getIdentity(req) {
     throw error;
   }
 
+  // Look up subscription status. Only Pro (subscription.status === 'active') gets unlimited.
+  let isPro = false;
+  let userData = null;
+  try {
+    const firestore = getFirestoreAdmin();
+    const snap = await firestore.collection('users').doc(verified.uid).get();
+    if (snap.exists) {
+      userData = snap.data();
+      const status = userData?.subscription?.status;
+      isPro = status === 'active' || status === 'trialing';
+    }
+  } catch (err) {
+    console.error('[sonnet-chat] Could not read subscription for', verified.uid, err.message);
+  }
+
+  if (isPro) {
+    return {
+      type: 'pro',
+      key: `uid:${verified.uid}`,
+      uid: verified.uid,
+      email: verified.email,
+      tier: 'pro',
+      limit: null,
+      isUnlimited: true,
+      userData
+    };
+  }
+
   return {
-    type: 'account',
+    type: 'free_account',
     key: `uid:${verified.uid}`,
     uid: verified.uid,
     email: verified.email,
-    tier: 'account',
-    limit: null,
-    isUnlimited: true,
-    userData: null
+    tier: 'free',
+    limit: FREE_ACCOUNT_LIMIT,
+    isUnlimited: false,
+    userData
   };
+}
+
+// Persistent monthly usage counter for signed-in free users (survives Vercel cold starts).
+async function incrementFirestoreUsage(uid, period, limit) {
+  const firestore = getFirestoreAdmin();
+  const ref = firestore.collection('users').doc(uid).collection('usage').doc(period);
+  return firestore.runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    const current = snap.exists ? Number(snap.data().count || 0) : 0;
+    if (current >= limit) {
+      const error = new Error('You\'ve used your free KAHF AI messages this month. Start a 7-day Pro free trial for unlimited access.');
+      error.statusCode = 429;
+      error.usage = { tier: 'free', limit, used: current, remaining: 0, isUnlimited: false, period };
+      throw error;
+    }
+    const next = current + 1;
+    txn.set(ref, { count: next, updatedAt: new Date().toISOString() }, { merge: true });
+    return next;
+  });
 }
 
 async function reserveUsage(identity) {
@@ -140,10 +190,34 @@ async function reserveUsage(identity) {
 
   const limit = identity.limit;
 
+  // Signed-in free users: persist count in Firestore so the limit holds across cold starts.
+  if (identity.tier === 'free' && identity.uid) {
+    try {
+      const used = await incrementFirestoreUsage(identity.uid, period, limit);
+      return {
+        tier: identity.tier,
+        limit,
+        used,
+        remaining: Math.max(limit - used, 0),
+        isUnlimited: false,
+        period
+      };
+    } catch (err) {
+      if (err.statusCode === 429) throw err;
+      console.error('[sonnet-chat] Firestore usage failed, falling back to in-memory:', err.message);
+      // fall through to in-memory below
+    }
+  }
+
+  // Anonymous (or Firestore fallback): in-memory counter.
   const fallbackKey = `${period}:${identity.key}`;
   const currentCount = anonymousUsage.get(fallbackKey) || 0;
   if (currentCount >= limit) {
-    const error = new Error('You used your free KAHF AI message. Sign in for unlimited access.');
+    const error = new Error(
+      identity.tier === 'free'
+        ? 'You\'ve used your free KAHF AI messages this month. Start a 7-day Pro free trial for unlimited access.'
+        : 'You used your free KAHF AI message. Sign in or upgrade to Pro for more.'
+    );
     error.statusCode = 429;
     error.usage = {
       tier: identity.tier,
@@ -170,24 +244,40 @@ async function reserveUsage(identity) {
 }
 
 function summarizeTicker(ticker, avg7DayVolume) {
-  const ratio = avg7DayVolume > 0 ? Number((ticker.total_volume / avg7DayVolume).toFixed(2)) : null;
+  // If the ticker already carries a precomputed ratio (from the shared
+  // scanner-snapshot helper), use it verbatim so the AI matches the
+  // Scanner UI byte-for-byte. Otherwise fall back to local compute.
+  const precomputedRatio = typeof ticker.volume_ratio === 'number' && Number.isFinite(ticker.volume_ratio)
+    ? ticker.volume_ratio
+    : null;
+  const precomputedAvg = typeof ticker.avg_7day_volume === 'number' && ticker.avg_7day_volume > 0
+    ? ticker.avg_7day_volume
+    : null;
+
+  const avgForRatio = precomputedAvg ?? avg7DayVolume;
+  const ratio = precomputedRatio !== null
+    ? precomputedRatio
+    : avgForRatio > 0
+      ? Number((ticker.total_volume / avgForRatio).toFixed(2))
+      : null;
+  const avgPriceRounded = typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null;
   return {
     ticker: ticker.ticker,
-    totalVolume: ticker.total_volume,
-    totalValue: ticker.total_value,
-    avgPrice: ticker.avg_price,
-    tradeCount: ticker.trade_count,
-    avg7DayVolume,
+    darkPoolVolume: ticker.total_volume,
+    darkPoolValue: ticker.total_value,
+    darkPoolAvgPrice: avgPriceRounded,
+    darkPoolTradeCount: ticker.trade_count,
+    avg7DayDarkPoolVolume: avgForRatio,
     volumeRatio: ratio
   };
 }
 
 function passesScannerFilters(summary) {
   return (
-    typeof summary.totalValue === 'number' &&
-    summary.totalValue >= SCANNER_MIN_VOLUME &&
-    typeof summary.avgPrice === 'number' &&
-    summary.avgPrice >= SCANNER_MIN_PRICE
+    typeof summary.darkPoolValue === 'number' &&
+    summary.darkPoolValue >= SCANNER_MIN_VOLUME &&
+    typeof summary.darkPoolAvgPrice === 'number' &&
+    summary.darkPoolAvgPrice >= SCANNER_MIN_PRICE
   );
 }
 
@@ -215,8 +305,10 @@ async function getPriorRange(ticker, scannerDate) {
 }
 
 async function buildScannerContext(requestedTickers) {
-  const files = await listDataFiles();
-  if (files.length === 0) {
+  // Latest-day data + per-ticker 7-day average + volume ratio comes from the
+  // SAME helper the Scanner UI uses. This guarantees today's numbers match.
+  const snapshot = await getScannerSnapshot();
+  if (!snapshot) {
     return {
       available: false,
       reason: 'No scanner files found',
@@ -225,9 +317,17 @@ async function buildScannerContext(requestedTickers) {
     };
   }
 
-  const latestFile = files[0];
-  const latestData = await getDataFile(latestFile.url);
-  if (!latestData?.tickers?.length) {
+  const files = snapshot.files;
+  const latestFile = snapshot.latestFile;
+  // snapshot.tickers already has avg_7day_volume + volume_ratio baked in.
+  const latestData = {
+    tickers: snapshot.tickers,
+    total_tickers: snapshot.total_tickers,
+    total_volume: snapshot.total_volume,
+    processed_at: snapshot.last_updated
+  };
+
+  if (!latestData.tickers?.length) {
     return {
       available: false,
       reason: 'Latest scanner file has no tickers',
@@ -237,6 +337,8 @@ async function buildScannerContext(requestedTickers) {
   }
 
   const recentFiles = files.slice(0, 20);
+  // averageFiles is still used for the rolling 20-day "recurring signals"
+  // pass below; the latest-day numbers no longer depend on it.
   const averageFiles = files.slice(0, 7);
   const volumeTotals = {};
   const volumeCounts = {};
@@ -262,10 +364,10 @@ async function buildScannerContext(requestedTickers) {
           if (!historyByTicker[ticker.ticker]) historyByTicker[ticker.ticker] = [];
           historyByTicker[ticker.ticker].push({
             date,
-            totalVolume: ticker.total_volume,
-            avgPrice: ticker.avg_price,
-            totalValue: ticker.total_value,
-            tradeCount: ticker.trade_count
+            darkPoolVolume: ticker.total_volume,
+            darkPoolAvgPrice: typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null,
+            darkPoolValue: ticker.total_value,
+            darkPoolTradeCount: ticker.trade_count
           });
         }
       }
@@ -291,8 +393,8 @@ async function buildScannerContext(requestedTickers) {
           topByVolumeRatio: top.map((ticker) => ({
             ticker: ticker.ticker,
             volumeRatio: ticker.volumeRatio,
-            avgPrice: ticker.avgPrice,
-            totalValue: ticker.totalValue
+            darkPoolAvgPrice: ticker.darkPoolAvgPrice,
+            darkPoolValue: ticker.darkPoolValue
           }))
         });
 
@@ -346,15 +448,19 @@ async function buildScannerContext(requestedTickers) {
   const selectedSignals = await Promise.all(selectedSymbols.map(async (symbol) => {
     const latest = tradableSummaries.find((ticker) => ticker.ticker === symbol);
     if (!latest) return null;
-    const priorRange = await getPriorRange(symbol, latestFile.filename.replace('.json', ''));
+    const [priorRange, currentStockPrice] = await Promise.all([
+      getPriorRange(symbol, latestFile.filename.replace('.json', '')),
+      getCurrentStockPrice(symbol).catch(() => null)
+    ]);
     const recurrence = tickerAppearances[symbol] || null;
     return {
       ...latest,
+      currentStockPrice: typeof currentStockPrice === 'number' ? Number(currentStockPrice.toFixed(2)) : null,
       priorRange,
-      avgPriceVsPriorRange: priorRange
-        ? latest.avgPrice > priorRange.high
+      darkPoolAvgPriceVsPriorRange: priorRange
+        ? latest.darkPoolAvgPrice > priorRange.high
           ? 'above prior range'
-          : latest.avgPrice < priorRange.low
+          : latest.darkPoolAvgPrice < priorRange.low
             ? 'below prior range'
             : 'inside prior range'
         : 'unavailable',
@@ -367,6 +473,7 @@ async function buildScannerContext(requestedTickers) {
 
   return {
     available: true,
+    sourceEndpoint: '/api/darkpool-trades (same data as the Scanner page)',
     date: latestFile.filename.replace('.json', ''),
     lookbackDays: SCANNER_LOOKBACK_DAYS,
     filters: {
@@ -374,9 +481,19 @@ async function buildScannerContext(requestedTickers) {
       minPrice: SCANNER_MIN_PRICE,
       description: `Tickers must show >= $${(SCANNER_MIN_VOLUME / 1e6).toFixed(0)}M dark pool value and >= $${SCANNER_MIN_PRICE} avg price.`
     },
+    fieldGlossary: {
+      darkPoolVolume: 'Total share volume of dark pool prints today.',
+      darkPoolValue: 'Total dollar value of dark pool prints today (= darkPoolVolume * darkPoolAvgPrice).',
+      darkPoolAvgPrice: 'Volume-weighted average dark pool trade price for today, rounded to 2 decimals. THIS IS WHAT THE SCANNER PAGE SHOWS IN ITS "PRICE" COLUMN.',
+      currentStockPrice: 'Last regular-session close from Polygon, rounded to 2 decimals. Use this when the user asks for the stock price.',
+      volumeRatio: 'Today darkPoolVolume divided by the 7-day avg dark pool volume, rounded to 2 decimals. Display as e.g. "5.27x".',
+      avg7DayDarkPoolVolume: '7-day trailing average dark pool volume.',
+      priorRange: 'Prior trading day high/low/close from Polygon.',
+      darkPoolAvgPriceVsPriorRange: 'Where the darkPoolAvgPrice falls vs. priorRange (above / inside / below).'
+    },
     totalTickers: latestData.total_tickers || latestData.tickers.length,
     tradableCount: tradableTickerSet.size,
-    totalVolume: latestData.total_volume,
+    totalDarkPoolVolume: latestData.total_volume,
     tradableTickers: [...tradableTickerSet].sort(),
     topSignals,
     selectedSignals: selectedSignals.filter(Boolean),
@@ -616,11 +733,20 @@ function buildSystemPrompt() {
     mcpBlock,
 
     '# Data you have in the prompt',
-    'Scanner snapshot is pre-attached: `scanner.tradableTickers` (the universe), `scanner.topSignals` (today, pre-filtered to volume ratio >= 2.0), `scanner.recurringSignals`, and `scanner.dailySnapshots` (5-day lookback). Anything absent from these lists is already weak.',
+    'Scanner snapshot is pre-attached and IS THE SAME DATA THE SCANNER PAGE SHOWS. Use only this for any volume / price numbers about today\'s signals.',
+    'Key scanner fields (see `scanner.fieldGlossary` for full definitions): `volumeRatio` (today vs 7-day avg, e.g. 5.27 -> "5.27x"), `darkPoolAvgPrice` (volume-weighted avg of today\'s dark pool prints, matches Scanner UI "Price" column), `currentStockPrice` (last close from Polygon), `priorRange` (yesterday high/low/close).',
+    'Lists available: `scanner.tradableTickers`, `scanner.topSignals`, `scanner.recurringSignals`, `scanner.dailySnapshots`, `scanner.selectedSignals`. Anything absent from these lists is already weak.',
     MCP_ENABLED
-      ? 'For straddle analysis, news, prior range, and any ticker history, use the MCP tools above (do not assume they are pre-fetched).'
-      : 'Straddle analysis and news are pre-fetched into context for the top scanner tickers.',
+      ? 'For straddle analysis, news, prior range, and any ticker history beyond what is pre-attached, use the MCP tools above.'
+      : 'Straddle analysis and news are pre-fetched for the top scanner tickers.',
     'Web search: you have a `web_search` tool. USE IT for live questions, current events, or to confirm upcoming earnings/FDA dates. Search with concise queries like "AAPL earnings date next".',
+
+    '# Numbers rule (CRITICAL)',
+    'Every numeric value you mention (volume ratio, price, premium, success rate, etc.) MUST be quoted verbatim from the data context or returned by a tool call. Do not round, paraphrase, estimate, or invent.',
+    'When the user asks for "the price" of a ticker on the scanner, quote `currentStockPrice` from `scanner.selectedSignals[i]` or `scanner.topSignals[i]`. If that field is missing, fetch via `get_stock_price` (MCP) or say "current price unavailable".',
+    'When discussing dark pool levels (e.g. avg vs prior range), use `darkPoolAvgPrice`, NEVER confuse it with the live stock price.',
+    'When citing a volume ratio, format it as "Nx" with the same precision the data shows (`5.27x`, not `5x` or `5.3x`).',
+    'If a number you need is not in the provided data and not fetchable, say "unavailable" in one short clause. Never make one up.',
 
     '# Universe rule',
     'Only recommend, suggest, or rank tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker not on the list, say so in one line, share neutral context (price/news) only, and do not issue a trade idea.',
@@ -645,9 +771,9 @@ function buildSystemPrompt() {
     '# Output format for trades',
     'For each Trade or Watch you surface, use this exact markdown structure:',
     '**Verdict:** Trade or Watch',
-    '**Setup:** one-line summary (ticker, strategy, expiration).',
-    '**Dark pool factors:** 1-3 bullets. Always cite volume ratio and avg price vs prior range.',
-    '**Quantitative factors:** 1-3 bullets. Always cite straddle success rate, DTE, premium, liquidity rating.',
+    '**Setup:** one-line summary (ticker, current stock price from `currentStockPrice`, strategy, expiration).',
+    '**Dark pool factors:** 1-3 bullets. Quote `volumeRatio` (e.g. "5.27x") and `darkPoolAvgPrice` (e.g. "$182.43") vs prior range verbatim from the data.',
+    '**Quantitative factors:** 1-3 bullets. Cite straddle success rate, DTE, premium, liquidity rating - all from the data.',
     '**Qualitative factors:** 1-3 bullets. Cite catalyst type + headline + publish date or web_search source.',
     '**Why now:** one line tying it together.',
     '**Risk note:** one line. Always close each recommendation with: "Research, not financial advice."',
