@@ -828,7 +828,7 @@ export default async function handler(req, res) {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const requestPayload = {
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
+      model: process.env.ANTHROPIC_MODEL || 'claude-opus-4-7',
       max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || process.env.SONNET_MAX_TOKENS || '1500', 10),
       temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15'),
       system: buildSystemPrompt(),
