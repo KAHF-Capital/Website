@@ -34,3 +34,9 @@ yarn-error.log*
 Thumbs.db
 
 /data/daily
+
+# Script logs + backtest scratch outputs (generated locally, not runtime).
+# Keep top-reads.json and track-record-reads.json — the site reads those.
+*.log
+track-record-candidates*
+track-record-passed*
