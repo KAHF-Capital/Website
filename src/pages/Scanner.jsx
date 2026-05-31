@@ -292,7 +292,7 @@ export default function Scanner() {
         
         <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
           <AskAIButton
-            prompt={`Give me a structured 4-of-4 read on ${ticker.ticker}. Volume ratio, straddle hit rate, liquidity, catalyst — should I trade it, watch it, or skip?`}
+            prompt={`Run the KAHF Read on ${ticker.ticker}. Conviction, call/put direction, historical edge, liquidity, catalyst + priced-in — trade, watch, or pass? What's the best structure?`}
             ticker={ticker.ticker}
             source="scanner_card"
             variant="primary"
@@ -308,9 +308,9 @@ export default function Scanner() {
             <TrendingUp className="h-3.5 w-3.5 mr-1" />
             Dark Pool History
           </button>
-          <Link href={`/straddle-calculator?ticker=${ticker.ticker}`}>
+          <Link href={`/calculator?ticker=${ticker.ticker}`}>
             <button className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg font-medium transition-colors text-xs">
-              ATM Straddle
+              Volatility Calculator
             </button>
           </Link>
         </div>
@@ -345,7 +345,7 @@ export default function Scanner() {
     <div className="min-h-screen bg-white">
       <Head>
         <title>Dark Pool Scanner — Live Institutional Prints | KAHF Capital</title>
-        <meta name="description" content="Real-time dark pool scanner with volume ratio, straddle hit rate, and AI-graded setups. Free to use." />
+        <meta name="description" content="Real-time dark pool scanner with volume ratio, best-strategy hit rate, and AI-graded setups. Free to use." />
       </Head>
       <Header />
           
@@ -395,13 +395,13 @@ export default function Scanner() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
                   <div className="inline-flex items-center gap-1.5 text-green-300 text-xs font-semibold uppercase tracking-wider mb-1">
-                    <Sparkles className="h-3 w-3" /> KAHF AI · 4-of-4 grader
+                    <Sparkles className="h-3 w-3" /> KAHF AI · KAHF Read grader
                   </div>
                   <h3 className="text-xl font-bold mb-1">Don't read the table — let the AI score it.</h3>
                   <p className="text-gray-300 text-sm">Ask for a structured trade/watch/skip read on every ticker on the board, in seconds.</p>
                 </div>
                 <AskAIButton
-                  prompt="Score the top tickers on today's scanner. For each: volume ratio, straddle hit rate, liquidity, catalyst, verdict (trade/watch/skip)."
+                  prompt="Score the top tickers on today's scanner. For each: volume ratio, best-strategy hit rate, liquidity, catalyst, verdict (trade/watch/skip)."
                   source="scanner_top_cta"
                   variant="primary"
                   size="lg"

@@ -7,9 +7,9 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
 const navigationItems = [
-  { href: '/sonnet', label: 'KAHF AI', primary: true },
+  { href: '/kahf-ai', label: 'KAHF AI', primary: true },
   { href: '/scanner', label: 'Scanner' },
-  { href: '/straddle-calculator', label: 'Straddle' },
+  { href: '/calculator', label: 'Calculator' },
   { href: '/wins', label: 'Track Record' },
   { href: '/pricing', label: 'Pricing' }
 ];
@@ -156,7 +156,7 @@ export default function Header() {
             />
             <div>
               <h1 className="text-lg font-bold text-gray-900 leading-none">KAHF</h1>
-              <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-wider mt-0.5">AI · Volatility</p>
+              <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-wider mt-0.5">AI Volatility Analyst</p>
             </div>
           </Link>
 

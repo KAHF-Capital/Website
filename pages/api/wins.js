@@ -1,27 +1,25 @@
-// Public track record. Reads manually-curated trade entries from Firestore.
-// Edit entries at /admin/wins (admin only).
-import { listTrackRecordEntries, isFirebaseAdminConfigured } from '../../lib/firebase-admin';
+// Public track record. Auto-generated from KAHF AI's scored dark pool reads
+// (scripts/build-top-reads.js --out track-record-reads) and marked to the LIVE
+// options market via the shared engine in lib/reads-live.js — the same engine
+// that powers the homepage scoreboard, so the two never disagree.
+import { loadReadsFile, markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
 
 const CACHE = { data: null, ts: 0 };
-const TTL = 60 * 1000; // 1 min — short, since admin edits should appear fast
-const LOOKBACK_DAYS = 60;
+const TTL = 3 * 60 * 60 * 1000; // 3h
 
-function safeNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function normalize(entry) {
+function toAlert(r) {
+  const result = r.returnPct === null ? 'flat' : r.returnPct > 0 ? 'win' : r.returnPct < 0 ? 'loss' : 'flat';
+  const held = r.status === 'open' ? 'open — marked to market' : 'held to expiry';
   return {
-    id: entry.id,
-    date: String(entry.date || ''),
-    ticker: String(entry.ticker || '').toUpperCase(),
-    volume_ratio: safeNumber(entry.volume_ratio),
-    total_value: safeNumber(entry.total_value),
-    avg_price: safeNumber(entry.avg_price),
-    result: ['win', 'loss', 'flat'].includes(entry.result) ? entry.result : 'flat',
-    estimated_return_pct: safeNumber(entry.estimated_return_pct),
-    note: String(entry.note || '')
+    date: r.date,
+    ticker: r.ticker,
+    volume_ratio: r.volumeRatio || 0,
+    total_value: r.darkPoolValue || 0,
+    avg_price: 0,
+    result,
+    estimated_return_pct: r.returnPct ?? 0,
+    hypothetical: true,
+    note: `${r.structureLabel} · ${held} · as-of edge ${r.asofHitRate}%`
   };
 }
 
@@ -36,46 +34,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    if (!isFirebaseAdminConfigured()) {
-      return res.status(200).json({
-        generated_at: new Date().toISOString(),
-        lookback_days: LOOKBACK_DAYS,
-        summary: { total: 0, wins: 0, losses: 0, flats: 0, hit_rate: 0, avg_winner: 0, avg_loser: 0 },
-        alerts: [],
-        disclaimer: 'No verified trades published yet. Track record will appear here once entries are added in /admin/wins.'
-      });
-    }
-
-    const { entries } = await listTrackRecordEntries({ limit: 500 });
-    const list = entries
-      .map(normalize)
-      .filter((e) => e.date && e.ticker)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-
-    const winners = list.filter((w) => w.result === 'win');
-    const losers = list.filter((w) => w.result === 'loss');
-    const flats = list.filter((w) => w.result === 'flat');
-
-    const summary = {
-      total: list.length,
-      wins: winners.length,
-      losses: losers.length,
-      flats: flats.length,
-      hit_rate: list.length ? Math.round((winners.length / list.length) * 100) : 0,
-      avg_winner: winners.length
-        ? +(winners.reduce((s, w) => s + w.estimated_return_pct, 0) / winners.length).toFixed(1)
-        : 0,
-      avg_loser: losers.length
-        ? +(losers.reduce((s, w) => s + w.estimated_return_pct, 0) / losers.length).toFixed(1)
-        : 0
-    };
+    const file = loadReadsFile('track-record-reads.json');
+    const reads = Array.isArray(file.reads) ? file.reads : [];
+    const { marked, summary } = await markReads(reads);
+    const alerts = marked.map(toAlert);
 
     const payload = {
       generated_at: new Date().toISOString(),
-      lookback_days: LOOKBACK_DAYS,
-      summary,
-      alerts: list,
-      disclaimer: 'Manually-published trade alerts. Returns are recorded by KAHF Capital based on the trade outcome; this is not advice. Past performance is not indicative of future results.'
+      summary: {
+        total: summary.total,
+        wins: summary.winners,
+        losses: summary.losers,
+        flats: summary.total - summary.winners - summary.losers,
+        hit_rate: summary.hitRate,
+        avg_winner: summary.avgWinner,
+        avg_loser: summary.avgLoser
+      },
+      alerts,
+      has_hypothetical: alerts.length > 0,
+      disclaimer: READS_DISCLAIMER
     };
 
     CACHE.data = payload;

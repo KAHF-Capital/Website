@@ -13,9 +13,9 @@ function TikTokIcon({ className = 'h-5 w-5' }) {
 
 export default function Footer() {
   const products = [
-    { href: '/sonnet', label: 'KAHF AI' },
+    { href: '/kahf-ai', label: 'KAHF AI' },
     { href: '/scanner', label: 'Dark Pool Scanner' },
-    { href: '/straddle-calculator', label: 'Straddle Calculator' },
+    { href: '/calculator', label: 'Volatility Calculator' },
     { href: '/wins', label: 'Track Record' }
   ];
   const company = [
@@ -42,7 +42,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5 max-w-md">
-              Your personal volatility analyst. Trained on a decade of institutional flow, dark pool prints, and earnings straddle history.
+              Your AI volatility analyst. Trained on a decade of institutional flow, dark pool prints, and historical options moves — finds the best volatility play for any setup.
             </p>
             <div className="flex items-center gap-3">
               {siteConfig.social.twitter && (

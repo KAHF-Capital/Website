@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar, FlaskConical } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 import AskAIButton from '../components/AskAIButton';
@@ -44,13 +44,13 @@ export default function Wins() {
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold mb-4">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Public · Updated daily · 24h delay
+              Public · Marked to the live market
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight">
               Receipts &gt; promises.
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Every alert KAHF AI flagged on the {data?.lookback_days || 60}-day lookback, with the result.
+              Every setup KAHF AI scored as tradeable this year — each one marked to the live options market. Open positions to market, settled ones to expiry.
             </p>
           </div>
 
@@ -67,9 +67,19 @@ export default function Wins() {
 
           {data && (
             <>
+              {data.has_hypothetical && (
+                <div className="max-w-3xl mx-auto mb-8 flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
+                  <FlaskConical className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-900">
+                    <span className="font-bold">Hypothetical / backtested results.</span>{' '}
+                    These trades were reconstructed from historical data using KAHF AI&apos;s scoring rules on a point-in-time basis — they were <span className="font-semibold">not live-traded</span>. Hypothetical performance has inherent limitations and does not represent actual trading.
+                  </div>
+                </div>
+              )}
+
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                <SummaryCard label="Alerts (60d)" value={data.summary.total} />
+                <SummaryCard label="Reads" value={data.summary.total} />
                 <SummaryCard
                   label="Hit rate"
                   value={`${data.summary.hit_rate}%`}
@@ -122,6 +132,11 @@ export default function Wins() {
                             >
                               ${a.ticker}
                             </Link>
+                            {a.hypothetical && (
+                              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide align-middle">
+                                <FlaskConical className="h-2.5 w-2.5" /> Backtest
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
                             {a.volume_ratio.toFixed(1)}×

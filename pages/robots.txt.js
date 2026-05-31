@@ -4,7 +4,6 @@ export async function getServerSideProps({ res }) {
 Allow: /
 Disallow: /api/
 Disallow: /account
-Disallow: /confirmation
 
 Sitemap: ${base}/sitemap.xml
 `;

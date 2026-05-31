@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { Bot } from 'lucide-react';
 import { track } from '../../lib/analytics';
 
-// Routes the user to /sonnet with a pre-loaded prompt.
+// Routes the user to /kahf-ai with a pre-loaded prompt.
 export default function AskAIButton({
   prompt,
   ticker,
@@ -21,7 +21,7 @@ export default function AskAIButton({
     track('ask_ai_clicked', { source, ticker: ticker || undefined, prompt: prompt?.slice(0, 80) });
     const query = { q: prompt || '' };
     if (ticker) query.t = ticker;
-    router.push({ pathname: '/sonnet', query });
+    router.push({ pathname: '/kahf-ai', query });
   };
 
   const base = 'inline-flex items-center gap-1.5 font-medium transition-colors rounded-md';

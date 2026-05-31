@@ -12,11 +12,11 @@ import { track } from '../../lib/analytics';
 
 const ALL_PROMPTS = [
   'Find me a high-conviction trade right now',
-  'Score the top scanner tickers (3x vol, 55%+, liquid, catalyst)',
+  'Run the KAHF Read on the top scanner tickers',
   'Any setups from the last 3 days that still make sense?',
   'Upcoming earnings or FDA catalysts on the scanner',
-  'What straddle has the best edge into next week?',
-  'Walk me through the strongest 4-of-4 today',
+  'What\'s the best structure on NVDA into next week?',
+  'Is the move on the top signal already priced in?',
   'Which tickers are printing $1B+ dark pool volume?',
   'Show me the riskiest setups to avoid right now'
 ];
@@ -95,7 +95,7 @@ function MessageContent({ message }) {
   );
 }
 
-export default function Sonnet() {
+export default function KahfAi() {
   const router = useRouter();
   const { user, loading: authLoading, hasActiveSubscription } = useAuth();
   const [dailyPrompts, setDailyPrompts] = useState(ALL_PROMPTS.slice(0, 4));
@@ -105,14 +105,16 @@ export default function Sonnet() {
     {
       role: 'assistant',
       content: [
-        "I'm KAHF AI. I score every dark pool setup against four institutional checks before I ever say \"trade\":",
+        "I'm KAHF AI, your volatility analyst. I read the setup, prescribe the structure — long call, long put, or straddle — or tell you to stay flat, and walk you through why.",
         '',
-        '- **Volume ratio** (today vs 7-day avg) — 3× or higher',
-        '- **Straddle hit rate** — historical 55%+ on the 30-day ATM',
-        '- **Liquid options** — tight spreads, decent OI',
-        '- **Real catalyst** — earnings, FDA, M&A, analyst action',
+        'Every setup runs through the KAHF Read — 5 factors:',
+        '- **Conviction** — how unusual the dark pool flow is (volume vs the 7-day average)',
+        '- **Direction** — call/put flow and where it printed vs the prior range',
+        '- **Edge** — the chosen structure’s historical hit rate at ~30 DTE',
+        '- **Liquidity & cost** — real OI, tight spreads, reasonable premium',
+        '- **Catalyst & priced-in** — a real catalyst, the right sentiment, and whether the move is already priced into IV',
         '',
-        "Ask me anything in plain English, or tap a starter below."
+        'Then I sanity-check against priced-in IV, skew, direction conflicts, and IV-crush risk. Ask anything in plain English, or tap a starter below.'
       ].join('\n')
     },
     {
@@ -122,16 +124,21 @@ export default function Sonnet() {
     {
       role: 'assistant',
       content: [
-        '**Sample read — $NVDA into earnings (illustrative).**',
+        '**Sample read (illustrative).**',
         '',
-        '| Check | Status |',
+        '**Verdict:** Trade.',
+        '**Setup:** Bullish bias into a 9-day earnings catalyst. Dark pool VWAP above last close. ATM strike at the next round number, ~45 DTE expiration.',
+        '**Why this structure:** Call-heavy flow + dark pool printing at the highs points up, and the long-call historical edge (~64% at 30 DTE) agrees — backward and forward both point up.',
+        '',
+        '| Factor | Read |',
         '|---|---|',
-        '| Volume ratio | 4.2× ✓ |',
-        '| Straddle hit rate | 62% (last 8 prints) ✓ |',
-        '| Options liquidity | OI 50k+, spreads <0.5% ✓ |',
-        '| Catalyst | Earnings in 9 trading days ✓ |',
+        '| Conviction (vol ratio) | 4.2× ✓ |',
+        '| Direction (call/put flow) | 2.1× call-heavy → bullish ✓ |',
+        '| Edge (long call, 30 DTE) | 64% hit rate ✓ |',
+        '| Liquidity & cost | OI 50k+, spreads <0.5% ✓ |',
+        '| Catalyst & priced-in | Earnings in 9d; IV fair vs realized ✓ |',
         '',
-        '**Verdict:** 4-of-4 trade. Front-month ATM straddle has historically expanded ~12% into print on this name. Risk-defined alternative: at-the-money calendar for cheaper vega.',
+        'Implied move ~6% vs the 11% avg realized — not priced in, so the directional long is live. Skew balanced. No IV-crush risk if held into print.',
         '',
         '_Now you ask — for a live ticker._'
       ].join('\n')
@@ -191,7 +198,7 @@ export default function Sonnet() {
 
     try {
       const token = user ? await user.getIdToken() : null;
-      const response = await fetch('/api/sonnet-chat', {
+      const response = await fetch('/api/kahf-ai-chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,8 +239,8 @@ export default function Sonnet() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>KAHF AI — Volatility analyst, on tap | KAHF Capital</title>
-        <meta name="description" content="Ask KAHF AI anything about dark pool prints, earnings straddles, options flow, and volatility setups. Free 1-message demo. Powered by Claude." />
+        <title>KAHF AI — Your AI volatility analyst | KAHF Capital</title>
+        <meta name="description" content="Ask KAHF AI for the best volatility play on any ticker. Real dark pool flow, real options pricing, 3 years of historical hit-rate math. Free 1-message demo. Powered by Claude." />
       </Head>
       <Header />
 
@@ -290,23 +297,35 @@ export default function Sonnet() {
             </div>
 
             <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">How KAHF AI scores a trade</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">The KAHF Read — 5 factors</h3>
               <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li><span className="font-semibold text-gray-900">Volume ratio:</span> 3x+ today vs 7-day avg.</li>
-                <li><span className="font-semibold text-gray-900">Success rate:</span> 55%+ on the 30-day ATM straddle.</li>
-                <li><span className="font-semibold text-gray-900">Liquidity:</span> tight spreads, OI &gt; 1k, day vol &gt; 500.</li>
-                <li><span className="font-semibold text-gray-900">Catalyst:</span> earnings, FDA, M&amp;A, analyst, product.</li>
+                <li><span className="font-semibold text-gray-900">Conviction:</span> how unusual the dark pool flow is vs the 7-day avg.</li>
+                <li><span className="font-semibold text-gray-900">Direction:</span> call/put flow + where it printed vs the prior range → call, put, or two-sided.</li>
+                <li><span className="font-semibold text-gray-900">Edge:</span> the chosen structure&apos;s historical hit rate at ~30 DTE.</li>
+                <li><span className="font-semibold text-gray-900">Liquidity &amp; cost:</span> real OI, tight spreads, reasonable premium.</li>
+                <li><span className="font-semibold text-gray-900">Catalyst &amp; priced-in:</span> a real catalyst, right sentiment, and whether the move is already priced into IV.</li>
               </ul>
-              <p className="text-xs text-gray-500 mt-3">All four = trade. Three = watchlist. Fewer = skip.</p>
+              <p className="text-xs text-gray-500 mt-3">Strong on all five = trade. Missing one = watchlist. Gate fails = pass.</p>
+            </div>
+
+            <div className="border border-gray-200 bg-white rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 mb-3">Sanity vetoes</h3>
+              <p className="text-xs text-gray-500 mb-2">Even a strong setup can fail these. The AI vetoes when:</p>
+              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
+                <li><span className="font-semibold text-gray-900">IV looks rich</span> vs the stock's historical realized move.</li>
+                <li><span className="font-semibold text-gray-900">Skew is loud</span> — the market is already paying for one side.</li>
+                <li><span className="font-semibold text-gray-900">Direction conflict</span> — best historical leg disagrees with the catalyst.</li>
+                <li><span className="font-semibold text-gray-900">IV crush risk</span> — long premium past an earnings print.</li>
+              </ul>
             </div>
 
             <div className="border border-gray-200 bg-white rounded-lg p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Data sources</h3>
               <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li>Scanner history (5-day lookback for recurring signals).</li>
-                <li>Straddle calculator: premium, success rate, liquidity, IV.</li>
-                <li>Polygon news (catalyst-tagged) + Yahoo Finance fallback.</li>
-                <li>Last close from the site price API.</li>
+                <li>Dark pool prints (Polygon) with 7-day volume baseline.</li>
+                <li>Options analyzer: historical hit rate, premium, liquidity, IV across every strategy.</li>
+                <li>Polygon news (catalyst-tagged) + live web search.</li>
+                <li>5-day scanner lookback for recurring signals.</li>
               </ul>
             </div>
           </aside>
@@ -349,7 +368,7 @@ export default function Sonnet() {
                 <div className="flex justify-start">
                   <div className="bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm inline-flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-                    Researching scanner, straddle, price, and news data...
+                    Researching scanner, options, price, and news data...
                   </div>
                 </div>
               )}
@@ -390,7 +409,7 @@ export default function Sonnet() {
                 <input
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder="Ask KAHF AI for research, a setup, ticker, or straddle read..."
+                  placeholder="Ask for a setup, a ticker, or 'what's the best play on NVDA?'..."
                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   disabled={isSending}
                 />

@@ -89,7 +89,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-2.5 text-sm mb-6">
               <Feature ok>Today's dark pool scanner</Feature>
-              <Feature ok>Today's straddle calculator</Feature>
+              <Feature ok>Volatility calculator</Feature>
               <Feature ok>1 free KAHF AI message</Feature>
               <Feature>Scanner history</Feature>
               <Feature>Unlimited AI chat</Feature>

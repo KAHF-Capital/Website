@@ -20,6 +20,7 @@
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
+import { getOptionsSuccessRate, getAllStrategyAnalyses, STRATEGIES } from '../../lib/options-analysis-service.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_NAME = 'kahf-data';
@@ -224,13 +225,315 @@ async function tool_get_straddle_analysis({ ticker } = {}) {
   return { ticker: sym, ...result };
 }
 
+async function tool_get_options_analysis({ ticker, strategy = 'straddle' } = {}) {
+  if (!ticker) throw new Error('ticker is required');
+  const sym = ticker.toUpperCase();
+  const strat = String(strategy).toLowerCase();
+
+  // Special value "all" — return call + put + straddle in one shot.
+  if (strat === 'all') {
+    const all = await getAllStrategyAnalyses(sym);
+    if (!all.call && !all.put && !all.straddle) {
+      return { ticker: sym, unavailable: true, reason: 'No options data' };
+    }
+    const ranked = [all.call, all.put, all.straddle]
+      .filter(Boolean)
+      .sort((a, b) => b.successRate - a.successRate);
+    return {
+      ticker: sym,
+      strategies: all,
+      bestStrategy: ranked[0]?.strategy,
+      bestSuccessRate: ranked[0]?.successRate
+    };
+  }
+
+  if (!STRATEGIES.includes(strat)) {
+    throw new Error(`strategy must be one of: ${STRATEGIES.join(', ')}, or "all"`);
+  }
+  const result = await getOptionsSuccessRate(sym, { strategy: strat });
+  if (!result) return { ticker: sym, strategy: strat, unavailable: true, reason: 'Options data unavailable' };
+  return result;
+}
+
 async function tool_get_stock_price({ ticker } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
   if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+
+  // Prefer the snapshot endpoint — gives last trade + today's OHLCV + prev day in one call
+  // (15-min delayed on Stocks Developer plan, but freshest available).
+  try {
+    const url = `${POLYGON_API_BASE}/v2/snapshot/locale/us/markets/stocks/tickers/${encodeURIComponent(sym)}?apiKey=${process.env.POLYGON_API_KEY}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      const snap = data.ticker;
+      if (snap) {
+        // Polygon returns 0 for fields that have no data (e.g. weekends, halts).
+        // Use a "first positive number" helper rather than `??` which doesn't catch 0.
+        const firstPositive = (...xs) => xs.find((v) => typeof v === 'number' && v > 0) ?? null;
+
+        const lastTrade = firstPositive(snap.lastTrade?.p);
+        const lastQuoteMid =
+          snap.lastQuote?.b > 0 && snap.lastQuote?.a > 0
+            ? (snap.lastQuote.b + snap.lastQuote.a) / 2
+            : null;
+        const price = firstPositive(lastTrade, lastQuoteMid, snap.day?.c, snap.prevDay?.c);
+        if (price) {
+          const lastTradeTs = snap.lastTrade?.t ? new Date(Math.floor(snap.lastTrade.t / 1e6)).toISOString() : null;
+          return {
+            ticker: sym,
+            price: Number(price.toFixed(4)),
+            asOf: lastTradeTs,
+            today: snap.day && snap.day.c ? {
+              open: snap.day.o, high: snap.day.h, low: snap.day.l, close: snap.day.c, volume: snap.day.v
+            } : null,
+            prevDay: snap.prevDay && snap.prevDay.c ? {
+              open: snap.prevDay.o, high: snap.prevDay.h, low: snap.prevDay.l, close: snap.prevDay.c, volume: snap.prevDay.v
+            } : null,
+            changeFromPrev: snap.todaysChange ?? null,
+            changePctFromPrev: snap.todaysChangePerc ?? null,
+            source: 'polygon snapshot (15-min delayed)'
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`Snapshot failed for ${sym}, falling back to prev close:`, e.message);
+  }
+
+  // Fallback: previous trading-day close.
   try {
     const price = await getCurrentStockPrice(sym);
-    return { ticker: sym, price, source: 'polygon prev close' };
+    return { ticker: sym, price, source: 'polygon prev close (fallback)' };
+  } catch (e) {
+    return { ticker: sym, unavailable: true, reason: e.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// New Polygon-backed tools (Stocks Developer + Options Basic)
+// ---------------------------------------------------------------------------
+
+async function polygonFetch(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${POLYGON_API_BASE}${path}${sep}apiKey=${process.env.POLYGON_API_KEY}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Polygon ${res.status}: ${body.slice(0, 160)}`);
+  }
+  return res.json();
+}
+
+async function tool_get_market_status() {
+  if (!process.env.POLYGON_API_KEY) return { unavailable: true, reason: 'Polygon API key not configured' };
+  try {
+    const data = await polygonFetch('/v1/marketstatus/now');
+    return {
+      market: data.market || null,
+      serverTime: data.serverTime || null,
+      exchanges: data.exchanges || null,
+      currencies: data.currencies || null,
+      afterHours: data.afterHours ?? null,
+      earlyHours: data.earlyHours ?? null
+    };
+  } catch (e) {
+    return { unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_ticker_details({ ticker } = {}) {
+  if (!ticker) throw new Error('ticker is required');
+  const sym = ticker.toUpperCase();
+  if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+  try {
+    const data = await polygonFetch(`/v3/reference/tickers/${encodeURIComponent(sym)}`);
+    const r = data.results || {};
+    return {
+      ticker: sym,
+      name: r.name || null,
+      type: r.type || null,
+      market: r.market || null,
+      primaryExchange: r.primary_exchange || null,
+      currency: r.currency_name || null,
+      cik: r.cik || null,
+      composite_figi: r.composite_figi || null,
+      sic_description: r.sic_description || null,
+      market_cap: r.market_cap || null,
+      share_class_shares_outstanding: r.share_class_shares_outstanding || null,
+      weighted_shares_outstanding: r.weighted_shares_outstanding || null,
+      description: r.description ? String(r.description).slice(0, 600) : null,
+      list_date: r.list_date || null,
+      homepage_url: r.homepage_url || null
+    };
+  } catch (e) {
+    return { ticker: sym, unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_intraday_chart({ ticker, timespan = 'minute', multiplier = 15, days = 1 } = {}) {
+  if (!ticker) throw new Error('ticker is required');
+  const sym = ticker.toUpperCase();
+  if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+
+  const allowedTimespans = ['minute', 'hour', 'day'];
+  if (!allowedTimespans.includes(timespan)) {
+    throw new Error(`timespan must be one of: ${allowedTimespans.join(', ')}`);
+  }
+  const lookbackDays = Math.max(1, Math.min(days, 30));
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - lookbackDays);
+  const fromStr = start.toISOString().slice(0, 10);
+  const toStr = end.toISOString().slice(0, 10);
+
+  try {
+    const data = await polygonFetch(
+      `/v2/aggs/ticker/${encodeURIComponent(sym)}/range/${Math.max(1, multiplier)}/${timespan}/${fromStr}/${toStr}?adjusted=true&sort=desc&limit=500`
+    );
+    const bars = (data.results || []).map((b) => ({
+      t: new Date(b.t).toISOString(),
+      o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, vw: b.vw
+    }));
+    return {
+      ticker: sym,
+      timespan, multiplier,
+      from: fromStr, to: toStr,
+      count: bars.length,
+      bars: bars.slice(0, 100), // limit response size; bars come back desc so newest first
+      note: bars.length > 100 ? 'Truncated to 100 most recent bars.' : null
+    };
+  } catch (e) {
+    return { ticker: sym, unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_options_chain({ ticker, expirationDate, strikeWindowPct = 10, contractType } = {}) {
+  if (!ticker) throw new Error('ticker is required');
+  const sym = ticker.toUpperCase();
+  if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+
+  try {
+    const params = new URLSearchParams({ limit: '250' });
+    if (expirationDate) params.set('expiration_date', expirationDate);
+    if (contractType && ['call', 'put'].includes(contractType)) params.set('contract_type', contractType);
+
+    const data = await polygonFetch(`/v3/snapshot/options/${encodeURIComponent(sym)}?${params}`);
+    const results = data.results || [];
+    if (results.length === 0) {
+      return { ticker: sym, expirationDate: expirationDate || null, count: 0, contracts: [], reason: 'No contracts in snapshot' };
+    }
+
+    // Get underlying price to filter the chain to a window around ATM.
+    const underlyingPrice = results.find((r) => r.underlying_asset?.price)?.underlying_asset?.price || null;
+    const windowFraction = Math.min(Math.max(strikeWindowPct, 1), 50) / 100;
+
+    const filtered = underlyingPrice
+      ? results.filter((r) => {
+          const k = r.details?.strike_price;
+          if (typeof k !== 'number') return false;
+          return Math.abs(k - underlyingPrice) / underlyingPrice <= windowFraction;
+        })
+      : results;
+
+    const contracts = filtered.slice(0, 80).map((r) => ({
+      ticker: r.details?.ticker || null,
+      contract_type: r.details?.contract_type || null,
+      strike_price: r.details?.strike_price ?? null,
+      expiration_date: r.details?.expiration_date || null,
+      last_quote: r.last_quote ? {
+        bid: r.last_quote.bid, ask: r.last_quote.ask, midpoint: r.last_quote.midpoint
+      } : null,
+      last_trade: r.last_trade ? { price: r.last_trade.price, size: r.last_trade.size } : null,
+      day: r.day ? {
+        close: r.day.close, volume: r.day.volume, vwap: r.day.vwap, change_percent: r.day.change_percent
+      } : null,
+      open_interest: r.open_interest ?? null,
+      implied_volatility: r.implied_volatility ?? null,
+      greeks: r.greeks ? {
+        delta: r.greeks.delta, gamma: r.greeks.gamma, theta: r.greeks.theta, vega: r.greeks.vega
+      } : null
+    }));
+
+    return {
+      ticker: sym,
+      underlyingPrice,
+      expirationDate: expirationDate || null,
+      strikeWindowPct: windowFraction * 100,
+      count: contracts.length,
+      contracts
+    };
+  } catch (e) {
+    return { ticker: sym, unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_option_quote({ optionTicker, ticker } = {}) {
+  if (!optionTicker) throw new Error('optionTicker is required (e.g. O:NVDA260619C00130000)');
+  const underlying = (ticker || optionTicker.replace(/^O:/, '').match(/^[A-Z]+/)?.[0] || '').toUpperCase();
+  if (!process.env.POLYGON_API_KEY) return { optionTicker, unavailable: true, reason: 'Polygon API key not configured' };
+  try {
+    const data = await polygonFetch(`/v3/snapshot/options/${encodeURIComponent(underlying)}/${encodeURIComponent(optionTicker)}`);
+    const r = data.results;
+    if (!r) return { optionTicker, underlying, unavailable: true, reason: 'No snapshot data' };
+    return {
+      optionTicker,
+      underlying,
+      underlyingPrice: r.underlying_asset?.price || null,
+      details: r.details,
+      last_quote: r.last_quote,
+      last_trade: r.last_trade,
+      day: r.day,
+      open_interest: r.open_interest ?? null,
+      implied_volatility: r.implied_volatility ?? null,
+      greeks: r.greeks
+    };
+  } catch (e) {
+    return { optionTicker, underlying, unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_top_movers({ direction = 'gainers', limit = 10 } = {}) {
+  if (!process.env.POLYGON_API_KEY) return { unavailable: true, reason: 'Polygon API key not configured' };
+  const dir = String(direction).toLowerCase();
+  if (!['gainers', 'losers'].includes(dir)) {
+    throw new Error('direction must be "gainers" or "losers"');
+  }
+  try {
+    const data = await polygonFetch(`/v2/snapshot/locale/us/markets/stocks/${dir}`);
+    const items = (data.tickers || []).slice(0, Math.max(1, Math.min(limit, 25)));
+    const movers = items.map((t) => ({
+      ticker: t.ticker,
+      price: t.lastTrade?.p ?? t.day?.c ?? null,
+      changePct: t.todaysChangePerc ?? null,
+      change: t.todaysChange ?? null,
+      volume: t.day?.v ?? null,
+      prevClose: t.prevDay?.c ?? null
+    }));
+    return { direction: dir, count: movers.length, movers };
+  } catch (e) {
+    return { unavailable: true, reason: e.message };
+  }
+}
+
+async function tool_get_dividends({ ticker, limit = 5 } = {}) {
+  if (!ticker) throw new Error('ticker is required');
+  const sym = ticker.toUpperCase();
+  if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+  try {
+    const data = await polygonFetch(`/v3/reference/dividends?ticker=${encodeURIComponent(sym)}&limit=${Math.min(Math.max(limit, 1), 20)}&order=desc&sort=ex_dividend_date`);
+    const items = (data.results || []).map((d) => ({
+      cash_amount: d.cash_amount,
+      currency: d.currency,
+      declaration_date: d.declaration_date,
+      ex_dividend_date: d.ex_dividend_date,
+      record_date: d.record_date,
+      pay_date: d.pay_date,
+      frequency: d.frequency,
+      dividend_type: d.dividend_type
+    }));
+    return { ticker: sym, count: items.length, dividends: items };
   } catch (e) {
     return { ticker: sym, unavailable: true, reason: e.message };
   }
@@ -322,9 +625,28 @@ const TOOLS = [
     handler: tool_get_prior_range
   },
   {
+    name: 'get_options_analysis',
+    description:
+      'Return the 30-day ATM analysis for a ticker for a CALL, PUT, or STRADDLE — success rate, premium, breakevens, DTE, sample size, options liquidity (volume/OI/spread), and IV. Pass strategy="all" to get call + put + straddle in one call (returns `strategies`, `bestStrategy`, `bestSuccessRate`). Use this to pick the best directional read for a setup.',
+    inputSchema: {
+      type: 'object',
+      required: ['ticker'],
+      properties: {
+        ticker: { type: 'string' },
+        strategy: {
+          type: 'string',
+          enum: ['call', 'put', 'straddle', 'all'],
+          default: 'straddle',
+          description: 'Which leg to analyze. Pass "all" to get call + put + straddle in one response.'
+        }
+      }
+    },
+    handler: tool_get_options_analysis
+  },
+  {
     name: 'get_straddle_analysis',
     description:
-      'Return the 30-day ATM straddle analysis for a ticker: success rate, premium, DTE, sample size, options liquidity (volume/OI/spread), and IV. Use this to score the quantitative + liquidity criteria.',
+      'LEGACY. Use get_options_analysis instead. Returns the same payload as get_options_analysis(ticker, "straddle").',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
@@ -334,13 +656,105 @@ const TOOLS = [
   },
   {
     name: 'get_stock_price',
-    description: 'Return the most recent close price for a ticker via Polygon.',
+    description:
+      'Return a FRESH price snapshot for a ticker (last trade, today\'s OHLCV, prev day, and intraday change). Uses Polygon snapshot endpoint — 15-min delayed but the freshest data available without an exchange feed. Includes `asOf` timestamp. PREFER THIS over guessing or using stale numbers from chat history.',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
       properties: { ticker: { type: 'string' } }
     },
     handler: tool_get_stock_price
+  },
+  {
+    name: 'get_market_status',
+    description:
+      'Return whether the US stock market is currently open, in pre-market, after-hours, or closed. Use this BEFORE quoting "current" prices so you can frame them correctly (e.g. "last trade at 3:58pm ET" vs "Friday close").',
+    inputSchema: { type: 'object', properties: {} },
+    handler: tool_get_market_status
+  },
+  {
+    name: 'get_ticker_details',
+    description:
+      'Return company-level reference data for a ticker: name, type (CS / ETF), market cap, sector (SIC description), exchange, shares outstanding, description, list date. Use this for context (sector classification, market cap tier) and to confirm a ticker is a tradeable common stock before recommending it.',
+    inputSchema: {
+      type: 'object',
+      required: ['ticker'],
+      properties: { ticker: { type: 'string' } }
+    },
+    handler: tool_get_ticker_details
+  },
+  {
+    name: 'get_intraday_chart',
+    description:
+      'Return intraday OHLCV bars for a ticker. Useful for confirming a setup ("is the stock breaking out today?") or computing realized move vs IV. Defaults: 15-minute bars over the last 1 day. Supports `timespan`: minute|hour|day, `multiplier` (1-60), and `days` (1-30 lookback). Returns up to 100 most recent bars (newest first).',
+    inputSchema: {
+      type: 'object',
+      required: ['ticker'],
+      properties: {
+        ticker: { type: 'string' },
+        timespan: { type: 'string', enum: ['minute', 'hour', 'day'], default: 'minute' },
+        multiplier: { type: 'integer', description: 'Bar size multiplier (e.g. timespan=minute, multiplier=15 → 15-min bars).', default: 15 },
+        days: { type: 'integer', description: 'Lookback days (1-30). Default 1.', default: 1 }
+      }
+    },
+    handler: tool_get_intraday_chart
+  },
+  {
+    name: 'get_options_chain',
+    description:
+      'Return a snapshot of the options chain for a ticker — strikes near ATM, with per-contract bid/ask, last trade, day OHLCV, open interest, IV, and Greeks (delta/gamma/theta/vega). Use this to PICK the right strike/expiration for a recommendation. Specify `expirationDate` (YYYY-MM-DD) to focus on one expiry; otherwise returns all expiries within the strike window. `strikeWindowPct` (default 10) limits to ±N% of the spot price.',
+    inputSchema: {
+      type: 'object',
+      required: ['ticker'],
+      properties: {
+        ticker: { type: 'string' },
+        expirationDate: { type: 'string', description: 'YYYY-MM-DD (optional). If omitted, returns all expirations within the strike window.' },
+        strikeWindowPct: { type: 'number', description: 'Half-width of the strike window as a percent of spot (default 10).', default: 10 },
+        contractType: { type: 'string', enum: ['call', 'put'], description: 'Filter to one leg.' }
+      }
+    },
+    handler: tool_get_options_chain
+  },
+  {
+    name: 'get_option_quote',
+    description:
+      'Return a live snapshot for a specific option contract (bid/ask, last trade, OI, IV, Greeks). Use this AFTER you\'ve picked the contract — e.g. after `get_options_chain` returns a contract ticker — to quote the latest premium.',
+    inputSchema: {
+      type: 'object',
+      required: ['optionTicker'],
+      properties: {
+        optionTicker: { type: 'string', description: 'Full options ticker, e.g. "O:NVDA260619C00130000".' },
+        ticker: { type: 'string', description: 'Underlying ticker (optional; will be parsed from optionTicker).' }
+      }
+    },
+    handler: tool_get_option_quote
+  },
+  {
+    name: 'get_top_movers',
+    description:
+      'Return today\'s biggest gainers or losers in the US stock market with current price and percent change. Use this for market color or to see if a scanner ticker is also on the macro mover list.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        direction: { type: 'string', enum: ['gainers', 'losers'], default: 'gainers' },
+        limit: { type: 'integer', description: 'How many to return (1-25). Default 10.', default: 10 }
+      }
+    },
+    handler: tool_get_top_movers
+  },
+  {
+    name: 'get_dividends',
+    description:
+      'Return upcoming and historical dividend events for a ticker (ex-date, pay-date, cash amount, frequency). Use this to flag IV-affecting events (large dividends crush calls / boost puts on ex-date).',
+    inputSchema: {
+      type: 'object',
+      required: ['ticker'],
+      properties: {
+        ticker: { type: 'string' },
+        limit: { type: 'integer', description: 'How many records to return (1-20). Default 5.', default: 5 }
+      }
+    },
+    handler: tool_get_dividends
   },
   {
     name: 'get_news',

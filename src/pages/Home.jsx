@@ -19,6 +19,7 @@ import {
 import Header from '../components/Header';
 import Footer from './Footer';
 import HomeAIPreview from '../components/HomeAIPreview';
+import HomeTopReads from '../components/HomeTopReads';
 import { siteConfig } from '../../lib/site-config';
 import { track } from '../../lib/analytics';
 
@@ -26,24 +27,24 @@ const HOW_IT_WORKS = [
   {
     icon: MessageSquare,
     title: 'Ask in plain English',
-    body: '"Find me a high-conviction trade." "Score the scanner." "Is NVDA worth a straddle into earnings?" KAHF AI takes it from there.'
+    body: '"Find me a high-conviction trade." "Score the scanner." "What\'s the best play on NVDA into earnings?" KAHF AI takes it from there.'
   },
   {
     icon: BarChart3,
-    title: 'AI scores against four checks',
-    body: 'Volume ratio (3×+), straddle hit rate (55%+), liquid options (tight spreads, real OI), real catalyst (earnings, FDA, M&A).'
+    title: 'AI runs the KAHF Read',
+    body: 'Five factors — institutional flow, options direction (call/put), historical edge, liquidity, and whether the catalyst is already priced into IV — combine into one verdict and the structure that actually fits.'
   },
   {
     icon: Bot,
     title: 'Get a tradeable read',
-    body: 'Trade, watchlist, or skip — with the receipts. Pro includes a daily email when dark pool volume is unusually high.'
+    body: 'Trade, watchlist, or skip — with the receipts. Direction, strike, expiration, and the volatility sanity checks behind it. Pro includes a daily email when dark pool volume is unusually high.'
   }
 ];
 
 const FEATURES = [
-  { icon: Bot, title: 'KAHF AI Chat', body: 'Unlimited Claude-powered analyst trained on a decade of dark pool prints, earnings straddles, and options flow.', tag: 'Headline' },
-  { icon: Search, title: 'Dark Pool Scanner', body: 'Track $250M+ institutional prints. Sorted by volume ratio, with straddle stats and catalyst tags.', tag: 'Free' },
-  { icon: TrendingUp, title: 'Straddle Calculator', body: 'Pull historical ATM-straddle hit rates for any ticker, any date range. Earnings-aware.', tag: 'Free' },
+  { icon: Bot, title: 'KAHF AI · Volatility Analyst', body: 'Unlimited Claude-powered analyst that finds the best volatility play on any ticker — using real options data, dark pool flow, and 3 years of price history.', tag: 'Headline' },
+  { icon: Search, title: 'Dark Pool Scanner', body: 'Track $250M+ institutional prints. Sorted by volume ratio, with options stats and catalyst tags.', tag: 'Free' },
+  { icon: TrendingUp, title: 'Volatility Calculator', body: 'Run any ticker against ATM strikes, real Polygon premiums, and a 3-year historical hit rate. See if the move is priced fairly.', tag: 'Free' },
   { icon: Zap, title: 'Daily email digest', body: 'Pro subscribers get a daily email roundup of unusual dark pool activity — the same setups that power the scanner, in your inbox.', tag: 'Pro' },
   { icon: ShieldCheck, title: 'Track Record Page', body: 'Every flagged alert with the result, public after a 24h delay. Receipts, not promises.', tag: 'Public' },
   { icon: Clock, title: '7-Day Free Trial', body: 'Full Pro access. Cancel anytime. 14-day money-back guarantee even after.', tag: 'No risk' }
@@ -53,12 +54,12 @@ const TESTIMONIALS = [
   {
     name: 'Marcus L.',
     handle: 'Options trader · 4 yrs',
-    quote: "I stopped paying for two other 'flow' services after a week of KAHF AI. The four-check system is the first thing I've seen that filters noise this hard."
+    quote: "I stopped paying for two other 'flow' services after a week of KAHF AI. The way it scores a setup end to end is the first thing I've seen that filters noise this hard."
   },
   {
     name: 'Sara R.',
     handle: 'Swing trader · 11 yrs',
-    quote: "The AI saved me from a TSLA straddle that didn't pencil out — 'no catalyst, watchlist only'. It was right. That alone paid for the year."
+    quote: "The AI killed my TSLA trade idea and pointed me at the right play instead. I would've flipped a coin on direction. It was right. That alone paid for the year."
   },
   {
     name: 'Anand K.',
@@ -70,7 +71,7 @@ const TESTIMONIALS = [
 const FAQ = [
   {
     q: 'What is KAHF AI?',
-    a: 'A volatility-focused AI analyst built on Claude, with structured access to live dark pool data, earnings straddle history, options liquidity, and catalyst tagging. Ask it anything in plain English and get a structured, tradeable read in seconds.'
+    a: 'An AI volatility analyst built on Claude. It finds the best strategy for each setup — or tells you to stay flat — by reconciling 3 years of historical hit-rate math with the forward catalyst direction, IV regime, options liquidity, and dark pool flow. Plain English in, tradeable read out.'
   },
   {
     q: 'Is the dark pool data real?',
@@ -90,7 +91,7 @@ export default function Home() {
   const proCheckout = siteConfig.pricing.proMonthly.checkoutUrl;
 
   const handlePrimaryCTA = () => track('home_primary_cta_clicked', { dest: '/pricing' });
-  const handleSecondaryCTA = () => track('home_secondary_cta_clicked', { dest: '/sonnet' });
+  const handleSecondaryCTA = () => track('home_secondary_cta_clicked', { dest: '/kahf-ai' });
 
   return (
     <div className="min-h-screen bg-white">
@@ -98,7 +99,7 @@ export default function Home() {
         <title>KAHF AI — Your personal volatility analyst | KAHF Capital</title>
         <meta
           name="description"
-          content="KAHF AI scores every dark pool setup against four checks: volume ratio, straddle hit rate, liquidity, and catalyst. Ask anything in plain English. 7-day free trial."
+          content="KAHF AI is your AI volatility analyst. Find the best volatility play on any ticker using real dark pool flow and 3 years of historical hit-rate math. 7-day free trial."
         />
         <meta property="og:title" content="KAHF AI — Trade like the 1%" />
         <meta property="og:description" content="Your personal volatility analyst. Trained on a decade of institutional flow." />
@@ -119,10 +120,10 @@ export default function Home() {
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 mb-5 leading-[1.05] tracking-tight">
               Your personal{' '}
-              <span className="text-green-600">volatility analyst.</span>
+              <span className="text-green-600">AI volatility analyst.</span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-7 max-w-2xl mx-auto leading-relaxed">
-              Ask anything in plain English. KAHF AI scores every dark pool setup against four institutional checks and gives you a tradeable read in seconds.
+              Score any ticker against 3 years of price history, real options flow, and institutional dark pool prints in seconds.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-5">
@@ -132,7 +133,7 @@ export default function Home() {
                   <ArrowRight className="h-5 w-5" />
                 </button>
               </Link>
-              <Link href="/sonnet" onClick={handleSecondaryCTA}>
+              <Link href="/kahf-ai" onClick={handleSecondaryCTA}>
                 <button className="text-gray-900 hover:text-green-600 font-semibold px-6 py-4 text-base inline-flex items-center gap-2">
                   <Bot className="h-5 w-5" />
                   Try the live demo →
@@ -151,7 +152,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mt-12 max-w-3xl mx-auto text-center">
             <Stat label="Dark pool prints/day" value="$50B+" />
             <Stat label="Tickers tracked" value="3,000+" />
-            <Stat label="Straddle hit rate" value="55%+" />
+            <Stat label="Best-leg hit rate" value="55%+" />
             <Stat label="Avg AI response" value="< 6s" />
           </div>
         </div>
@@ -180,6 +181,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Top reads — live performance */}
+      <HomeTopReads />
 
       {/* Features */}
       <section className="py-16 px-4">
@@ -268,7 +272,7 @@ export default function Home() {
                 Start free trial <ArrowRight className="h-5 w-5" />
               </button>
             </Link>
-            <Link href="/sonnet">
+            <Link href="/kahf-ai">
               <button className="border-2 border-white/40 hover:bg-white/10 text-white px-8 py-4 text-base font-semibold rounded-xl flex items-center gap-2 mx-auto sm:mx-0">
                 <Bot className="h-5 w-5" /> Try the demo
               </button>

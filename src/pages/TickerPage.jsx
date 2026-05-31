@@ -16,7 +16,7 @@ export default function TickerPage({ symbol, summary, error }) {
   const title = `$${symbol} Dark Pool Activity & Volatility Read | KAHF AI`;
   const desc = summary?.has_data
     ? `${symbol} dark pool prints over the last ${summary.lookback_days} trading days: ${formatNotional(summary.total_notional_30d)} in notional, peak volume ratio ${summary.peak?.volume_ratio?.toFixed?.(1) || '—'}×. Get an AI volatility read in seconds.`
-    : `Dark pool activity and earnings straddle history for ${symbol}. Powered by KAHF AI.`;
+    : `Dark pool activity, historical hit rates, and AI volatility read for ${symbol}.`;
 
   const canonical = `${siteConfig.url}/ticker/${symbol}`;
 
@@ -67,7 +67,7 @@ export default function TickerPage({ symbol, summary, error }) {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <AskAIButton
-                prompt={`Give me a volatility read on ${symbol} right now. Score it on 4-of-4 and tell me if there's a tradeable straddle.`}
+                prompt={`Run the KAHF Read on ${symbol} right now. What's the best structure at ~30 DTE, and is the move already priced in? Trade / watch / pass?`}
                 ticker={symbol}
                 source={`ticker_page_${symbol}`}
                 size="lg"
@@ -157,14 +157,14 @@ export default function TickerPage({ symbol, summary, error }) {
           <div className="prose prose-gray max-w-none mb-10">
             <h2 className="text-2xl font-bold text-gray-900">What does dark pool activity on {symbol} mean?</h2>
             <p className="text-gray-700 leading-relaxed">
-              Dark pools are private trading venues where institutions execute large block orders away from public exchanges. When ${symbol} prints unusually high off-exchange volume — measured as a multiple of its trailing 7-day average — it often signals that a large player is accumulating or distributing the name without moving the public bid/ask.
+              Dark pools are private trading venues where institutions execute large block orders away from public exchanges. When {symbol} prints unusually high off-exchange volume — measured as a multiple of its trailing 7-day average — it often signals that a large player is accumulating or distributing the name without moving the public bid/ask.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              On its own, a dark pool spike isn't a trade signal. KAHF AI scores ${symbol} against four checks before flagging anything: <strong>volume ratio</strong> (3×+), <strong>historical straddle hit rate</strong> (55%+), <strong>options liquidity</strong>, and a <strong>real catalyst</strong> (earnings, FDA, M&amp;A). Strong setups surface in Pro&apos;s daily email digest of unusual activity.
+              On its own, a dark pool spike isn't a trade signal. KAHF AI runs the <strong>KAHF Read</strong> on {symbol} before flagging anything: <strong>conviction</strong> (volume ratio 3×+), <strong>direction</strong> (call/put flow), <strong>historical edge</strong> of the chosen structure at ~30 DTE, <strong>options liquidity</strong>, and <strong>catalyst + priced-in</strong> (is the move already in the IV?). Strong setups surface in Pro&apos;s daily email digest of unusual activity.
             </p>
             <h3 className="text-xl font-bold text-gray-900 mt-6">Want a volatility read on {symbol}?</h3>
             <p className="text-gray-700 leading-relaxed">
-              Ask KAHF AI in plain English. <em>"Is ${symbol} worth a straddle into earnings?"</em> takes 6 seconds and gives you the same structured answer the desks would.
+              Ask KAHF AI in plain English. <em>"What's the best structure on {symbol} into earnings?"</em> takes 6 seconds and returns the same structured answer the desks would.
             </p>
           </div>
 
@@ -173,7 +173,7 @@ export default function TickerPage({ symbol, summary, error }) {
             <h2 className="text-2xl sm:text-3xl font-bold mb-2">Get an AI read on {symbol} now.</h2>
             <p className="text-green-50 mb-5 max-w-xl mx-auto">7-day free trial of KAHF AI. Unlimited questions. Cancel any time.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href={`/sonnet?q=${encodeURIComponent(`Volatility read on ${symbol}`)}&t=${symbol}`}>
+              <Link href={`/kahf-ai?q=${encodeURIComponent(`Volatility read on ${symbol}`)}&t=${symbol}`}>
                 <button className="bg-white text-green-700 hover:bg-green-50 font-bold px-7 py-3.5 rounded-xl inline-flex items-center gap-2 shadow-lg mx-auto sm:mx-0">
                   <Bot className="h-4 w-4" /> Ask KAHF AI now
                 </button>
