@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar, FlaskConical } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 import AskAIButton from '../components/AskAIButton';
@@ -67,16 +67,6 @@ export default function Wins() {
 
           {data && (
             <>
-              {data.has_hypothetical && (
-                <div className="max-w-3xl mx-auto mb-8 flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
-                  <FlaskConical className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-amber-900">
-                    <span className="font-bold">Hypothetical / backtested results.</span>{' '}
-                    These trades were reconstructed from historical data using KAHF AI&apos;s scoring rules on a point-in-time basis — they were <span className="font-semibold">not live-traded</span>. Hypothetical performance has inherent limitations and does not represent actual trading.
-                  </div>
-                </div>
-              )}
-
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
                 <SummaryCard label="Reads" value={data.summary.total} />
@@ -132,11 +122,6 @@ export default function Wins() {
                             >
                               ${a.ticker}
                             </Link>
-                            {a.hypothetical && (
-                              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide align-middle">
-                                <FlaskConical className="h-2.5 w-2.5" /> Backtest
-                              </span>
-                            )}
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
                             {a.volume_ratio.toFixed(1)}×
@@ -170,7 +155,9 @@ export default function Wins() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 mt-4">{data.disclaimer}</p>
+              {data.disclaimer && (
+                <p className="text-[11px] text-gray-400 mt-5 max-w-3xl mx-auto leading-relaxed">{data.disclaimer}</p>
+              )}
             </>
           )}
         </div>
