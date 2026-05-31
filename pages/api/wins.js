@@ -2,7 +2,10 @@
 // (scripts/build-top-reads.js --out track-record-reads) and marked to the LIVE
 // options market via the shared engine in lib/reads-live.js — the same engine
 // that powers the homepage scoreboard, so the two never disagree.
-import { loadReadsFile, markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
+import { markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
+// Static import so the JSON is bundled into the serverless function (see note
+// in top-reads.js — runtime fs reads return empty on Vercel).
+import file from '../../track-record-reads.json';
 
 const CACHE = { data: null, ts: 0 };
 const TTL = 3 * 60 * 60 * 1000; // 3h
@@ -34,7 +37,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const file = loadReadsFile('track-record-reads.json');
     const reads = Array.isArray(file.reads) ? file.reads : [];
     const { marked, summary } = await markReads(reads);
     const alerts = marked.map(toAlert);

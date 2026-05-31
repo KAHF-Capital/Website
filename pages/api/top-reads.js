@@ -5,7 +5,11 @@
  * reads (scripts/build-top-reads.js -> top-reads.json) and marks each to the
  * LIVE market via the shared engine in lib/reads-live.js. Cached a few hours.
  */
-import { loadReadsFile, markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
+import { markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
+// Static import so the JSON is bundled into the serverless function. Reading it
+// at runtime via fs/process.cwd() works locally but returns empty on Vercel,
+// because dynamically-read files aren't traced into the function bundle.
+import file from '../../top-reads.json';
 
 const CACHE = { data: null, ts: 0 };
 const TTL = 3 * 60 * 60 * 1000; // 3h
@@ -21,7 +25,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const file = loadReadsFile('top-reads.json');
     const reads = Array.isArray(file.reads) ? file.reads : [];
     const { marked, summary } = await markReads(reads);
 
