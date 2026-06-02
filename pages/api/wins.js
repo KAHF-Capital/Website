@@ -3,9 +3,11 @@
 // options market via the shared engine in lib/reads-live.js — the same engine
 // that powers the homepage scoreboard, so the two never disagree.
 import { markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
-// Static import so the JSON is bundled into the serverless function (see note
-// in top-reads.js — runtime fs reads return empty on Vercel).
-import file from '../../track-record-reads.json';
+import { getReadsJson } from '../../lib/blob-data';
+// Bundled fallback so the page works on a cold deploy. At runtime we prefer the
+// Blob copy (refreshed daily by scripts/refresh-track-record.js) so new reads
+// appear without a redeploy.
+import bundled from '../../track-record-reads.json';
 
 const CACHE = { data: null, ts: 0 };
 const TTL = 3 * 60 * 60 * 1000; // 3h
@@ -37,6 +39,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    const fromBlob = await getReadsJson('track-record-reads.json').catch(() => null);
+    const file = fromBlob && Array.isArray(fromBlob.reads) ? fromBlob : bundled;
     const reads = Array.isArray(file.reads) ? file.reads : [];
     const { marked, summary } = await markReads(reads);
     const alerts = marked.map(toAlert);

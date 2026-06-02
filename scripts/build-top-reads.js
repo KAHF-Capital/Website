@@ -18,7 +18,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -49,9 +49,11 @@ if (!KEY) {
   process.exit(1);
 }
 
+export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 55, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+
 function parseArgs() {
   const a = process.argv.slice(2);
-  const o = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 55, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+  const o = { ...DEFAULT_OPTS };
   for (let i = 0; i < a.length; i++) {
     if (a[i] === '--days') o.days = parseInt(a[++i], 10);
     else if (a[i] === '--since') o.since = a[++i];
@@ -248,14 +250,17 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
   return { strategy: best.strategy, premium: best.premium, hitRate: Number(best.a.profitableRate.toFixed(1)), samples: best.a.totalSamples };
 }
 
-async function main() {
-  const opts = parseArgs();
+// Build reads from local processed dark-pool data. `skipTickers` lets the daily
+// refresh price only NEW names (existing reads are stable history — no rebuild).
+export async function buildReads(userOpts = {}, { skipTickers = null } = {}) {
+  const opts = { ...DEFAULT_OPTS, ...userOpts };
   const signals = loadLocalSignals(opts);
-  console.error(`Found ${signals.length} unique-ticker signals in last ${opts.days} days. Evaluating top candidates...\n`);
+  console.error(`Found ${signals.length} unique-ticker signals${opts.since ? ` since ${opts.since}` : ` in last ${opts.days} days`}. Evaluating candidates...\n`);
 
   const reads = [];
   for (const s of signals) {
     if (reads.length >= opts.max) break;
+    if (skipTickers && skipTickers.has(s.ticker)) continue;
     try {
       if (!(await isStock(s.ticker))) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (ETF/fund)`); continue; }
       const entry = await priceEntry(s.ticker, s.date, opts.targetDte);
@@ -296,10 +301,21 @@ async function main() {
     }
   }
 
+  return reads;
+}
+
+export { loadLocalSignals, minusDays };
+
+async function main() {
+  const opts = parseArgs();
+  const reads = await buildReads(opts);
   const outName = `${opts.out}.json`;
   const out = path.join(ROOT, outName);
   fs.writeFileSync(out, JSON.stringify({ generated_at: new Date().toISOString(), window_days: opts.days, since: opts.since || null, reads }, null, 2));
   console.error(`\nWrote ${reads.length} reads to ${outName}`);
 }
 
-main().catch((e) => { console.error('Fatal:', e); process.exit(1); });
+// Only run the CLI when invoked directly (not when imported by the refresh job).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => { console.error('Fatal:', e); process.exit(1); });
+}

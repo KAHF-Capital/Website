@@ -9,7 +9,8 @@
     "lint": "next lint",
     "setup": "node setup-env.js",
     "check-env": "node check-env.js",
-    "process-csv": "node process-csv.js"
+    "process-csv": "node process-csv.js",
+    "refresh-track-record": "node scripts/refresh-track-record.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

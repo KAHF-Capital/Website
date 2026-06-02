@@ -139,10 +139,10 @@ export default function HomeTopReads() {
 
         <div className="text-center mt-8">
           <Link
-            href="/kahf-ai"
+            href="/wins"
             className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            Get reads like these <ArrowRight className="h-4 w-4" />
+            See the full YTD history <ArrowRight className="h-4 w-4" />
           </Link>
           {data?.disclaimer && (
             <p className="text-[11px] text-gray-400 mt-5 max-w-3xl mx-auto leading-relaxed">{data.disclaimer}</p>

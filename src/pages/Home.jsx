@@ -12,9 +12,7 @@ import {
   BarChart3,
   Search,
   MessageSquare,
-  CheckCircle2,
-  Star,
-  Quote
+  CheckCircle2
 } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
@@ -48,24 +46,6 @@ const FEATURES = [
   { icon: Zap, title: 'Daily email digest', body: 'Pro subscribers get a daily email roundup of unusual dark pool activity — the same setups that power the scanner, in your inbox.', tag: 'Pro' },
   { icon: ShieldCheck, title: 'Track Record Page', body: 'Every flagged alert with the result, public after a 24h delay. Receipts, not promises.', tag: 'Public' },
   { icon: Clock, title: '7-Day Free Trial', body: 'Full Pro access. Cancel anytime. 14-day money-back guarantee even after.', tag: 'No risk' }
-];
-
-const TESTIMONIALS = [
-  {
-    name: 'Marcus L.',
-    handle: 'Options trader · 4 yrs',
-    quote: "I stopped paying for two other 'flow' services after a week of KAHF AI. The way it scores a setup end to end is the first thing I've seen that filters noise this hard."
-  },
-  {
-    name: 'Sara R.',
-    handle: 'Swing trader · 11 yrs',
-    quote: "The AI killed my TSLA trade idea and pointed me at the right play instead. I would've flipped a coin on direction. It was right. That alone paid for the year."
-  },
-  {
-    name: 'Anand K.',
-    handle: 'Retail desk · 7 yrs',
-    quote: "Asking 'why is XYZ printing?' and getting an actual structured read in 6 seconds is wild. Like having a junior analyst on tap."
-  }
 ];
 
 const FAQ = [
@@ -207,36 +187,6 @@ export default function Home() {
                 <p className="text-gray-600 leading-relaxed text-sm">{f.body}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social proof */}
-      <section className="py-16 px-4 bg-gradient-to-b from-white to-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-1 mb-3">
-              {[1,2,3,4,5].map(i => <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />)}
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Receipts &gt; promises.</h2>
-            <p className="text-gray-600 mt-2">From traders running real money.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t, i) => (
-              <figure key={i} className="bg-white border border-gray-200 rounded-2xl p-6 relative">
-                <Quote className="absolute top-5 right-5 h-6 w-6 text-green-100" />
-                <blockquote className="text-gray-700 leading-relaxed mb-4">{t.quote}</blockquote>
-                <figcaption>
-                  <div className="font-semibold text-gray-900 text-sm">{t.name}</div>
-                  <div className="text-xs text-gray-500">{t.handle}</div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-          <div className="text-center mt-8">
-            <Link href="/wins" className="inline-flex items-center gap-1 text-green-700 hover:text-green-800 font-semibold">
-              See the public alert track record <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </section>

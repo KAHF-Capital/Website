@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
+const { spawnSync } = require('child_process');
 const { uploadDataFile } = require('./lib/blob-data');
 
 // Load .env.local for BLOB_READ_WRITE_TOKEN when running locally
@@ -222,6 +223,20 @@ async function saveProcessedData(dateMap, sourceFile) {
   return summary;
 }
 
+// Rebuild the public track record + homepage scoreboard from the freshly
+// processed data and push them to Blob. Incremental + non-fatal — a failure here
+// never blocks the dark-pool upload above.
+function refreshTrackRecord() {
+  console.log('\n🔁 Refreshing track record + homepage reads...');
+  const script = path.join(__dirname, 'scripts', 'refresh-track-record.js');
+  const res = spawnSync(process.execPath, [script], { stdio: 'inherit', env: process.env });
+  if (res.error) {
+    console.error(`⚠️  Track record refresh could not start: ${res.error.message}`);
+  } else if (res.status !== 0) {
+    console.error('⚠️  Track record refresh exited non-zero (non-fatal).');
+  }
+}
+
 // Get all CSV files in the daily directory
 function getAllCSVFiles() {
   const files = fs.readdirSync(DAILY_CSV_DIR)
@@ -357,6 +372,11 @@ async function processAllCSV(forceReprocess = false) {
         console.log(`❌ ${result.file}: ${result.error}`);
       }
     });
+
+    // New dark-pool data landed — refresh the track record so the site stays current.
+    if (results.some(r => r.status === 'completed')) {
+      refreshTrackRecord();
+    }
 
   } catch (error) {
     console.error('Error in CSV processing:', error);
