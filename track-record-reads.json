@@ -1,25 +1,7 @@
 {
-  "generated_at": "2026-06-03T13:02:27.562Z",
+  "generated_at": "2026-06-08T04:22:54.056Z",
   "since": "2026-01-01",
   "reads": [
-    {
-      "date": "2026-06-01",
-      "ticker": "TMHC",
-      "volume_ratio": 4.42,
-      "dark_pool_value": 726859811.225204,
-      "dark_pool_avg_price": 71.60739473926029,
-      "structure": "straddle",
-      "strike": 70,
-      "expiration": "2026-06-18",
-      "dte": 17,
-      "entry_premium": 1.99,
-      "asof_hit_rate": 76.7,
-      "asof_samples": 497,
-      "contracts": [
-        "O:TMHC260618C00070000",
-        "O:TMHC260618P00070000"
-      ]
-    },
     {
       "date": "2026-05-06",
       "ticker": "CLH",

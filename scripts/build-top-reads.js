@@ -51,6 +51,9 @@ if (!KEY) {
 
 export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 55, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
 
+// Manual exclusions — pending M&A / bad vol regime until automated deal-veto ships.
+export const EXCLUDED_TICKERS = new Set(['TMHC']);
+
 function parseArgs() {
   const a = process.argv.slice(2);
   const o = { ...DEFAULT_OPTS };
@@ -261,6 +264,10 @@ export async function buildReads(userOpts = {}, { skipTickers = null } = {}) {
   for (const s of signals) {
     if (reads.length >= opts.max) break;
     if (skipTickers && skipTickers.has(s.ticker)) continue;
+    if (EXCLUDED_TICKERS.has(s.ticker)) {
+      console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (manual exclude)`);
+      continue;
+    }
     try {
       if (!(await isStock(s.ticker))) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (ETF/fund)`); continue; }
       const entry = await priceEntry(s.ticker, s.date, opts.targetDte);

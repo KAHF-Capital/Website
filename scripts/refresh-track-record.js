@@ -23,7 +23,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildReads, minusDays } from './build-top-reads.js';
+import { buildReads, minusDays, EXCLUDED_TICKERS } from './build-top-reads.js';
 import blob from '../lib/blob-data.js';
 
 const { getReadsJson, uploadReadsJson } = blob;
@@ -72,7 +72,8 @@ async function main() {
   console.error('🔁 Refreshing track record (incremental)...\n');
 
   const existing = await loadExisting(TRACK_FILE);
-  const existingReads = Array.isArray(existing.reads) ? existing.reads : [];
+  const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
+    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker));
   const knownTickers = new Set(existingReads.map((r) => r.ticker));
   console.error(`Existing track record: ${existingReads.length} reads (${knownTickers.size} tickers).`);
 
@@ -100,7 +101,7 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10);
   const cutoff = minusDays(today, opts.window);
   const topReads = merged
-    .filter((r) => r.date >= cutoff)
+    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker) && r.date >= cutoff)
     .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0))
     .slice(0, opts.top);
 
