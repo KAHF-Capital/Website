@@ -23,7 +23,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildReads, minusDays, EXCLUDED_TICKERS } from './build-top-reads.js';
+import { buildReads, minusDays } from './build-top-reads.js';
+import { EXCLUDED_TICKERS } from '../lib/read-filters.js';
 import blob from '../lib/blob-data.js';
 
 const { getReadsJson, uploadReadsJson } = blob;

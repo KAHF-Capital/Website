@@ -41,6 +41,7 @@ const { calculateOverlappingMovements, analyzeOptionsProfitability } = await imp
   '../lib/options-analysis-service.js'
 );
 const { getHistoricalStockData } = await import('../lib/polygon-data-service.js');
+const { EXCLUDED_TICKERS, volatilityRegimeCollapsed } = await import('../lib/read-filters.js');
 
 const API_BASE = 'https://api.massive.com';
 const KEY = process.env.POLYGON_API_KEY;
@@ -51,8 +52,10 @@ if (!KEY) {
 
 export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 55, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
 
-// Manual exclusions — pending M&A / bad vol regime until automated deal-veto ships.
-export const EXCLUDED_TICKERS = new Set(['TMHC']);
+// EXCLUDED_TICKERS (manual override) + the automated deal/dead-vol veto both
+// live in lib/read-filters.js so the serving layer can share them. Re-exported
+// here for back-compat with existing importers (e.g. refresh-track-record.js).
+export { EXCLUDED_TICKERS };
 
 function parseArgs() {
   const a = process.argv.slice(2);
@@ -237,6 +240,13 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
   if (hist.length && (new Date(signalDate) - new Date(hist[0].date)) / 86400000 < opts.minHistoryDays) {
     return null; // thin history
   }
+  // Automated deal-veto: if recent realized vol has collapsed vs the long-run
+  // baseline (classic M&A buyout pin), the historical hit rate is stale and the
+  // forward read is dead. Veto regardless of how good the backward edge looks.
+  const regime = volatilityRegimeCollapsed(hist);
+  if (regime.collapsed) {
+    return { vetoed: true, reason: regime.reason };
+  }
   const moves = calculateOverlappingMovements(hist, dte);
   const run = (strategy, premium) => analyzeOptionsProfitability(moves, {
     strategy,
@@ -281,6 +291,7 @@ export async function buildReads(userOpts = {}, { skipTickers = null } = {}) {
       }
 
       const best = await bestLegAsOf(s.ticker, s.date, entry.strike, entry, entry.dte, opts);
+      if (best?.vetoed) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} vetoed — ${best.reason}`); continue; }
       if (!best) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} no qualifying structure`); continue; }
 
       const contracts = best.strategy === 'call' ? [entry.callTicker]
