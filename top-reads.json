@@ -1,24 +1,24 @@
 {
-  "generated_at": "2026-06-08T04:22:54.226Z",
+  "generated_at": "2026-06-25T05:13:46.403Z",
   "window_days": 90,
-  "since": "2026-03-10",
+  "since": "2026-03-27",
   "reads": [
     {
-      "date": "2026-03-25",
-      "ticker": "TERN",
-      "volume_ratio": 4.22,
-      "dark_pool_value": 1953384118.7774968,
-      "dark_pool_avg_price": 52.716516792670625,
+      "date": "2026-06-22",
+      "ticker": "APGE",
+      "volume_ratio": 3.82,
+      "dark_pool_value": 4192064738.8737516,
+      "dark_pool_avg_price": 132.67637825266934,
       "structure": "straddle",
-      "strike": 55,
-      "expiration": "2026-04-17",
-      "dte": 23,
-      "entry_premium": 2.52,
-      "asof_hit_rate": 91.4,
-      "asof_samples": 514,
+      "strike": 135,
+      "expiration": "2026-07-17",
+      "dte": 25,
+      "entry_premium": 2.72,
+      "asof_hit_rate": 89.7,
+      "asof_samples": 581,
       "contracts": [
-        "O:TERN260417C00055000",
-        "O:TERN260417P00055000"
+        "O:APGE260717C00135000",
+        "O:APGE260717P00135000"
       ]
     },
     {
@@ -72,40 +72,6 @@
       "asof_samples": 1053,
       "contracts": [
         "O:CLH260618C00290000"
-      ]
-    },
-    {
-      "date": "2026-04-08",
-      "ticker": "CASY",
-      "volume_ratio": 3.59,
-      "dark_pool_value": 4286119438.086361,
-      "dark_pool_avg_price": 758.0055138830626,
-      "structure": "call",
-      "strike": 760,
-      "expiration": "2026-05-15",
-      "dte": 37,
-      "entry_premium": 22.85,
-      "asof_hit_rate": 59.4,
-      "asof_samples": 912,
-      "contracts": [
-        "O:CASY260515C00760000"
-      ]
-    },
-    {
-      "date": "2026-03-20",
-      "ticker": "VRT",
-      "volume_ratio": 4.09,
-      "dark_pool_value": 12656809463.360552,
-      "dark_pool_avg_price": 256.5158315203412,
-      "structure": "call",
-      "strike": 260,
-      "expiration": "2026-04-17",
-      "dte": 28,
-      "entry_premium": 20.83,
-      "asof_hit_rate": 57.9,
-      "asof_samples": 663,
-      "contracts": [
-        "O:VRT260417C00260000"
       ]
     }
   ]

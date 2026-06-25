@@ -23,6 +23,25 @@ const SIGNAL_MIN_VOLUME_RATIO = parseFloat(process.env.KAHF_AI_MIN_VOLUME_RATIO 
 const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
 const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
 
+// Primary model + automatic fallbacks. If the configured model is unavailable on
+// the deployment (retired, typo'd env var, or no org access) Anthropic returns a
+// 404 not_found_error. Rather than surface that to the user we fall through this
+// list of known-good models so the chat keeps working.
+const PRIMARY_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+const MODEL_FALLBACKS = ['claude-sonnet-4-6', 'claude-opus-4-8', 'claude-opus-4-7'];
+
+// Opus 4.7+, Opus 5, Sonnet 4.6+, Fable and Mythos all deprecated the
+// `temperature` sampling parameter; sending it returns a 400. Only set it for
+// older models that still accept it.
+function modelSupportsTemperature(model) {
+  return !/opus-4-[789]|opus-[5-9]|sonnet-4-[6-9]|sonnet-[5-9]|fable|mythos/i.test(model || '');
+}
+
+function isModelUnavailableError(error) {
+  const status = error?.status || error?.statusCode;
+  return status === 404 || /not_found_error|model:/i.test(error?.message || '');
+}
+
 const MCP_PUBLIC_URL = process.env.MCP_PUBLIC_URL || (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, '')}/api/mcp` : '');
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || '';
 const MCP_ENABLED = (process.env.KAHF_AI_MCP_ENABLED || 'true').toLowerCase() !== 'false' && Boolean(MCP_PUBLIC_URL);
@@ -957,80 +976,102 @@ export default async function handler(req, res) {
     const marketContext = await buildMarketContext(messages);
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const model = process.env.ANTHROPIC_MODEL || 'claude-opus-4-7';
 
-    // Opus 4.7+ deprecated the `temperature` parameter. Only set it for older models.
-    const supportsTemperature = !/opus-4-7|opus-5|sonnet-5/i.test(model);
+    const systemPrompt = buildSystemPrompt();
+    const userPrompt = buildUserPrompt(messages, marketContext);
 
-    const requestPayload = {
-      model,
-      max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || '1500', 10),
-      ...(supportsTemperature
-        ? { temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15') }
-        : {}),
-      system: buildSystemPrompt(),
-      messages: [
-        {
-          role: 'user',
-          content: buildUserPrompt(messages, marketContext)
-        }
-      ]
+    const buildPayload = (model) => {
+      const payload = {
+        model,
+        max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || '1500', 10),
+        ...(modelSupportsTemperature(model)
+          ? { temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15') }
+          : {}),
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      };
+      if (WEB_SEARCH_ENABLED) {
+        payload.tools = [
+          { type: 'web_search_20250305', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES }
+        ];
+      }
+      if (MCP_ENABLED) {
+        payload.mcp_servers = [
+          {
+            type: 'url',
+            url: MCP_PUBLIC_URL,
+            name: 'kahf-data',
+            ...(MCP_AUTH_TOKEN ? { authorization_token: MCP_AUTH_TOKEN } : {})
+          }
+        ];
+      }
+      return payload;
     };
 
-    if (WEB_SEARCH_ENABLED) {
-      requestPayload.tools = [
-        {
-          type: 'web_search_20250305',
-          name: 'web_search',
-          max_uses: WEB_SEARCH_MAX_USES
+    // Run a single model, degrading gracefully if the MCP connector or web_search
+    // tool is rejected by the API.
+    const completeWithModel = async (model) => {
+      const requestPayload = buildPayload(model);
+      const requestOptions = MCP_ENABLED
+        ? { headers: { 'anthropic-beta': 'mcp-client-2025-04-04' } }
+        : {};
+      let mcpDisabled = false;
+      let webSearchDisabled = false;
+      try {
+        const completion = await anthropic.messages.create(requestPayload, requestOptions);
+        return { completion, mcpDisabled, webSearchDisabled };
+      } catch (firstError) {
+        const msg = firstError.message || '';
+        if (MCP_ENABLED && /mcp|mcp_server|mcp-client/i.test(msg)) {
+          console.warn('Anthropic MCP connector rejected, retrying without MCP:', msg);
+          delete requestPayload.mcp_servers;
+          delete requestOptions.headers;
+          mcpDisabled = true;
+          try {
+            const completion = await anthropic.messages.create(requestPayload, requestOptions);
+            return { completion, mcpDisabled, webSearchDisabled };
+          } catch (secondError) {
+            if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(secondError.message || '')) {
+              console.warn('Anthropic web_search also rejected, retrying without tools:', secondError.message);
+              delete requestPayload.tools;
+              webSearchDisabled = true;
+              const completion = await anthropic.messages.create(requestPayload, requestOptions);
+              return { completion, mcpDisabled, webSearchDisabled };
+            }
+            throw secondError;
+          }
+        } else if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(msg)) {
+          console.warn('Anthropic web_search rejected, retrying without tool:', msg);
+          delete requestPayload.tools;
+          webSearchDisabled = true;
+          const completion = await anthropic.messages.create(requestPayload, requestOptions);
+          return { completion, mcpDisabled, webSearchDisabled };
         }
-      ];
-    }
+        throw firstError;
+      }
+    };
 
-    const requestOptions = {};
-    if (MCP_ENABLED) {
-      requestPayload.mcp_servers = [
-        {
-          type: 'url',
-          url: MCP_PUBLIC_URL,
-          name: 'kahf-data',
-          ...(MCP_AUTH_TOKEN ? { authorization_token: MCP_AUTH_TOKEN } : {})
-        }
-      ];
-      requestOptions.headers = { 'anthropic-beta': 'mcp-client-2025-04-04' };
-    }
-
+    const modelCandidates = [...new Set([PRIMARY_MODEL, ...MODEL_FALLBACKS])];
     let completion;
     let mcpDisabledForRetry = false;
     let webSearchDisabledForRetry = false;
-    try {
-      completion = await anthropic.messages.create(requestPayload, requestOptions);
-    } catch (firstError) {
-      const msg = firstError.message || '';
-      if (MCP_ENABLED && /mcp|mcp_server|mcp-client/i.test(msg)) {
-        console.warn('Anthropic MCP connector rejected, retrying without MCP:', msg);
-        delete requestPayload.mcp_servers;
-        delete requestOptions.headers;
-        mcpDisabledForRetry = true;
-        try {
-          completion = await anthropic.messages.create(requestPayload, requestOptions);
-        } catch (secondError) {
-          if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(secondError.message || '')) {
-            console.warn('Anthropic web_search also rejected, retrying without tools:', secondError.message);
-            delete requestPayload.tools;
-            webSearchDisabledForRetry = true;
-            completion = await anthropic.messages.create(requestPayload, requestOptions);
-          } else {
-            throw secondError;
-          }
+    for (let i = 0; i < modelCandidates.length; i++) {
+      const candidate = modelCandidates[i];
+      try {
+        const result = await completeWithModel(candidate);
+        completion = result.completion;
+        mcpDisabledForRetry = result.mcpDisabled;
+        webSearchDisabledForRetry = result.webSearchDisabled;
+        if (i > 0) {
+          console.warn(`KAHF AI fell back to model "${candidate}" after "${modelCandidates[0]}" was unavailable.`);
         }
-      } else if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(msg)) {
-        console.warn('Anthropic web_search rejected, retrying without tool:', msg);
-        delete requestPayload.tools;
-        webSearchDisabledForRetry = true;
-        completion = await anthropic.messages.create(requestPayload, requestOptions);
-      } else {
-        throw firstError;
+        break;
+      } catch (modelError) {
+        if (isModelUnavailableError(modelError) && i < modelCandidates.length - 1) {
+          console.warn(`Model "${candidate}" unavailable, trying next fallback:`, modelError.message);
+          continue;
+        }
+        throw modelError;
       }
     }
 
@@ -1069,8 +1110,16 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('KAHF AI chat error:', error);
-    return res.status(error.statusCode || 500).json({
-      error: error.message || 'Failed to generate KAHF AI response',
+    // Anthropic SDK errors expose `status`; our own thrown errors use `statusCode`.
+    const status = error.statusCode || error.status || 500;
+    // A raw upstream 404 (e.g. model not found) reads like a broken page to users —
+    // surface it as a 502 with a clear message instead.
+    const clientStatus = status === 404 ? 502 : status;
+    const clientMessage = status === 404
+      ? 'KAHF AI is temporarily unavailable (model error). Please try again shortly.'
+      : (error.message || 'Failed to generate KAHF AI response');
+    return res.status(clientStatus).json({
+      error: clientMessage,
       usage: error.usage || null
     });
   }

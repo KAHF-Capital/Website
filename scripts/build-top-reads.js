@@ -13,7 +13,7 @@
  *
  * Reads dark pool data from local data/processed/*.json (source of truth before
  * blob upload). Usage:
- *   node scripts/build-top-reads.js [--days 30] [--max 8] [--min-hit-rate 55]
+ *   node scripts/build-top-reads.js [--days 30] [--max 8] [--min-hit-rate 60]
  */
 
 import fs from 'fs';
@@ -50,7 +50,7 @@ if (!KEY) {
   process.exit(1);
 }
 
-export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 55, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 60, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
 
 // EXCLUDED_TICKERS (manual override) + the automated deal/dead-vol veto both
 // live in lib/read-filters.js so the serving layer can share them. Re-exported
@@ -97,14 +97,21 @@ async function getStockCloseOnDate(ticker, date) {
 
 // Exclude ETFs/ETNs/funds — we want single-name institutional setups.
 const NON_STOCK_TYPES = new Set(['ETF', 'ETN', 'ETV', 'FUND', 'INDEX']);
+// Cache classifications — the same ticker recurs across many signal days during a
+// multi-day back-scan, so this avoids re-hitting the reference endpoint per day.
+const _isStockCache = new Map();
 async function isStock(ticker) {
+  if (_isStockCache.has(ticker)) return _isStockCache.get(ticker);
+  let result;
   try {
     const data = await fetchJson(`${API_BASE}/v3/reference/tickers/${encodeURIComponent(ticker)}?apiKey=${KEY}`);
     const type = data.results?.type;
-    return !NON_STOCK_TYPES.has(type);
+    result = !NON_STOCK_TYPES.has(type);
   } catch {
-    return true; // unknown — don't over-filter
+    result = true; // unknown — don't over-filter
   }
+  _isStockCache.set(ticker, result);
+  return result;
 }
 
 async function listContractsInRange(ticker, fromDate, toDate, asOf) {
@@ -177,13 +184,13 @@ function loadLocalSignals(opts) {
       });
     }
   }
-  // Keep the strongest signal per ticker (highest volume ratio), most recent wins ties.
-  const byTicker = new Map();
-  for (const r of rows) {
-    const prev = byTicker.get(r.ticker);
-    if (!prev || r.volume_ratio > prev.volume_ratio) byTicker.set(r.ticker, r);
-  }
-  return [...byTicker.values()].sort((a, b) => b.volume_ratio - a.volume_ratio);
+  // One candidate per (ticker, day): every day a ticker clears the volume-ratio
+  // gate is its own signal. We intentionally do NOT collapse to one row per
+  // ticker — doing so silently ignored qualifying signals on a ticker's other
+  // 3x+ days. Newest first, strongest-ratio first within a day.
+  return rows.sort((a, b) =>
+    a.date === b.date ? b.volume_ratio - a.volume_ratio : a.date < b.date ? 1 : -1
+  );
 }
 
 // --- Per-signal: find ATM ~30 DTE contracts + entry premiums ---------------
@@ -265,14 +272,16 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
 
 // Build reads from local processed dark-pool data. `skipTickers` lets the daily
 // refresh price only NEW names (existing reads are stable history — no rebuild).
-export async function buildReads(userOpts = {}, { skipTickers = null } = {}) {
+export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys = null } = {}) {
   const opts = { ...DEFAULT_OPTS, ...userOpts };
   const signals = loadLocalSignals(opts);
-  console.error(`Found ${signals.length} unique-ticker signals${opts.since ? ` since ${opts.since}` : ` in last ${opts.days} days`}. Evaluating candidates...\n`);
+  console.error(`Found ${signals.length} (ticker, day) signals${opts.since ? ` since ${opts.since}` : ` in last ${opts.days} days`}. Evaluating candidates...\n`);
 
   const reads = [];
   for (const s of signals) {
     if (reads.length >= opts.max) break;
+    const key = `${s.ticker}__${s.date}`;
+    if (skipKeys && skipKeys.has(key)) continue;
     if (skipTickers && skipTickers.has(s.ticker)) continue;
     if (EXCLUDED_TICKERS.has(s.ticker)) {
       console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (manual exclude)`);

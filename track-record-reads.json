@@ -1,7 +1,25 @@
 {
-  "generated_at": "2026-06-08T04:22:54.056Z",
-  "since": "2026-01-01",
+  "generated_at": "2026-06-25T05:13:46.244Z",
+  "since": "2026-03-27",
   "reads": [
+    {
+      "date": "2026-06-22",
+      "ticker": "APGE",
+      "volume_ratio": 3.82,
+      "dark_pool_value": 4192064738.8737516,
+      "dark_pool_avg_price": 132.67637825266934,
+      "structure": "straddle",
+      "strike": 135,
+      "expiration": "2026-07-17",
+      "dte": 25,
+      "entry_premium": 2.72,
+      "asof_hit_rate": 89.7,
+      "asof_samples": 581,
+      "contracts": [
+        "O:APGE260717C00135000",
+        "O:APGE260717P00135000"
+      ]
+    },
     {
       "date": "2026-05-06",
       "ticker": "CLH",
@@ -35,23 +53,6 @@
       "contracts": [
         "O:GSAT260515C00080000",
         "O:GSAT260515P00080000"
-      ]
-    },
-    {
-      "date": "2026-04-08",
-      "ticker": "CASY",
-      "volume_ratio": 3.59,
-      "dark_pool_value": 4286119438.086361,
-      "dark_pool_avg_price": 758.0055138830626,
-      "structure": "call",
-      "strike": 760,
-      "expiration": "2026-05-15",
-      "dte": 37,
-      "entry_premium": 22.85,
-      "asof_hit_rate": 59.4,
-      "asof_samples": 912,
-      "contracts": [
-        "O:CASY260515C00760000"
       ]
     },
     {
@@ -91,23 +92,6 @@
       ]
     },
     {
-      "date": "2026-03-20",
-      "ticker": "VRT",
-      "volume_ratio": 4.09,
-      "dark_pool_value": 12656809463.360552,
-      "dark_pool_avg_price": 256.5158315203412,
-      "structure": "call",
-      "strike": 260,
-      "expiration": "2026-04-17",
-      "dte": 28,
-      "entry_premium": 20.83,
-      "asof_hit_rate": 57.9,
-      "asof_samples": 663,
-      "contracts": [
-        "O:VRT260417C00260000"
-      ]
-    },
-    {
       "date": "2026-02-17",
       "ticker": "MASI",
       "volume_ratio": 3.6,
@@ -141,23 +125,6 @@
       "contracts": [
         "O:SLAB260220C00200000",
         "O:SLAB260220P00200000"
-      ]
-    },
-    {
-      "date": "2026-01-23",
-      "ticker": "RY",
-      "volume_ratio": 3.32,
-      "dark_pool_value": 887921806.0699538,
-      "dark_pool_avg_price": 168.37473467644625,
-      "structure": "call",
-      "strike": 170,
-      "expiration": "2026-02-20",
-      "dte": 28,
-      "entry_premium": 2.23,
-      "asof_hit_rate": 56.1,
-      "asof_samples": 702,
-      "contracts": [
-        "O:RY260220C00170000"
       ]
     },
     {

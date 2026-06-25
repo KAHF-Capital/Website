@@ -23,7 +23,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildReads, minusDays } from './build-top-reads.js';
+import { buildReads, minusDays, DEFAULT_OPTS } from './build-top-reads.js';
 import { EXCLUDED_TICKERS } from '../lib/read-filters.js';
 import blob from '../lib/blob-data.js';
 
@@ -72,25 +72,34 @@ async function main() {
   const opts = parseArgs();
   console.error('🔁 Refreshing track record (incremental)...\n');
 
-  const existing = await loadExisting(TRACK_FILE);
-  const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
-    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker));
-  const knownTickers = new Set(existingReads.map((r) => r.ticker));
-  console.error(`Existing track record: ${existingReads.length} reads (${knownTickers.size} tickers).`);
+  const MIN_HIT_RATE = DEFAULT_OPTS.minHitRate; // 60% gate (shared with the build step)
+  const readKey = (r) => `${r.ticker}__${r.date}`;
 
-  // Price only tickers we haven't logged yet. High max = no cap on the full record.
+  const existing = await loadExisting(TRACK_FILE);
+  // Apply the live gate to the existing record too: drop excluded names AND any
+  // historical read whose as-of edge is below the current threshold, so the
+  // record only ever contains signals that clear the 60% bar.
+  const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
+    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
+    .filter((r) => (r.asof_hit_rate ?? 0) >= MIN_HIT_RATE);
+  // Skip (ticker, day) pairs we've already priced — every distinct day is its own
+  // signal, so a ticker can appear on multiple dates.
+  const knownKeys = new Set(existingReads.map(readKey));
+  console.error(`Existing track record: ${existingReads.length} reads (gate >= ${MIN_HIT_RATE}%).`);
+
+  // Price only (ticker, day) signals we haven't logged yet. High max = no cap.
   const newReads = await buildReads(
     { since: opts.since, days: 9999, max: 100000, out: TRACK_FILE.replace('.json', '') },
-    { skipTickers: knownTickers }
+    { skipKeys: knownKeys }
   );
   console.error(`\nAdded ${newReads.length} new read(s).`);
 
-  // Merge (existing wins on any ticker collision) + sort newest first.
-  const byTicker = new Map();
+  // Merge (existing wins on any (ticker, day) collision) + sort newest first.
+  const byKey = new Map();
   for (const r of [...existingReads, ...newReads]) {
-    if (!byTicker.has(r.ticker)) byTicker.set(r.ticker, r);
+    if (!byKey.has(readKey(r))) byKey.set(readKey(r), r);
   }
-  const merged = [...byTicker.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const merged = [...byKey.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   await writeBoth(TRACK_FILE, {
     generated_at: new Date().toISOString(),
