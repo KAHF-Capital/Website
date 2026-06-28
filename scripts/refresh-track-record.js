@@ -37,11 +37,14 @@ const TOP_FILE = 'top-reads.json';
 
 function parseArgs() {
   const a = process.argv.slice(2);
-  const o = { since: '2026-01-01', window: 90, top: 8 };
+  const o = { since: '2026-01-01', window: 90, top: 8, rebuild: false };
   for (let i = 0; i < a.length; i++) {
     if (a[i] === '--since') o.since = a[++i];
     else if (a[i] === '--window') o.window = parseInt(a[++i], 10);
     else if (a[i] === '--top') o.top = parseInt(a[++i], 10);
+    // Recompute the ENTIRE record from scratch (ignore existing reads). Use after
+    // changing the hit-rate methodology or gate so every read is consistent.
+    else if (a[i] === '--rebuild') o.rebuild = true;
   }
   return o;
 }
@@ -72,20 +75,22 @@ async function main() {
   const opts = parseArgs();
   console.error('🔁 Refreshing track record (incremental)...\n');
 
-  const MIN_HIT_RATE = DEFAULT_OPTS.minHitRate; // 60% gate (shared with the build step)
+  const MIN_HIT_RATE = DEFAULT_OPTS.minHitRate; // lower gate (shared with the build step)
+  const MAX_HIT_RATE = DEFAULT_OPTS.maxHitRate; // upper cap — above this is likely a bad read
   const readKey = (r) => `${r.ticker}__${r.date}`;
 
-  const existing = await loadExisting(TRACK_FILE);
-  // Apply the live gate to the existing record too: drop excluded names AND any
-  // historical read whose as-of edge is below the current threshold, so the
-  // record only ever contains signals that clear the 60% bar.
+  const existing = opts.rebuild ? { reads: [] } : await loadExisting(TRACK_FILE);
+  if (opts.rebuild) console.error('♻️  --rebuild: recomputing the entire record from scratch.\n');
+  // Apply the live band to the existing record too: drop excluded names AND any
+  // historical read whose hit rate is outside [MIN_HIT_RATE, MAX_HIT_RATE], so the
+  // record only ever contains signals inside the believable band.
   const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
     .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
-    .filter((r) => (r.asof_hit_rate ?? 0) >= MIN_HIT_RATE);
+    .filter((r) => (r.asof_hit_rate ?? 0) >= MIN_HIT_RATE && (r.asof_hit_rate ?? 0) <= MAX_HIT_RATE);
   // Skip (ticker, day) pairs we've already priced — every distinct day is its own
   // signal, so a ticker can appear on multiple dates.
   const knownKeys = new Set(existingReads.map(readKey));
-  console.error(`Existing track record: ${existingReads.length} reads (gate >= ${MIN_HIT_RATE}%).`);
+  console.error(`Existing track record: ${existingReads.length} reads (band ${MIN_HIT_RATE}%–${MAX_HIT_RATE}%).`);
 
   // Price only (ticker, day) signals we haven't logged yet. High max = no cap.
   const newReads = await buildReads(

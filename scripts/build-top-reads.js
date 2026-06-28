@@ -13,7 +13,7 @@
  *
  * Reads dark pool data from local data/processed/*.json (source of truth before
  * blob upload). Usage:
- *   node scripts/build-top-reads.js [--days 30] [--max 8] [--min-hit-rate 60]
+ *   node scripts/build-top-reads.js [--days 30] [--max 8] [--min-hit-rate 50]
  */
 
 import fs from 'fs';
@@ -40,7 +40,7 @@ const ROOT = path.resolve(__dirname, '..');
 const { calculateOverlappingMovements, analyzeOptionsProfitability } = await import(
   '../lib/options-analysis-service.js'
 );
-const { getHistoricalStockData } = await import('../lib/polygon-data-service.js');
+const { getHistoricalStockData, calculatePriceMovements } = await import('../lib/polygon-data-service.js');
 const { EXCLUDED_TICKERS, volatilityRegimeCollapsed } = await import('../lib/read-filters.js');
 
 const API_BASE = 'https://api.massive.com';
@@ -50,7 +50,11 @@ if (!KEY) {
   process.exit(1);
 }
 
-export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 60, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 50, maxHitRate: 90, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+
+// Minimum post-outlier samples for a strategy's hit rate to count, matching the
+// website calculator's 'low' data-quality threshold (lib/options-analysis-service.js).
+const MIN_LEG_SAMPLES = 10;
 
 // EXCLUDED_TICKERS (manual override) + the automated deal/dead-vol veto both
 // live in lib/read-filters.js so the serving layer can share them. Re-exported
@@ -240,11 +244,22 @@ async function priceEntry(ticker, signalDate, targetDte) {
   };
 }
 
-// --- Step-forward best leg (no lookahead) ----------------------------------
+// --- Best leg by historical hit rate ---------------------------------------
+// IMPORTANT: this MUST mirror the website options calculator
+// (lib/options-analysis-service.js → runHistoricalAnalysis) so a ticker's
+// track-record hit rate matches exactly what users see in the calculator:
+//   • ~3 years of daily history through today,
+//   • NON-overlapping N-day intervals (overlapping only as a fallback when
+//     there aren't at least `minSamples`),
+//   • scored against the same breakevens (premium / strike).
+// The one intentional difference is premium: the track record uses the real
+// ENTRY premium you'd have paid on the signal date, not the live mid.
 async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
   const need = Math.max(750, Math.ceil((opts.minSamples * dte) / 0.7) + 60);
-  const hist = (await getHistoricalStockData(ticker, minusDays(signalDate, need), signalDate)).filter((h) => h.date <= signalDate);
-  if (hist.length && (new Date(signalDate) - new Date(hist[0].date)) / 86400000 < opts.minHistoryDays) {
+  const today = new Date().toISOString().slice(0, 10);
+  const hist = await getHistoricalStockData(ticker, minusDays(today, need), today);
+  const spanDays = hist.length ? (new Date(hist[hist.length - 1].date) - new Date(hist[0].date)) / 86400000 : 0;
+  if (spanDays < opts.minHistoryDays) {
     return null; // thin history
   }
   // Automated deal-veto: if recent realized vol has collapsed vs the long-run
@@ -254,19 +269,38 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
   if (regime.collapsed) {
     return { vetoed: true, reason: regime.reason };
   }
-  const moves = calculateOverlappingMovements(hist, dte);
+  // Match the calculator: prefer non-overlapping intervals, fall back to
+  // overlapping only when there aren't enough non-overlapping windows. The
+  // fallback trigger uses the RAW window count (like runHistoricalAnalysis),
+  // NOT the post-outlier sample count.
+  let moves = calculatePriceMovements(hist, dte);
+  if (moves.length < opts.minSamples) moves = calculateOverlappingMovements(hist, dte);
   const run = (strategy, premium) => analyzeOptionsProfitability(moves, {
     strategy,
     upperBreakevenPct: premium / strike,
     lowerBreakevenPct: -(premium / strike)
   });
+  // The calculator never hard-drops a strategy for sample count — it reports the
+  // hit rate and labels data quality ('low' >= 10, 'medium' >= 25, 'high' >= 50).
+  // Mirror that: qualify the best leg by rate, requiring only the calculator's
+  // 'low' data floor (>= 10 post-outlier samples) so a read isn't built off a
+  // handful of points. Using the old >= minSamples (25) floor here silently
+  // dropped volatile names (e.g. APGE) whose big moves get outlier-filtered
+  // below 25, even though the calculator happily shows them.
   const legs = [
     { strategy: 'call', premium: entry.callPrice, a: run('call', entry.callPrice) },
     { strategy: 'put', premium: entry.putPrice, a: run('put', entry.putPrice) },
     { strategy: 'straddle', premium: entry.callPrice + entry.putPrice, a: run('straddle', entry.callPrice + entry.putPrice) }
-  ].filter((l) => l.a.totalSamples >= opts.minSamples).sort((x, y) => y.a.profitableRate - x.a.profitableRate);
+  ].filter((l) => l.a.totalSamples >= MIN_LEG_SAMPLES).sort((x, y) => y.a.profitableRate - x.a.profitableRate);
   const best = legs[0];
   if (!best || best.a.profitableRate < opts.minHitRate) return null;
+  // Upper cap: a hit rate above maxHitRate almost always means an implausibly
+  // tiny breakeven from stale/illiquid option pricing (or a too-thin sample) —
+  // i.e. a bad read, not a real edge. Veto so the published record stays in a
+  // believable band.
+  if (best.a.profitableRate > opts.maxHitRate) {
+    return { vetoed: true, reason: `hit rate ${best.a.profitableRate.toFixed(1)}% > ${opts.maxHitRate}% cap (likely illiquid/stale pricing)` };
+  }
   return { strategy: best.strategy, premium: best.premium, hitRate: Number(best.a.profitableRate.toFixed(1)), samples: best.a.totalSamples };
 }
 

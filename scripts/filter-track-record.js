@@ -7,7 +7,7 @@
  *
  * The four checks (from the kahf-ai-chat system prompt):
  *   1. Unusual flow      — volume ratio >= 3.0 (today vs 7-day avg)
- *   2. Best-leg edge     — historical hit rate >= 60% with sample >= 25,
+ *   2. Best-leg edge     — historical hit rate >= 50% with sample >= 25,
  *                          computed using ONLY price history up to the signal
  *                          date (this is the lookahead-free discriminator)
  *   3. Tradeable liquidity — proxy: name cleared the $250M dark-pool bar and
@@ -60,7 +60,8 @@ function parseArgs() {
   const opts = {
     in: 'track-record-candidates.json',
     out: 'track-record-passed.json',
-    minHitRate: 60,
+    minHitRate: 50,
+    maxHitRate: 90, // above this is almost always a stale/illiquid-pricing artifact
     minSamples: 25,
     minVolRatio: 3.0,
     minHistoryDays: 400 // require ~1.5y of real history (kills thin/recently-listed names)
@@ -191,8 +192,8 @@ async function main() {
       .sort((a, b) => b.hitRate - a.hitRate);
     const best = legChoices[0] || null;
 
-    const straddlePass = check1 && check3 && enoughHistory && asOf.straddle.hitRate >= opts.minHitRate && asOf.straddle.samples >= opts.minSamples;
-    const bestLegPass = check1 && check3 && enoughHistory && best && best.hitRate >= opts.minHitRate;
+    const straddlePass = check1 && check3 && enoughHistory && asOf.straddle.hitRate >= opts.minHitRate && asOf.straddle.hitRate <= opts.maxHitRate && asOf.straddle.samples >= opts.minSamples;
+    const bestLegPass = check1 && check3 && enoughHistory && best && best.hitRate >= opts.minHitRate && best.hitRate <= opts.maxHitRate;
 
     // --- straddle-only record ---
     if (straddlePass) {
