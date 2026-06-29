@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T22:01:12.383Z",
+  "generated_at": "2026-06-28T22:50:01.948Z",
   "since": "2026-01-01",
   "reads": [
     {
@@ -17,23 +17,6 @@
       "asof_samples": 26,
       "contracts": [
         "O:NVS260717C00155000"
-      ]
-    },
-    {
-      "date": "2026-06-23",
-      "ticker": "TD",
-      "volume_ratio": 3.08,
-      "dark_pool_value": 734123520.3537451,
-      "dark_pool_avg_price": 119.47096617420772,
-      "structure": "call",
-      "strike": 120,
-      "expiration": "2026-07-17",
-      "dte": 24,
-      "entry_premium": 1.94,
-      "asof_hit_rate": 61.5,
-      "asof_samples": 26,
-      "contracts": [
-        "O:TD260717C00120000"
       ]
     },
     {
@@ -85,24 +68,6 @@
       "asof_samples": 25,
       "contracts": [
         "O:KLAC260717C00255000"
-      ]
-    },
-    {
-      "date": "2026-06-08",
-      "ticker": "TD",
-      "volume_ratio": 3.14,
-      "dark_pool_value": 361771521.1139621,
-      "dark_pool_avg_price": 114.17104949504592,
-      "structure": "straddle",
-      "strike": 115,
-      "expiration": "2026-07-17",
-      "dte": 39,
-      "entry_premium": 6.26,
-      "asof_hit_rate": 64,
-      "asof_samples": 25,
-      "contracts": [
-        "O:TD260717C00115000",
-        "O:TD260717P00115000"
       ]
     },
     {
@@ -466,23 +431,6 @@
       "contracts": [
         "O:IMO260320C00120000",
         "O:IMO260320P00120000"
-      ]
-    },
-    {
-      "date": "2026-02-27",
-      "ticker": "CASY",
-      "volume_ratio": 3.19,
-      "dark_pool_value": 598544779.985548,
-      "dark_pool_avg_price": 685.4518490189645,
-      "structure": "call",
-      "strike": 690,
-      "expiration": "2026-03-20",
-      "dte": 21,
-      "entry_premium": 26,
-      "asof_hit_rate": 50,
-      "asof_samples": 26,
-      "contracts": [
-        "O:CASY260320C00690000"
       ]
     },
     {

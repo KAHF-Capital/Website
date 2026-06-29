@@ -99,12 +99,28 @@ async function main() {
   );
   console.error(`\nAdded ${newReads.length} new read(s).`);
 
-  // Merge (existing wins on any (ticker, day) collision) + sort newest first.
+  // Merge (existing wins on any (ticker, day) collision).
   const byKey = new Map();
   for (const r of [...existingReads, ...newReads]) {
     if (!byKey.has(readKey(r))) byKey.set(readKey(r), r);
   }
-  const merged = [...byKey.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  // ONE tradeable read per ticker. A ticker can fire a 3x+ dark-pool signal on
+  // several different days, but we only publish its single strongest setup —
+  // the best leg (call/put/straddle) on the best day — so the record isn't
+  // dominated by any one name (e.g. a ticker showing up over and over). Pick the
+  // highest as-of hit rate; tie-break on more samples, then the more recent date.
+  const betterRead = (a, b) => {
+    if ((a.asof_hit_rate || 0) !== (b.asof_hit_rate || 0)) return (a.asof_hit_rate || 0) > (b.asof_hit_rate || 0);
+    if ((a.asof_samples || 0) !== (b.asof_samples || 0)) return (a.asof_samples || 0) > (b.asof_samples || 0);
+    return a.date > b.date;
+  };
+  const bestByTicker = new Map();
+  for (const r of byKey.values()) {
+    const cur = bestByTicker.get(r.ticker);
+    if (!cur || betterRead(r, cur)) bestByTicker.set(r.ticker, r);
+  }
+  const merged = [...bestByTicker.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   await writeBoth(TRACK_FILE, {
     generated_at: new Date().toISOString(),

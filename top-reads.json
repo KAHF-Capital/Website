@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T22:01:12.583Z",
+  "generated_at": "2026-06-28T22:50:02.148Z",
   "window_days": 90,
   "since": "2026-03-30",
   "reads": [
@@ -39,24 +39,6 @@
       ]
     },
     {
-      "date": "2026-06-08",
-      "ticker": "TD",
-      "volume_ratio": 3.14,
-      "dark_pool_value": 361771521.1139621,
-      "dark_pool_avg_price": 114.17104949504592,
-      "structure": "straddle",
-      "strike": 115,
-      "expiration": "2026-07-17",
-      "dte": 39,
-      "entry_premium": 6.26,
-      "asof_hit_rate": 64,
-      "asof_samples": 25,
-      "contracts": [
-        "O:TD260717C00115000",
-        "O:TD260717P00115000"
-      ]
-    },
-    {
       "date": "2026-04-08",
       "ticker": "CASY",
       "volume_ratio": 3.59,
@@ -71,23 +53,6 @@
       "asof_samples": 25,
       "contracts": [
         "O:CASY260515C00760000"
-      ]
-    },
-    {
-      "date": "2026-06-23",
-      "ticker": "TD",
-      "volume_ratio": 3.08,
-      "dark_pool_value": 734123520.3537451,
-      "dark_pool_avg_price": 119.47096617420772,
-      "structure": "call",
-      "strike": 120,
-      "expiration": "2026-07-17",
-      "dte": 24,
-      "entry_premium": 1.94,
-      "asof_hit_rate": 61.5,
-      "asof_samples": 26,
-      "contracts": [
-        "O:TD260717C00120000"
       ]
     },
     {
@@ -141,6 +106,40 @@
       "contracts": [
         "O:BNS260515C00070000",
         "O:BNS260515P00070000"
+      ]
+    },
+    {
+      "date": "2026-06-15",
+      "ticker": "FOXA",
+      "volume_ratio": 3.8,
+      "dark_pool_value": 762176227.9404312,
+      "dark_pool_avg_price": 54.691631183241135,
+      "structure": "call",
+      "strike": 55,
+      "expiration": "2026-07-17",
+      "dte": 32,
+      "entry_premium": 2.53,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
+      "contracts": [
+        "O:FOXA260717C00055000"
+      ]
+    },
+    {
+      "date": "2026-05-13",
+      "ticker": "AEP",
+      "volume_ratio": 3.18,
+      "dark_pool_value": 967922438.8760964,
+      "dark_pool_avg_price": 127.59266716751193,
+      "structure": "call",
+      "strike": 130,
+      "expiration": "2026-06-18",
+      "dte": 36,
+      "entry_premium": 2.42,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
+      "contracts": [
+        "O:AEP260618C00130000"
       ]
     }
   ]
