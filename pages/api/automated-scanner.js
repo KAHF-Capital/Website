@@ -1,6 +1,8 @@
 // Automated Scanner - Sends consolidated SMS + email digest to subscribers
 // Called by Vercel Cron at 10 AM ET (14:00 UTC) on trading days
 
+import fs from 'fs';
+import path from 'path';
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigest } from '../../lib/twilio-service';
 import { sendDailyDigestEmail } from '../../lib/email-service';
@@ -31,6 +33,16 @@ export default async function handler(req, res) {
   const smsOnly = req.query.smsOnly === '1' || req.query.smsOnly === 'true';
 
   console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}${emailOnly ? ' [email-only]' : ''}${smsOnly ? ' [sms-only]' : ''}`);
+
+  if (isAlertSkippedToday()) {
+    const etDate = getEasternDate();
+    console.log(`Skipping alerts for ${etDate} (listed in data/skip-alert-dates.json)`);
+    return res.status(200).json({
+      success: true,
+      message: `Alerts skipped for ${etDate}`,
+      alertsSent: 0
+    });
+  }
 
   try {
     const darkPoolData = await getLatestDarkPoolDataWithRatios();
@@ -230,4 +242,20 @@ async function getLatestDarkPoolDataWithRatios() {
     }));
 
   return { date: filenameDate, tickers };
+}
+
+function getEasternDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+}
+
+function isAlertSkippedToday() {
+  try {
+    const file = path.join(process.cwd(), 'data', 'skip-alert-dates.json');
+    if (!fs.existsSync(file)) return false;
+    const { dates = [] } = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return dates.includes(getEasternDate());
+  } catch (error) {
+    console.error('Error reading skip-alert-dates.json:', error.message);
+    return false;
+  }
 }

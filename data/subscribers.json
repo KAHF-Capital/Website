@@ -50,6 +50,23 @@
       },
       "alertsSent": 5,
       "lastAlertAt": "2026-06-02T15:26:43.166Z"
+    },
+    {
+      "id": "manual_1783342303183",
+      "stripeCustomerId": "manual_1783342303183",
+      "email": "Nickotis9@gmail.com",
+      "phoneNumber": null,
+      "status": "active",
+      "createdAt": "2026-07-06T12:51:43.183Z",
+      "updatedAt": "2026-07-06T12:51:43.183Z",
+      "preferences": {
+        "minVolumeRatio": 3,
+        "watchlist": [],
+        "alertTime": "09:46",
+        "maxAlertsPerDay": 25
+      },
+      "alertsSent": 0,
+      "lastAlertAt": null
     }
   ]
 }
