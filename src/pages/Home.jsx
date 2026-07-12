@@ -162,7 +162,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Top reads — live performance */}
+      {/* Biggest winners YTD (full track record lives on /wins) */}
       <HomeTopReads />
 
       {/* Features */}

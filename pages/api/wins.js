@@ -10,8 +10,10 @@ import { getReadsJson } from '../../lib/blob-data';
 // appear without a redeploy.
 import bundled from '../../track-record-reads.json';
 
+// Short in-memory TTL so new reads appear quickly; the CDN header below
+// absorbs traffic so Polygon isn't hammered on cache misses.
 const CACHE = { data: null, ts: 0 };
-const TTL = 3 * 60 * 60 * 1000; // 3h
+const TTL = 15 * 60 * 1000; // 15 min
 
 function toAlert(r) {
   const result = r.returnPct === null ? 'flat' : r.returnPct > 0 ? 'win' : r.returnPct < 0 ? 'loss' : 'flat';
@@ -19,11 +21,14 @@ function toAlert(r) {
   return {
     date: r.date,
     ticker: r.ticker,
+    found_at: r.foundAt || null,
     volume_ratio: r.volumeRatio || 0,
     total_value: r.darkPoolValue || 0,
     avg_price: 0,
     result,
     estimated_return_pct: r.returnPct ?? 0,
+    structure_label: r.structureLabel,
+    status: r.status,
     hypothetical: true,
     note: `${r.structureLabel} · ${held} · as-of edge ${r.asofHitRate}%`
   };
@@ -34,6 +39,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
 
   if (CACHE.data && Date.now() - CACHE.ts < TTL) {
     return res.status(200).json(CACHE.data);

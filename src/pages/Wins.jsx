@@ -7,6 +7,14 @@ import Footer from './Footer';
 import AskAIButton from '../components/AskAIButton';
 import { track } from '../../lib/analytics';
 
+// A read counts as "new" if the pipeline published it in the last 48h
+// (found_at), falling back to the signal date for older reads without a stamp.
+function isNewRead(a) {
+  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+  if (a.found_at) return new Date(a.found_at).getTime() >= cutoff;
+  return new Date(`${a.date}T00:00:00`).getTime() >= cutoff;
+}
+
 export default function Wins() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,12 +124,19 @@ export default function Wins() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <Link
-                              href={`/ticker/${a.ticker}`}
-                              className="font-bold text-gray-900 hover:text-green-700"
-                            >
-                              ${a.ticker}
-                            </Link>
+                            <div className="inline-flex items-center gap-2">
+                              <Link
+                                href={`/ticker/${a.ticker}`}
+                                className="font-bold text-gray-900 hover:text-green-700"
+                              >
+                                ${a.ticker}
+                              </Link>
+                              {isNewRead(a) && (
+                                <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                                  New
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
                             {a.volume_ratio.toFixed(1)}×

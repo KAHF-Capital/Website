@@ -14,14 +14,18 @@ import { getReadsJson } from '../../lib/blob-data';
 // Vercel because dynamically-read files aren't traced into the bundle.)
 import bundled from '../../top-reads.json';
 
+// Short in-memory TTL so new reads appear quickly; the CDN header below
+// absorbs traffic so Polygon isn't hammered on cache misses.
 const CACHE = { data: null, ts: 0 };
-const TTL = 3 * 60 * 60 * 1000; // 3h
+const TTL = 15 * 60 * 1000; // 15 min
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
 
   if (CACHE.data && Date.now() - CACHE.ts < TTL) {
     return res.status(200).json(CACHE.data);

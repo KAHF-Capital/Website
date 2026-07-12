@@ -4,8 +4,10 @@
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigest } from '../../lib/twilio-service';
 import { sendDailyDigestEmail } from '../../lib/email-service';
-import { listDataFiles, getDataFile } from '../../lib/blob-data';
+import { listDataFiles, getDataFile, getReadsJson } from '../../lib/blob-data';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service';
+import { isExcluded } from '../../lib/read-filters';
+import { getUnsubscribedSet } from '../../lib/unsubscribe';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const VOLUME_RATIO_THRESHOLD = 3.0;
@@ -97,7 +99,24 @@ export default async function handler(req, res) {
     const withRate = tickersToSend.filter(t => t.straddleRate !== null).length;
     console.log(`Straddle analysis complete: ${withRate}/${tickersToSend.length} tickers have success rates`);
 
-    const subscribers = getActiveSubscribers();
+    // Trade-grade reads published by the local pipeline in the last 24h
+    // (found_at stamped by scripts/refresh-track-record.js). When present they
+    // lead the email/SMS; the scanner table becomes supporting context.
+    const newReads = await getNewReadsSince(Date.now() - 24 * 60 * 60 * 1000);
+    if (newReads.length > 0) {
+      console.log(`Leading digest with ${newReads.length} new read(s): ${newReads.map(r => r.ticker).join(', ')}`);
+    }
+
+    // Honor the unsubscribe suppression list (Blob-backed, written by
+    // /api/unsubscribe). Email is suppressed; SMS opt-out is handled by
+    // Twilio STOP replies.
+    const unsubscribed = await getUnsubscribedSet();
+    const subscribers = getActiveSubscribers().map(s => (
+      s.email && unsubscribed.has(s.email.toLowerCase()) ? { ...s, email: null } : s
+    )).filter(s => s.email || s.phoneNumber);
+    if (unsubscribed.size > 0) {
+      console.log(`Suppression list active: ${unsubscribed.size} unsubscribed email(s)`);
+    }
 
     if (subscribers.length === 0) {
       return res.status(200).json({
@@ -139,7 +158,7 @@ export default async function handler(req, res) {
       // Send SMS (will fail gracefully if toll-free not verified yet)
       if (hasPhone && !emailOnly) {
         try {
-          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date, isQuietDay);
+          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date, isQuietDay, newReads);
         } catch (error) {
           subResult.sms = { success: false, error: error.message };
         }
@@ -148,7 +167,7 @@ export default async function handler(req, res) {
       // Send email
       if (hasEmail && !smsOnly) {
         try {
-          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay);
+          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay, newReads);
         } catch (error) {
           subResult.email = { success: false, error: error.message };
         }
@@ -168,6 +187,7 @@ export default async function handler(req, res) {
       success: true,
       date: darkPoolData.date,
       hotTickers: hotTickers.length,
+      newReads: newReads.map(r => r.ticker),
       subscribersNotified: sent,
       alertsFailed: failed,
       results
@@ -175,6 +195,22 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Automated scanner error:', error);
     return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// Reads from the published track record whose found_at stamp is newer than
+// `sinceMs`. Fails soft — a Blob hiccup shouldn't stop the daily digest.
+async function getNewReadsSince(sinceMs) {
+  try {
+    const file = await getReadsJson('track-record-reads.json');
+    if (!file || !Array.isArray(file.reads)) return [];
+    return file.reads
+      .filter(r => !isExcluded(r.ticker))
+      .filter(r => r.found_at && new Date(r.found_at).getTime() >= sinceMs)
+      .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0));
+  } catch (err) {
+    console.error('Could not load new reads for digest (non-fatal):', err.message);
+    return [];
   }
 }
 

@@ -97,6 +97,22 @@ async function main() {
     { since: opts.since, days: 9999, max: 100000, out: TRACK_FILE.replace('.json', '') },
     { skipKeys: knownKeys }
   );
+  // Provenance stamp: when the pipeline actually discovered this read (the
+  // signal `date` is the trading day; found_at is publish time). Powers the
+  // "New" badge on /wins and tells the 10am cron which reads to headline.
+  // On --rebuild, carry over stamps from the prior record so re-priced history
+  // doesn't look "new" and flood the next digest.
+  const priorStamps = new Map();
+  if (opts.rebuild) {
+    const prior = await loadExisting(TRACK_FILE);
+    for (const r of Array.isArray(prior.reads) ? prior.reads : []) {
+      if (r.found_at) priorStamps.set(readKey(r), r.found_at);
+    }
+  }
+  const foundAt = new Date().toISOString();
+  for (const r of newReads) {
+    r.found_at = opts.rebuild ? (priorStamps.get(readKey(r)) ?? null) : foundAt;
+  }
   console.error(`\nAdded ${newReads.length} new read(s).`);
 
   // Merge (existing wins on any (ticker, day) collision).
@@ -144,6 +160,14 @@ async function main() {
   });
 
   console.error(`\n✅ Track record: ${merged.length} reads · Homepage: ${topReads.length} reads (last ${opts.window}d).`);
+
+  // Subscriber notifications now happen in the 10am ET cron
+  // (/api/automated-scanner), which leads the daily digest with any read whose
+  // found_at stamp is <24h old. Run this script before 10am ET on trading days.
+  const publishedNew = merged.filter((r) => !knownKeys.has(readKey(r)));
+  if (publishedNew.length > 0 && !opts.rebuild) {
+    console.error(`📣 ${publishedNew.length} new read(s) will lead the next 10am ET digest: ${publishedNew.map((r) => r.ticker).join(', ')}`);
+  }
 }
 
 main().catch((e) => { console.error('Fatal:', e); process.exit(1); });
