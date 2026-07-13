@@ -41,7 +41,7 @@ const { calculateOverlappingMovements, analyzeOptionsProfitability } = await imp
   '../lib/options-analysis-service.js'
 );
 const { getHistoricalStockData, calculatePriceMovements } = await import('../lib/polygon-data-service.js');
-const { EXCLUDED_TICKERS, volatilityRegimeCollapsed } = await import('../lib/read-filters.js');
+const { EXCLUDED_TICKERS, volatilityRegimeCollapsed, directionFromSignal, DIRECTION_DEFAULTS } = await import('../lib/read-filters.js');
 
 const API_BASE = 'https://api.massive.com';
 const KEY = process.env.POLYGON_API_KEY;
@@ -50,7 +50,22 @@ if (!KEY) {
   process.exit(1);
 }
 
-export const DEFAULT_OPTS = { days: 30, since: null, out: 'top-reads', max: 8, minHitRate: 50, maxHitRate: 90, minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7 };
+export const DEFAULT_OPTS = {
+  days: 30, since: null, out: 'top-reads', max: 8,
+  minHitRate: 50,
+  // Above this the "edge" is almost always an illiquid-pricing artifact (tiny
+  // stale premium -> implausible breakeven). Was 90; the three worst YTD losers
+  // all carried 78-88% published edges. Now a per-leg disqualifier, not a veto.
+  maxHitRate: 75,
+  // Direction-confirmed puts qualify at a lower floor: put hit rates are
+  // structurally depressed by 3y of upward drift, so a 45-50% put edge WITH
+  // bearish dark-pool confirmation is a real signal (backtested YTD).
+  putHitRateFloor: DIRECTION_DEFAULTS.putHitRateFloor,
+  // A straddle breakeven under ±4% means near-zero premium = stale/no-bid
+  // pricing, not cheap vol. (GSAT/APGE/CRNX all slipped in at ±2%.)
+  straddleImpliedFloor: 0.04,
+  minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7
+};
 
 // Minimum post-outlier samples for a strategy's hit rate to count, matching the
 // website calculator's 'low' data-quality threshold (lib/options-analysis-service.js).
@@ -244,20 +259,25 @@ async function priceEntry(ticker, signalDate, targetDte) {
   };
 }
 
-// --- Best leg by historical hit rate ---------------------------------------
-// IMPORTANT: this MUST mirror the website options calculator
-// (lib/options-analysis-service.js → runHistoricalAnalysis) so a ticker's
-// track-record hit rate matches exactly what users see in the calculator:
-//   • ~3 years of daily history through today,
-//   • NON-overlapping N-day intervals (overlapping only as a fallback when
-//     there aren't at least `minSamples`),
-//   • scored against the same breakevens (premium / strike).
-// The one intentional difference is premium: the track record uses the real
-// ENTRY premium you'd have paid on the signal date, not the live mid.
-async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
+// --- Best leg: hit-rate calculator + direction gate --------------------------
+// The hit-rate math MUST mirror the website options calculator
+// (lib/options-analysis-service.js → runHistoricalAnalysis):
+//   • ~3 years of daily history CAPPED AT THE SIGNAL DATE — the published
+//     "as-of" edge must never see post-signal data (this was a lookahead bug:
+//     it previously fetched through today),
+//   • NON-overlapping N-day intervals (overlapping only as a fallback),
+//   • scored against the same breakevens (premium / strike),
+//   • real ENTRY premium from the signal date, not the live mid.
+//
+// Structure selection (backtested on YTD 2026, best mix):
+//   1. Direction from the dark pool signal (close vs avg print price, weighted
+//      by volume-ratio conviction, price-action sanity veto) — read-filters.js.
+//   2. bullish → long call, bearish → long put, when that leg's hit rate
+//      qualifies; ATM straddle (always non-directional) is the fallback.
+//   3. neutral → best qualifying leg by hit rate (legacy contest).
+async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal = {}) {
   const need = Math.max(750, Math.ceil((opts.minSamples * dte) / 0.7) + 60);
-  const today = new Date().toISOString().slice(0, 10);
-  const hist = await getHistoricalStockData(ticker, minusDays(today, need), today);
+  const hist = await getHistoricalStockData(ticker, minusDays(signalDate, need), signalDate);
   const spanDays = hist.length ? (new Date(hist[hist.length - 1].date) - new Date(hist[0].date)) / 86400000 : 0;
   if (spanDays < opts.minHistoryDays) {
     return null; // thin history
@@ -270,9 +290,7 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
     return { vetoed: true, reason: regime.reason };
   }
   // Match the calculator: prefer non-overlapping intervals, fall back to
-  // overlapping only when there aren't enough non-overlapping windows. The
-  // fallback trigger uses the RAW window count (like runHistoricalAnalysis),
-  // NOT the post-outlier sample count.
+  // overlapping only when there aren't enough non-overlapping windows.
   let moves = calculatePriceMovements(hist, dte);
   if (moves.length < opts.minSamples) moves = calculateOverlappingMovements(hist, dte);
   const run = (strategy, premium) => analyzeOptionsProfitability(moves, {
@@ -280,28 +298,56 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts) {
     upperBreakevenPct: premium / strike,
     lowerBreakevenPct: -(premium / strike)
   });
-  // The calculator never hard-drops a strategy for sample count — it reports the
-  // hit rate and labels data quality ('low' >= 10, 'medium' >= 25, 'high' >= 50).
-  // Mirror that: qualify the best leg by rate, requiring only the calculator's
-  // 'low' data floor (>= 10 post-outlier samples) so a read isn't built off a
-  // handful of points. Using the old >= minSamples (25) floor here silently
-  // dropped volatile names (e.g. APGE) whose big moves get outlier-filtered
-  // below 25, even though the calculator happily shows them.
-  const legs = [
-    { strategy: 'call', premium: entry.callPrice, a: run('call', entry.callPrice) },
-    { strategy: 'put', premium: entry.putPrice, a: run('put', entry.putPrice) },
-    { strategy: 'straddle', premium: entry.callPrice + entry.putPrice, a: run('straddle', entry.callPrice + entry.putPrice) }
-  ].filter((l) => l.a.totalSamples >= MIN_LEG_SAMPLES).sort((x, y) => y.a.profitableRate - x.a.profitableRate);
-  const best = legs[0];
-  if (!best || best.a.profitableRate < opts.minHitRate) return null;
-  // Upper cap: a hit rate above maxHitRate almost always means an implausibly
-  // tiny breakeven from stale/illiquid option pricing (or a too-thin sample) —
-  // i.e. a bad read, not a real edge. Veto so the published record stays in a
-  // believable band.
-  if (best.a.profitableRate > opts.maxHitRate) {
-    return { vetoed: true, reason: `hit rate ${best.a.profitableRate.toFixed(1)}% > ${opts.maxHitRate}% cap (likely illiquid/stale pricing)` };
+
+  const n = hist.length;
+  const direction = directionFromSignal({
+    signalClose: n ? hist[n - 1].close : null,
+    dpAvgPrice: signal.dpAvgPrice,
+    prevClose: n >= 2 ? hist[n - 2].close : null,
+    close5dAgo: n >= 6 ? hist[n - 6].close : null,
+    volumeRatio: signal.volumeRatio
+  });
+
+  const analyses = {
+    call: { premium: entry.callPrice, a: run('call', entry.callPrice) },
+    put: { premium: entry.putPrice, a: run('put', entry.putPrice) },
+    straddle: { premium: entry.callPrice + entry.putPrice, a: run('straddle', entry.callPrice + entry.putPrice) }
+  };
+  const straddleImplied = (entry.callPrice + entry.putPrice) / strike;
+
+  // Sample floor mirrors the calculator's 'low' data-quality threshold (>= 10
+  // post-outlier samples) so a read isn't built off a handful of points.
+  const qualifies = (s) => {
+    const { a } = analyses[s];
+    if (a.totalSamples < MIN_LEG_SAMPLES) return false;
+    const floor = s === 'put' && direction === 'bearish' ? opts.putHitRateFloor : opts.minHitRate;
+    if (a.profitableRate < floor || a.profitableRate > opts.maxHitRate) return false;
+    if (s === 'straddle' && straddleImplied < opts.straddleImpliedFloor) return false;
+    if (s === 'call' && direction === 'bearish') return false;
+    if (s === 'put' && direction === 'bullish') return false;
+    return true;
+  };
+
+  let chosen = null;
+  if (direction !== 'neutral') {
+    const preferred = direction === 'bullish' ? 'call' : 'put';
+    if (qualifies(preferred)) chosen = preferred;
+    else if (qualifies('straddle')) chosen = 'straddle';
+  } else {
+    chosen = ['call', 'put', 'straddle']
+      .filter(qualifies)
+      .sort((x, y) => analyses[y].a.profitableRate - analyses[x].a.profitableRate)[0] || null;
   }
-  return { strategy: best.strategy, premium: best.premium, hitRate: Number(best.a.profitableRate.toFixed(1)), samples: best.a.totalSamples };
+  if (!chosen) return null;
+
+  const best = analyses[chosen];
+  return {
+    strategy: chosen,
+    premium: best.premium,
+    hitRate: Number(best.a.profitableRate.toFixed(1)),
+    samples: best.a.totalSamples,
+    direction
+  };
 }
 
 // Build reads from local processed dark-pool data. `skipTickers` lets the daily
@@ -333,7 +379,10 @@ export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys =
         continue;
       }
 
-      const best = await bestLegAsOf(s.ticker, s.date, entry.strike, entry, entry.dte, opts);
+      const best = await bestLegAsOf(s.ticker, s.date, entry.strike, entry, entry.dte, opts, {
+        volumeRatio: s.volume_ratio,
+        dpAvgPrice: s.avg_price
+      });
       if (best?.vetoed) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} vetoed — ${best.reason}`); continue; }
       if (!best) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} no qualifying structure`); continue; }
 
@@ -348,6 +397,7 @@ export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys =
         dark_pool_value: s.total_value,
         dark_pool_avg_price: s.avg_price,
         structure: best.strategy,
+        direction: best.direction,
         strike: entry.strike,
         expiration: entry.expiration,
         dte: entry.dte,
@@ -356,7 +406,7 @@ export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys =
         asof_samples: best.samples,
         contracts
       });
-      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${best.strategy.padEnd(8)} edge ${best.hitRate}%  entry $${best.premium.toFixed(2)}  exp ${entry.expiration}`);
+      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${best.strategy.padEnd(8)} [${best.direction}] edge ${best.hitRate}%  entry $${best.premium.toFixed(2)}  exp ${entry.expiration}`);
     } catch (e) {
       console.error(`  ✗  ${s.date} ${s.ticker.padEnd(6)} ${e.message}`);
     }

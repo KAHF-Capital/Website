@@ -40,3 +40,6 @@ Thumbs.db
 *.log
 track-record-candidates*
 track-record-passed*
+
+# Local backtest cache (regenerate with scripts/collect-backtest-data.mjs)
+backtest-data.json

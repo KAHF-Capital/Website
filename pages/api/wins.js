@@ -17,7 +17,10 @@ const TTL = 15 * 60 * 1000; // 15 min
 
 function toAlert(r) {
   const result = r.returnPct === null ? 'flat' : r.returnPct > 0 ? 'win' : r.returnPct < 0 ? 'loss' : 'flat';
-  const held = r.status === 'open' ? 'open — marked to market' : 'held to expiry';
+  const held =
+    r.status === 'open' ? 'open — marked to market'
+    : r.status === 'closed' ? `${r.exitReason} exit ${r.exitDate}`
+    : 'held to expiry';
   return {
     date: r.date,
     ticker: r.ticker,
@@ -29,6 +32,8 @@ function toAlert(r) {
     estimated_return_pct: r.returnPct ?? 0,
     structure_label: r.structureLabel,
     status: r.status,
+    expiration: r.expiration,
+    exit_date: r.exitDate || null,
     hypothetical: true,
     note: `${r.structureLabel} · ${held} · as-of edge ${r.asofHitRate}%`
   };
