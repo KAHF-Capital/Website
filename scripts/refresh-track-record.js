@@ -77,16 +77,21 @@ async function main() {
 
   const MIN_HIT_RATE = DEFAULT_OPTS.minHitRate; // lower gate (shared with the build step)
   const MAX_HIT_RATE = DEFAULT_OPTS.maxHitRate; // upper cap — above this is likely a bad read
+  const PUT_FLOOR = DEFAULT_OPTS.putHitRateFloor; // direction-confirmed puts qualify lower
   const readKey = (r) => `${r.ticker}__${r.date}`;
 
   const existing = opts.rebuild ? { reads: [] } : await loadExisting(TRACK_FILE);
   if (opts.rebuild) console.error('♻️  --rebuild: recomputing the entire record from scratch.\n');
   // Apply the live band to the existing record too: drop excluded names AND any
-  // historical read whose hit rate is outside [MIN_HIT_RATE, MAX_HIT_RATE], so the
-  // record only ever contains signals inside the believable band.
+  // historical read whose hit rate is outside the believable band. The floor
+  // must mirror the build gate exactly (puts qualify at PUT_FLOOR) — using the
+  // generic floor here dropped valid puts from the known set every morning, so
+  // the refresh re-added them with a fresh found_at and the 10am digest
+  // re-alerted months-old signals as "new".
+  const floorFor = (r) => (r.structure === 'put' ? PUT_FLOOR : MIN_HIT_RATE);
   const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
     .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
-    .filter((r) => (r.asof_hit_rate ?? 0) >= MIN_HIT_RATE && (r.asof_hit_rate ?? 0) <= MAX_HIT_RATE);
+    .filter((r) => (r.asof_hit_rate ?? 0) >= floorFor(r) && (r.asof_hit_rate ?? 0) <= MAX_HIT_RATE);
   // Skip (ticker, day) pairs we've already priced — every distinct day is its own
   // signal, so a ticker can appear on multiple dates.
   const knownKeys = new Set(existingReads.map(readKey));
@@ -102,6 +107,13 @@ async function main() {
   // "New" badge on /wins and tells the 10am cron which reads to headline.
   // On --rebuild, carry over stamps from the prior record so re-priced history
   // doesn't look "new" and flood the next digest.
+  //
+  // Only FRESH signals get a stamp: if a methodology change resurrects an old
+  // signal date (backfill), it's published to the record silently
+  // (found_at=null) — subscribers must never be alerted about a months-old
+  // signal as if it fired today.
+  const MAX_STAMP_AGE_DAYS = 5;
+  const stampCutoff = minusDays(new Date().toISOString().slice(0, 10), MAX_STAMP_AGE_DAYS);
   const priorStamps = new Map();
   if (opts.rebuild) {
     const prior = await loadExisting(TRACK_FILE);
@@ -111,7 +123,14 @@ async function main() {
   }
   const foundAt = new Date().toISOString();
   for (const r of newReads) {
-    r.found_at = opts.rebuild ? (priorStamps.get(readKey(r)) ?? null) : foundAt;
+    if (opts.rebuild) {
+      r.found_at = priorStamps.get(readKey(r)) ?? null;
+    } else {
+      r.found_at = r.date >= stampCutoff ? foundAt : null;
+      if (r.found_at === null) {
+        console.error(`  ·  ${r.date} ${r.ticker} backfilled silently (signal older than ${MAX_STAMP_AGE_DAYS}d — no alert)`);
+      }
+    }
   }
   console.error(`\nAdded ${newReads.length} new read(s).`);
 

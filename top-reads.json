@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-13T00:42:15.492Z",
+  "generated_at": "2026-07-13T12:05:31.643Z",
   "window_days": 90,
   "since": "2026-04-14",
   "reads": [
@@ -83,25 +83,6 @@
     },
     {
       "date": "2026-06-26",
-      "ticker": "CM",
-      "volume_ratio": 3.4,
-      "dark_pool_value": 672644139.5748242,
-      "dark_pool_avg_price": 113.6685755360288,
-      "structure": "call",
-      "direction": "bullish",
-      "strike": 115,
-      "expiration": "2026-07-17",
-      "dte": 21,
-      "entry_premium": 1.31,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
-      "contracts": [
-        "O:CM260717C00115000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-06-26",
       "ticker": "TIGO",
       "volume_ratio": 3.64,
       "dark_pool_value": 385015036.85713434,
@@ -116,6 +97,25 @@
       "asof_samples": 26,
       "contracts": [
         "O:TIGO260717C00090000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-06-26",
+      "ticker": "CM",
+      "volume_ratio": 3.4,
+      "dark_pool_value": 672644139.5748242,
+      "dark_pool_avg_price": 113.6685755360288,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 115,
+      "expiration": "2026-07-17",
+      "dte": 21,
+      "entry_premium": 1.31,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
+      "contracts": [
+        "O:CM260717C00115000"
       ],
       "found_at": null
     },

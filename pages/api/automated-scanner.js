@@ -200,13 +200,26 @@ export default async function handler(req, res) {
 
 // Reads from the published track record whose found_at stamp is newer than
 // `sinceMs`. Fails soft — a Blob hiccup shouldn't stop the daily digest.
+//
+// Hard rule: alerts are only for fresh signals. Even if a stale read carries a
+// recent found_at (e.g. a methodology change backfilled history), the digest
+// never headlines a signal whose trading date is older than a few days.
+const MAX_SIGNAL_AGE_DAYS = 5;
 async function getNewReadsSince(sinceMs) {
   try {
     const file = await getReadsJson('track-record-reads.json');
     if (!file || !Array.isArray(file.reads)) return [];
-    return file.reads
+    const dateCutoff = new Date(Date.now() - MAX_SIGNAL_AGE_DAYS * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10);
+    const fresh = file.reads
       .filter(r => !isExcluded(r.ticker))
-      .filter(r => r.found_at && new Date(r.found_at).getTime() >= sinceMs)
+      .filter(r => r.found_at && new Date(r.found_at).getTime() >= sinceMs);
+    const stale = fresh.filter(r => r.date < dateCutoff);
+    if (stale.length > 0) {
+      console.warn(`Suppressing ${stale.length} stale read(s) from digest (signal date too old): ${stale.map(r => `${r.ticker} ${r.date}`).join(', ')}`);
+    }
+    return fresh
+      .filter(r => r.date >= dateCutoff)
       .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0));
   } catch (err) {
     console.error('Could not load new reads for digest (non-fatal):', err.message);
