@@ -1,10 +1,10 @@
-// Claim a Stripe subscription onto the logged-in Firebase user.
+// POST /api/claim-subscription
 //
-// POST body:
-//   { sessionId?: string }  — from Stripe Checkout redirect (?session_id=)
-//   empty body              — claim any pending_subscriptions row for this email
+// Body:
+//   { sessionId?: string }  — from Stripe redirect (?session_id=)
+//   empty                   — claim pending + heal from live Stripe by email
 //
-// Auth: Firebase ID token (Bearer). Makes pay-first → sign-up seamless.
+// Auth: Firebase ID token (Bearer).
 
 import { getCheckoutSessionCustomer } from '../../lib/stripe-service';
 import { normalizeEmail, statusFromStripe } from '../../lib/subscription-access';
@@ -37,54 +37,52 @@ export default async function handler(req, res) {
 
   const uid = verified.uid;
   const userEmail = normalizeEmail(verified.email);
-  const { sessionId } = req.body || {};
+  const { sessionId, deep = false } = req.body || {};
 
   try {
-    // Path A: just claimed a pending payment (no session id) — e.g. after signup
-    if (!sessionId) {
-      const claimed = await firebaseAdmin.claimPendingSubscriptionForEmail(uid, userEmail);
+    // Path B: returning from Stripe with a checkout session id
+    if (sessionId) {
+      const customerInfo = await getCheckoutSessionCustomer(sessionId);
+      if (!customerInfo?.customerId) {
+        return res.status(400).json({ error: 'Could not load checkout session' });
+      }
+
+      const sessionEmail = normalizeEmail(customerInfo.customerEmail);
+      const emailMismatch = sessionEmail && userEmail && sessionEmail !== userEmail;
+      const status = statusFromStripe(customerInfo.subscriptionStatus) || 'active';
+
+      await firebaseAdmin.applySubscriptionToUser(uid, {
+        status,
+        stripeCustomerId: customerInfo.customerId,
+        stripeSubscriptionId: customerInfo.subscriptionId,
+        phoneNumber: customerInfo.customerPhone || undefined,
+        email: userEmail || sessionEmail
+      });
+
+      if (sessionEmail) await firebaseAdmin.claimPendingSubscriptionForEmail(uid, sessionEmail);
+      if (userEmail && userEmail !== sessionEmail) {
+        await firebaseAdmin.claimPendingSubscriptionForEmail(uid, userEmail);
+      }
+
       return res.status(200).json({
         ok: true,
-        claimed: !!claimed.claimed,
-        status: claimed.status || null,
-        source: 'pending'
+        claimed: true,
+        status,
+        source: 'session',
+        emailMismatch: !!emailMismatch,
+        sessionEmail: sessionEmail || null
       });
     }
 
-    // Path B: returning from Stripe with a checkout session id
-    const customerInfo = await getCheckoutSessionCustomer(sessionId);
-    if (!customerInfo?.customerId) {
-      return res.status(400).json({ error: 'Could not load checkout session' });
-    }
-
-    const sessionEmail = normalizeEmail(customerInfo.customerEmail);
-    // Soft check: warn but still allow if emails differ (user may have paid with another inbox)
-    const emailMismatch = sessionEmail && userEmail && sessionEmail !== userEmail;
-
-    const status = statusFromStripe(customerInfo.subscriptionStatus) || 'active';
-    await firebaseAdmin.applySubscriptionToUser(uid, {
-      status,
-      stripeCustomerId: customerInfo.customerId,
-      stripeSubscriptionId: customerInfo.subscriptionId,
-      phoneNumber: customerInfo.customerPhone || undefined,
-      email: userEmail || sessionEmail
-    });
-
-    // Clear pending for both emails if present
-    if (sessionEmail) {
-      await firebaseAdmin.claimPendingSubscriptionForEmail(uid, sessionEmail);
-    }
-    if (userEmail && userEmail !== sessionEmail) {
-      await firebaseAdmin.claimPendingSubscriptionForEmail(uid, userEmail);
-    }
-
+    // Path A: no session id. Claim a parked pending doc (cheap); only touch
+    // live Stripe when the caller explicitly asks (deep) — e.g. the success page.
+    const healed = await firebaseAdmin.ensureProAccess(uid, userEmail, { deep: !!deep });
     return res.status(200).json({
       ok: true,
-      claimed: true,
-      status,
-      source: 'session',
-      emailMismatch: !!emailMismatch,
-      sessionEmail: sessionEmail || null
+      claimed: !!healed.healed,
+      status: healed.status || null,
+      isPro: !!healed.isPro,
+      source: healed.healed ? 'stripe_or_pending' : 'none'
     });
   } catch (err) {
     console.error('[claim-subscription]', err);

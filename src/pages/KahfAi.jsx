@@ -97,7 +97,7 @@ function MessageContent({ message }) {
 
 export default function KahfAi() {
   const router = useRouter();
-  const { user, loading: authLoading, hasActiveSubscription } = useAuth();
+  const { user, loading: authLoading, hasActiveSubscription, refreshUserData } = useAuth();
   const [dailyPrompts, setDailyPrompts] = useState(ALL_PROMPTS.slice(0, 4));
 
   // Sample conversation shown by default — gives cold visitors immediate context
@@ -151,6 +151,7 @@ export default function KahfAi() {
   const [error, setError] = useState('');
   const [usage, setUsage] = useState(null);
   const [sessionId, setSessionId] = useState('');
+  const [statusChecked, setStatusChecked] = useState(false);
   const bottomRef = useRef(null);
   const hasSentInitialQuery = useRef(false);
 
@@ -158,6 +159,35 @@ export default function KahfAi() {
     setSessionId(getOrCreateSessionId());
     setDailyPrompts(getDailyPrompts());
   }, []);
+
+  // On sign-in: sync Pro from Stripe/pending so the banner doesn't stay stuck on Free
+  // after a successful payment that the webhook didn't link.
+  useEffect(() => {
+    if (authLoading || !user) {
+      if (!authLoading && !user) setStatusChecked(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/subscription-status', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (data.usage) setUsage(data.usage);
+        if (data.healed || data.isPro) {
+          await refreshUserData();
+        }
+      } catch {
+        // non-fatal — chat API will also heal on first message
+      } finally {
+        if (!cancelled) setStatusChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authLoading, user?.uid]);
 
   // Auto-send a query passed via ?q=... (from homepage demo, scanner Ask AI, etc.)
   useEffect(() => {
@@ -175,16 +205,20 @@ export default function KahfAi() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending]);
 
+  const isPro = !!(usage?.isUnlimited || (user && hasActiveSubscription()));
+
   const tier = useMemo(() => {
-    if (authLoading) return { label: 'Checking access...', description: 'Loading usage tier' };
-    if (user && hasActiveSubscription()) {
+    if (authLoading || (user && !statusChecked && !usage)) {
+      return { label: 'Checking access...', description: 'Loading usage tier', icon: Sparkles };
+    }
+    if (isPro) {
       return { label: 'Pro', description: 'Unlimited KAHF AI usage', icon: Zap };
     }
     if (user) {
       return { label: 'Free account', description: '5 free KAHF AI messages / month — upgrade for unlimited', icon: Sparkles };
     }
     return { label: 'Guest', description: '1 free KAHF AI message — sign in for more', icon: Lock };
-  }, [authLoading, user, hasActiveSubscription]);
+  }, [authLoading, user, isPro, statusChecked, usage]);
 
   const sendMessage = async (prompt = input) => {
     const content = prompt.trim();
@@ -270,9 +304,9 @@ export default function KahfAi() {
                 </div>
               </div>
 
-              {usage && (
+              {(usage || isPro) && (
                 <div className="mt-4 p-3 rounded-lg bg-gray-50 text-sm text-gray-700">
-                  {usage.isUnlimited ? (
+                  {isPro || usage?.isUnlimited ? (
                     <span className="font-medium text-green-700">Unlimited messages available.</span>
                   ) : usage.remaining === 0 ? (
                     <span className="font-medium text-green-700">
@@ -293,6 +327,35 @@ export default function KahfAi() {
                     Start free trial <ArrowRight className="h-4 w-4" />
                   </button>
                 </Link>
+              )}
+              {user && !isPro && !authLoading && statusChecked && (
+                <Link href="/pricing" className="mt-4 block">
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5">
+                    Unlock Pro <ArrowRight className="h-4 w-4" />
+                  </button>
+                </Link>
+              )}
+              {user && !isPro && statusChecked && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const token = await user.getIdToken();
+                      const res = await fetch('/api/subscription-status?deep=1', {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      const data = await res.json();
+                      if (data.usage) setUsage(data.usage);
+                      if (data.isPro) await refreshUserData();
+                      else setError('No Pro subscription found for this account email. Use the same email you paid with, or contact support.');
+                    } catch (e) {
+                      setError(e.message);
+                    }
+                  }}
+                  className="mt-2 w-full text-xs text-green-700 hover:text-green-800 underline"
+                >
+                  I already paid — refresh Pro status
+                </button>
               )}
             </div>
 

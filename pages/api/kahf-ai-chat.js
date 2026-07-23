@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
 import { getScannerSnapshot } from '../../lib/scanner-snapshot';
-import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin } from '../../lib/firebase-admin';
+import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin, ensureProAccess } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 import { getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
@@ -147,6 +147,9 @@ async function getIdentity(req) {
   }
 
   // Look up subscription status. Pro = active or trialing (shared helper).
+  // If Firestore still says free, cheaply claim a parked pending doc (no live
+  // Stripe call on the chat hot path — deep recovery lives on the success page
+  // and the "I already paid" button).
   let isPro = false;
   let userData = null;
   try {
@@ -156,8 +159,16 @@ async function getIdentity(req) {
       userData = snap.data();
       isPro = isProStatus(userData?.subscription?.status);
     }
+    if (!isPro) {
+      const healed = await ensureProAccess(verified.uid, verified.email, { deep: false });
+      userData = healed.userData || userData;
+      isPro = healed.isPro;
+      if (healed.healed) {
+        console.log(`[kahf-ai-chat] Auto-healed Pro for ${verified.email} → ${healed.status}`);
+      }
+    }
   } catch (err) {
-    console.error('[kahf-ai-chat] Could not read subscription for', verified.uid, err.message);
+    console.error('[kahf-ai-chat] Could not read/heal subscription for', verified.uid, err.message);
   }
 
   if (isPro) {

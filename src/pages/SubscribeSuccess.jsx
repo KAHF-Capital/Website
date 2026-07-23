@@ -43,7 +43,9 @@ export default function SubscribeSuccess() {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(sessionId ? { sessionId } : {})
+          // With a session id we link that exact checkout; without one (rare,
+          // misconfigured redirect) fall back to a live Stripe lookup by email.
+          body: JSON.stringify(sessionId ? { sessionId } : { deep: true })
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
