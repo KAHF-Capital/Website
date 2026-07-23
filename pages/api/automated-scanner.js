@@ -1,5 +1,5 @@
 // Automated Scanner - Sends consolidated SMS + email digest to subscribers
-// Called by Vercel Cron at 10 AM ET (14:00 UTC) on trading days
+// Called by Vercel Cron at 11 AM ET (15:00 UTC) on trading days
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigest } from '../../lib/twilio-service';
@@ -8,6 +8,71 @@ import { listDataFiles, getDataFile, getReadsJson } from '../../lib/blob-data';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service';
 import { isExcluded } from '../../lib/read-filters';
 import { getUnsubscribedSet } from '../../lib/unsubscribe';
+import { normalizeEmail } from '../../lib/subscription-access';
+
+let firebaseAdmin = null;
+try {
+  firebaseAdmin = require('../../lib/firebase-admin');
+} catch (e) {}
+
+/**
+ * Digest recipients: Firestore Pro users (durable) merged with the local file
+ * store (keeps manually-added CLI subscribers working until migrated).
+ * Deduped by email / phone so nobody gets two messages.
+ */
+async function loadDigestSubscribers() {
+  const byKey = new Map();
+
+  const add = (s) => {
+    if (!s) return;
+    const email = normalizeEmail(s.email) || null;
+    const phone = s.phoneNumber || null;
+    if (!email && !phone) return;
+    const key = email ? `e:${email}` : `p:${phone}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      // Prefer whichever has more contact channels / richer prefs
+      byKey.set(key, {
+        ...existing,
+        ...s,
+        email: email || existing.email,
+        phoneNumber: phone || existing.phoneNumber,
+        preferences: { ...(existing.preferences || {}), ...(s.preferences || {}) },
+        id: existing.id || s.id || s.uid || s.stripeCustomerId
+      });
+    } else {
+      byKey.set(key, {
+        id: s.id || s.uid || s.stripeCustomerId || key,
+        email,
+        phoneNumber: phone,
+        preferences: s.preferences || {},
+        stripeCustomerId: s.stripeCustomerId || null
+      });
+    }
+  };
+
+  // 1) Durable: Firestore active + trialing
+  if (firebaseAdmin?.isFirebaseAdminConfigured?.()) {
+    try {
+      const result = await firebaseAdmin.getActiveSubscribersAdmin();
+      if (result.success) {
+        console.log(`Firestore digest recipients: ${result.subscribers.length}`);
+        result.subscribers.forEach(add);
+      }
+    } catch (err) {
+      console.error('Firestore digest load failed (falling back to file store):', err.message);
+    }
+  }
+
+  // 2) File store fallback / manual CLI entries
+  try {
+    getActiveSubscribers().forEach(add);
+  } catch (err) {
+    console.error('File store digest load failed:', err.message);
+  }
+
+  return [...byKey.values()];
+}
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const VOLUME_RATIO_THRESHOLD = 3.0;
@@ -111,8 +176,8 @@ export default async function handler(req, res) {
     // /api/unsubscribe). Email is suppressed; SMS opt-out is handled by
     // Twilio STOP replies.
     const unsubscribed = await getUnsubscribedSet();
-    const subscribers = getActiveSubscribers().map(s => (
-      s.email && unsubscribed.has(s.email.toLowerCase()) ? { ...s, email: null } : s
+    const subscribers = (await loadDigestSubscribers()).map(s => (
+      s.email && unsubscribed.has(s.email) ? { ...s, email: null } : s
     )).filter(s => s.email || s.phoneNumber);
     if (unsubscribed.size > 0) {
       console.log(`Suppression list active: ${unsubscribed.size} unsubscribed email(s)`);

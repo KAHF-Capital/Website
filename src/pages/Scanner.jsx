@@ -626,7 +626,7 @@ export default function Scanner() {
         onSuccess={() => { setEmailUnlocked(true); track('scanner_email_unlocked'); }}
         source="scanner_locked_card"
         title="Unlock the top 3 signals"
-        subtitle="Free, no credit card. Your email gets the daily digest, plus instant access to the highest-conviction tickers on the board."
+        subtitle="Free, no credit card. Instant access to the highest-conviction tickers on the board — plus a short intro to KAHF AI."
         cta="Unlock now"
       />
     </div>

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-13T12:05:31.643Z",
+  "generated_at": "2026-07-22T07:42:18.309Z",
   "window_days": 90,
-  "since": "2026-04-14",
+  "since": "2026-04-23",
   "reads": [
     {
       "date": "2026-06-26",
@@ -82,21 +82,22 @@
       "found_at": null
     },
     {
-      "date": "2026-06-26",
-      "ticker": "TIGO",
-      "volume_ratio": 3.64,
-      "dark_pool_value": 385015036.85713434,
-      "dark_pool_avg_price": 85.14780348414175,
-      "structure": "call",
-      "direction": "bullish",
-      "strike": 90,
-      "expiration": "2026-07-17",
-      "dte": 21,
-      "entry_premium": 3.54,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
+      "date": "2026-07-16",
+      "ticker": "BTSG",
+      "volume_ratio": 3.79,
+      "dark_pool_value": 1176640632.7512076,
+      "dark_pool_avg_price": 68.32475544961737,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 70,
+      "expiration": "2026-08-21",
+      "dte": 36,
+      "entry_premium": 9.47,
+      "asof_hit_rate": 58.3,
+      "asof_samples": 583,
       "contracts": [
-        "O:TIGO260717C00090000"
+        "O:BTSG260821C00070000",
+        "O:BTSG260821P00070000"
       ],
       "found_at": null
     },
@@ -120,6 +121,25 @@
       "found_at": null
     },
     {
+      "date": "2026-06-26",
+      "ticker": "TIGO",
+      "volume_ratio": 3.64,
+      "dark_pool_value": 385015036.85713434,
+      "dark_pool_avg_price": 85.14780348414175,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 90,
+      "expiration": "2026-07-17",
+      "dte": 21,
+      "entry_premium": 3.54,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
+      "contracts": [
+        "O:TIGO260717C00090000"
+      ],
+      "found_at": null
+    },
+    {
       "date": "2026-06-23",
       "ticker": "TD",
       "volume_ratio": 3.08,
@@ -135,26 +155,6 @@
       "asof_samples": 26,
       "contracts": [
         "O:TD260717C00120000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-04-20",
-      "ticker": "BLD",
-      "volume_ratio": 3.77,
-      "dark_pool_value": 793818765.7706702,
-      "dark_pool_avg_price": 481.732037439653,
-      "structure": "straddle",
-      "direction": "bullish",
-      "strike": 490,
-      "expiration": "2026-05-15",
-      "dte": 25,
-      "entry_premium": 37.54,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
-      "contracts": [
-        "O:BLD260515C00490000",
-        "O:BLD260515P00490000"
       ],
       "found_at": null
     }

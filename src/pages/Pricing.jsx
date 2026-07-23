@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 
 const FEATURE_MATRIX = [
   { label: 'Today\'s dark pool scanner', free: true, pro: true },
-  { label: 'KAHF AI demo (1 free message)', free: true, pro: true },
+  { label: 'KAHF AI (5 messages / month)', free: true, pro: true },
   { label: 'Unlimited KAHF AI chat', free: false, pro: true },
   { label: 'Full scanner history', free: false, pro: true },
   { label: 'Daily email alerts (unusual dark pool activity)', free: false, pro: true }
@@ -32,6 +32,7 @@ export default function Pricing() {
 
   const checkoutUrl = buildCheckoutUrl(activePlan.checkoutUrl, {
     email: user?.email,
+    uid: user?.uid,
     refCode,
     utmSource: 'pricing',
     utmCampaign: period
@@ -90,7 +91,7 @@ export default function Pricing() {
             <ul className="space-y-2.5 text-sm mb-6">
               <Feature ok>Today's dark pool scanner</Feature>
               <Feature ok>Volatility calculator</Feature>
-              <Feature ok>1 free KAHF AI message</Feature>
+              <Feature ok>5 KAHF AI messages / month</Feature>
               <Feature>Scanner history</Feature>
               <Feature>Unlimited AI chat</Feature>
               <Feature>Daily email alerts (unusual activity)</Feature>
@@ -132,7 +133,7 @@ export default function Pricing() {
               href={checkoutUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => track('pricing_cta_clicked', { plan: 'pro', period })}
+              onClick={() => track('pricing_cta_clicked', { plan: 'pro', period, signedIn: !!user })}
               className="mt-auto"
             >
               <button className="w-full bg-green-500 hover:bg-green-400 text-white font-bold px-6 py-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
@@ -140,7 +141,18 @@ export default function Pricing() {
                 <ArrowRight className="h-4 w-4" />
               </button>
             </a>
-            <p className="text-center text-xs text-gray-400 mt-3">No credit card to start · {siteConfig.guarantee.label}</p>
+            <p className="text-center text-xs text-gray-400 mt-3">
+              {user
+                ? `Signed in as ${user.email} · Pro unlocks automatically after checkout`
+                : (
+                  <>
+                    <Link href="/login?redirect=/pricing" className="text-green-300 hover:text-green-200 underline underline-offset-2">
+                      Sign in first
+                    </Link>
+                    {' '}for the smoothest unlock · {siteConfig.guarantee.label}
+                  </>
+                )}
+            </p>
           </div>
         </div>
 

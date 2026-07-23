@@ -36,8 +36,8 @@ export default function Account() {
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [preferences, setPreferences] = useState({
-    minVolumeRatio: 1.5,
-    maxAlertsPerDay: 5,
+    minVolumeRatio: 3,
+    maxAlertsPerDay: 25,
     watchlist: []
   });
   const [watchlistInput, setWatchlistInput] = useState('');
@@ -70,8 +70,8 @@ export default function Account() {
     if (userData) {
       setPhoneNumber(userData.phoneNumber || '');
       setPreferences({
-        minVolumeRatio: userData.preferences?.minVolumeRatio || 1.5,
-        maxAlertsPerDay: userData.preferences?.maxAlertsPerDay || 5,
+        minVolumeRatio: userData.preferences?.minVolumeRatio || 3,
+        maxAlertsPerDay: userData.preferences?.maxAlertsPerDay || 25,
         watchlist: userData.preferences?.watchlist || []
       });
       setWatchlistInput((userData.preferences?.watchlist || []).join(', '));
@@ -225,8 +225,14 @@ export default function Account() {
                 <div className="flex items-center p-4 bg-green-50 rounded-lg">
                   <Zap className="h-6 w-6 text-green-600 mr-3" />
                   <div>
-                    <p className="font-semibold text-green-800">Pro Active</p>
-                    <p className="text-sm text-green-600">Unlimited KAHF AI · Daily email digest · Full history</p>
+                    <p className="font-semibold text-green-800">
+                      {userData?.subscription?.status === 'trialing' ? 'Pro Trial' : 'Pro Active'}
+                    </p>
+                    <p className="text-sm text-green-700">
+                      {userData?.subscription?.status === 'trialing'
+                        ? 'Your free trial includes unlimited KAHF AI and the daily digest.'
+                        : 'Unlimited KAHF AI · Daily email digest · Full history'}
+                    </p>
                   </div>
                 </div>
 

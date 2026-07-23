@@ -19,7 +19,12 @@ function daysBetween(iso) {
 export default async function handler(req, res) {
   const adminSecret = process.env.ADMIN_SECRET;
   const authHeader = req.headers.authorization || '';
-  if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
+  const isVercelCron = req.headers['x-vercel-cron'] === 'true';
+  const isAuthorized =
+    isVercelCron ||
+    (adminSecret && authHeader === `Bearer ${adminSecret}`);
+
+  if (!isAuthorized) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   if (!firebaseAdmin || !firebaseAdmin.isFirebaseAdminConfigured || !firebaseAdmin.isFirebaseAdminConfigured()) {

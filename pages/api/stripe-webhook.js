@@ -1,10 +1,11 @@
-// Stripe Webhook Handler for VolAlert Pro subscriptions
-// Integrates with both Firebase and local subscriber store
+// Stripe Webhook Handler for KAHF Pro subscriptions.
+// Durable access lives in Firestore. File store is a best-effort local mirror
+// for ops/CLI only — digests read Firestore (with file fallback for manual entries).
 import { verifyWebhookSignature, getCheckoutSessionCustomer } from '../../lib/stripe-service';
 import { addSubscriber, updateSubscriberStatus, removeSubscriber } from '../../lib/subscribers-store';
 import { sendWelcomeMessage, validatePhoneNumber } from '../../lib/twilio-service';
+import { statusFromStripe } from '../../lib/subscription-access';
 
-// Try to import Firebase Admin (optional - will work without it)
 let firebaseAdmin = null;
 try {
   firebaseAdmin = require('../../lib/firebase-admin');
@@ -12,14 +13,12 @@ try {
   console.log('Firebase Admin not available, using local subscriber store only');
 }
 
-// Disable body parsing - we need the raw body for webhook verification
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Get raw body for signature verification
 async function getRawBody(req) {
   const chunks = [];
   for await (const chunk of req) {
@@ -28,34 +27,89 @@ async function getRawBody(req) {
   return Buffer.concat(chunks);
 }
 
-// Update Firebase user subscription status
-async function updateFirebaseSubscription(email, stripeCustomerId, subscriptionData) {
-  if (!firebaseAdmin) return;
-  
+function parseCheckoutUid(clientReferenceId) {
+  const raw = String(clientReferenceId || '').trim();
+  if (!raw) return null;
+  // Logged-in checkout passes the Firebase UID (or "uid:XXX")
+  if (raw.startsWith('uid:')) return raw.slice(4) || null;
+  // Referral codes look like kahf_XXXXXXXX — never treat those as UIDs
+  if (raw.startsWith('kahf_')) return null;
+  // Firebase UIDs are typically 28 chars alphanumeric
+  if (/^[a-zA-Z0-9]{20,128}$/.test(raw)) return raw;
+  return null;
+}
+
+function normalizePhone(phoneNumber) {
+  if (!phoneNumber) return null;
+  const validation = validatePhoneNumber(phoneNumber);
+  if (validation.valid) return validation.formatted;
+  console.warn('Invalid phone number format:', phoneNumber);
+  return null;
+}
+
+/** Grant or update Pro on Firestore; park as pending if no account yet. */
+async function grantFirestoreAccess({
+  uid,
+  email,
+  stripeCustomerId,
+  stripeSubscriptionId,
+  status,
+  phoneNumber
+}) {
+  if (!firebaseAdmin || !firebaseAdmin.isFirebaseAdminConfigured?.()) {
+    console.warn('Firebase Admin not configured — skipping durable Pro grant');
+    return { granted: false, pending: false };
+  }
+
+  const found = await firebaseAdmin.findUserForCheckout({
+    uid,
+    email,
+    stripeCustomerId
+  });
+
+  if (found.success) {
+    await firebaseAdmin.applySubscriptionToUser(found.uid, {
+      status,
+      stripeCustomerId,
+      stripeSubscriptionId,
+      phoneNumber: phoneNumber || undefined,
+      email
+    });
+    console.log(`Firestore Pro granted to uid=${found.uid} via ${found.matchedBy} (status=${status})`);
+    return { granted: true, uid: found.uid, pending: false };
+  }
+
+  // Buyer paid before creating an account — hold the sub until they log in
+  if (email) {
+    await firebaseAdmin.savePendingSubscription({
+      email,
+      status,
+      stripeCustomerId,
+      stripeSubscriptionId,
+      phoneNumber
+    });
+    console.log(`No Firebase user for ${email} — saved pending_subscriptions`);
+    return { granted: false, pending: true };
+  }
+
+  console.warn('Could not grant Firestore access: no uid/email match');
+  return { granted: false, pending: false };
+}
+
+async function updateFirestoreByCustomerId(customerId, subscriptionPatch) {
+  if (!firebaseAdmin || !firebaseAdmin.isFirebaseAdminConfigured?.()) return;
   try {
-    const firestore = firebaseAdmin.getFirestoreAdmin();
-    
-    // Find user by email
-    const snapshot = await firestore
-      .collection('users')
-      .where('email', '==', email)
-      .limit(1)
-      .get();
-    
-    if (!snapshot.empty) {
-      const userDoc = snapshot.docs[0];
-      await userDoc.ref.update({
-        subscription: {
-          status: subscriptionData.status,
-          stripeCustomerId: stripeCustomerId,
-          stripeSubscriptionId: subscriptionData.subscriptionId || null,
-          updatedAt: new Date().toISOString()
-        }
+    const result = await firebaseAdmin.getUserByStripeCustomerId(customerId);
+    if (result.success) {
+      await firebaseAdmin.updateSubscriptionAdmin(result.uid, {
+        ...result.data?.subscription,
+        ...subscriptionPatch,
+        stripeCustomerId: customerId,
+        updatedAt: new Date().toISOString()
       });
-      console.log(`Firebase user ${userDoc.id} subscription updated`);
     }
-  } catch (error) {
-    console.error('Error updating Firebase subscription:', error.message);
+  } catch (e) {
+    console.error('Error updating Firebase by customer id:', e.message);
   }
 }
 
@@ -66,13 +120,11 @@ export default async function handler(req, res) {
   }
 
   const signature = req.headers['stripe-signature'];
-  
   if (!signature) {
     return res.status(400).json({ error: 'Missing stripe-signature header' });
   }
 
   let event;
-  
   try {
     const rawBody = await getRawBody(req);
     event = verifyWebhookSignature(rawBody, signature);
@@ -86,149 +138,137 @@ export default async function handler(req, res) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        // New subscription started
         const session = event.data.object;
-        
-        // Get customer details
         const customerInfo = await getCheckoutSessionCustomer(session.id);
-        
-        if (customerInfo) {
-          // Get phone number from session metadata or customer object
-          let phoneNumber = session.metadata?.phone_number || 
-                           session.customer_details?.phone ||
-                           customerInfo.customerPhone;
-          
-          // Validate and format phone number
-          if (phoneNumber) {
-            const validation = validatePhoneNumber(phoneNumber);
-            if (validation.valid) {
-              phoneNumber = validation.formatted;
-            } else {
-              console.warn('Invalid phone number format:', phoneNumber);
-              phoneNumber = null;
-            }
-          }
-          
-          // Add subscriber to local store
-          const subscriber = addSubscriber({
+        if (!customerInfo) break;
+
+        const phoneNumber = normalizePhone(
+          session.metadata?.phone_number ||
+          session.customer_details?.phone ||
+          customerInfo.customerPhone
+        );
+
+        // Prefer real Stripe subscription status (trialing during trial, else active)
+        const resolvedStatus = statusFromStripe(customerInfo.subscriptionStatus) || 'active';
+        const checkoutUid = parseCheckoutUid(session.client_reference_id);
+
+        // Best-effort local mirror (ephemeral on Vercel — Firestore is durable)
+        try {
+          addSubscriber({
             stripeCustomerId: customerInfo.customerId,
             stripeSubscriptionId: customerInfo.subscriptionId,
             email: customerInfo.customerEmail,
-            phoneNumber: phoneNumber,
-            minVolumeRatio: 1.5, // Default preference
+            phoneNumber,
+            minVolumeRatio: 3
           });
-          
-          console.log('New subscriber added:', subscriber.id);
-          
-          // Update Firebase user subscription status
-          await updateFirebaseSubscription(
-            customerInfo.customerEmail,
-            customerInfo.customerId,
-            {
-              status: 'active',
-              subscriptionId: customerInfo.subscriptionId
-            }
-          );
-          
-          // Send welcome SMS if phone number is available
-          if (phoneNumber) {
-            await sendWelcomeMessage(phoneNumber);
-          }
+        } catch (e) {
+          console.warn('Local subscriber mirror failed (non-fatal):', e.message);
+        }
+
+        await grantFirestoreAccess({
+          uid: checkoutUid,
+          email: customerInfo.customerEmail,
+          stripeCustomerId: customerInfo.customerId,
+          stripeSubscriptionId: customerInfo.subscriptionId,
+          status: resolvedStatus,
+          phoneNumber
+        });
+
+        if (phoneNumber) {
+          await sendWelcomeMessage(phoneNumber);
         }
         break;
       }
-      
+
       case 'customer.subscription.updated': {
-        // Subscription status changed
         const subscription = event.data.object;
         const customerId = subscription.customer;
-        
-        let newStatus = subscription.status;
-        
-        if (subscription.status === 'active') {
-          updateSubscriberStatus(customerId, 'active');
-          console.log(`Subscription activated for customer: ${customerId}`);
-        } else if (subscription.status === 'past_due') {
-          updateSubscriberStatus(customerId, 'past_due');
-          console.log(`Subscription past due for customer: ${customerId}`);
-        } else if (subscription.status === 'unpaid') {
-          updateSubscriberStatus(customerId, 'unpaid');
-          console.log(`Subscription unpaid for customer: ${customerId}`);
+        const newStatus = statusFromStripe(subscription.status);
+
+        try {
+          if (['active', 'trialing', 'past_due', 'unpaid'].includes(newStatus)) {
+            updateSubscriberStatus(customerId, newStatus === 'trialing' ? 'active' : newStatus);
+          }
+        } catch (e) {
+          console.warn('Local status mirror failed:', e.message);
         }
-        
-        // Update Firebase as well (find by stripeCustomerId)
-        if (firebaseAdmin) {
+
+        await updateFirestoreByCustomerId(customerId, {
+          status: newStatus,
+          stripeSubscriptionId: subscription.id
+        });
+
+        // Keep pending docs in sync if the buyer still has no account
+        if (firebaseAdmin && subscription.customer) {
           try {
-            const result = await firebaseAdmin.getUserByStripeCustomerId(customerId);
-            if (result.success) {
-              await firebaseAdmin.updateSubscriptionAdmin(result.uid, {
-                status: newStatus,
-                stripeCustomerId: customerId,
-                stripeSubscriptionId: subscription.id,
-                updatedAt: new Date().toISOString()
-              });
+            const { getCustomer } = require('../../lib/stripe-service');
+            const customer = await getCustomer(customerId);
+            if (customer?.email && firebaseAdmin.savePendingSubscription) {
+              const found = await firebaseAdmin.getUserByStripeCustomerId(customerId);
+              if (!found.success) {
+                await firebaseAdmin.savePendingSubscription({
+                  email: customer.email,
+                  status: newStatus,
+                  stripeCustomerId: customerId,
+                  stripeSubscriptionId: subscription.id
+                });
+              }
             }
           } catch (e) {
-            console.error('Error updating Firebase on subscription update:', e.message);
+            console.warn('Pending sync on subscription.updated failed:', e.message);
           }
         }
+        console.log(`Subscription updated for ${customerId} → ${newStatus}`);
         break;
       }
-      
+
       case 'customer.subscription.deleted': {
-        // Subscription cancelled
         const subscription = event.data.object;
         const customerId = subscription.customer;
-        
-        removeSubscriber(customerId);
-        console.log(`Subscription cancelled for customer: ${customerId}`);
-        
-        // Update Firebase
-        if (firebaseAdmin) {
-          try {
-            const result = await firebaseAdmin.getUserByStripeCustomerId(customerId);
-            if (result.success) {
-              await firebaseAdmin.updateSubscriptionAdmin(result.uid, {
-                status: 'cancelled',
-                stripeCustomerId: customerId,
-                stripeSubscriptionId: null,
-                updatedAt: new Date().toISOString()
-              });
-            }
-          } catch (e) {
-            console.error('Error updating Firebase on subscription cancel:', e.message);
-          }
+
+        try {
+          removeSubscriber(customerId);
+        } catch (e) {
+          console.warn('Local remove mirror failed:', e.message);
         }
+
+        await updateFirestoreByCustomerId(customerId, {
+          status: 'cancelled',
+          stripeSubscriptionId: null
+        });
+        console.log(`Subscription cancelled for customer: ${customerId}`);
         break;
       }
-      
+
       case 'invoice.payment_failed': {
-        // Payment failed
         const invoice = event.data.object;
         const customerId = invoice.customer;
-        
-        updateSubscriberStatus(customerId, 'payment_failed');
+        try {
+          updateSubscriberStatus(customerId, 'payment_failed');
+        } catch (e) { /* ignore */ }
+        await updateFirestoreByCustomerId(customerId, { status: 'past_due' });
         console.log(`Payment failed for customer: ${customerId}`);
         break;
       }
-      
+
       case 'invoice.payment_succeeded': {
-        // Payment succeeded (renewal)
         const invoice = event.data.object;
         const customerId = invoice.customer;
-        
-        updateSubscriberStatus(customerId, 'active');
+        try {
+          updateSubscriberStatus(customerId, 'active');
+        } catch (e) { /* ignore */ }
+        await updateFirestoreByCustomerId(customerId, { status: 'active' });
         console.log(`Payment succeeded for customer: ${customerId}`);
         break;
       }
-      
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
-    
+
     res.status(200).json({ received: true });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

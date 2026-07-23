@@ -6,6 +6,7 @@ import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin } from '../
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 import { getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
+import { isProStatus } from '../../lib/subscription-access';
 
 const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
 // Signed-in but not subscribed: small monthly quota (encourages signup, gates Pro).
@@ -145,7 +146,7 @@ async function getIdentity(req) {
     throw error;
   }
 
-  // Look up subscription status. Only Pro (subscription.status === 'active') gets unlimited.
+  // Look up subscription status. Pro = active or trialing (shared helper).
   let isPro = false;
   let userData = null;
   try {
@@ -153,8 +154,7 @@ async function getIdentity(req) {
     const snap = await firestore.collection('users').doc(verified.uid).get();
     if (snap.exists) {
       userData = snap.data();
-      const status = userData?.subscription?.status;
-      isPro = status === 'active' || status === 'trialing';
+      isPro = isProStatus(userData?.subscription?.status);
     }
   } catch (err) {
     console.error('[kahf-ai-chat] Could not read subscription for', verified.uid, err.message);

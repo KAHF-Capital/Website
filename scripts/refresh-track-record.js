@@ -86,7 +86,7 @@ async function main() {
   // historical read whose hit rate is outside the believable band. The floor
   // must mirror the build gate exactly (puts qualify at PUT_FLOOR) — using the
   // generic floor here dropped valid puts from the known set every morning, so
-  // the refresh re-added them with a fresh found_at and the 10am digest
+  // the refresh re-added them with a fresh found_at and the 11am digest
   // re-alerted months-old signals as "new".
   const floorFor = (r) => (r.structure === 'put' ? PUT_FLOOR : MIN_HIT_RATE);
   const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
@@ -104,7 +104,7 @@ async function main() {
   );
   // Provenance stamp: when the pipeline actually discovered this read (the
   // signal `date` is the trading day; found_at is publish time). Powers the
-  // "New" badge on /wins and tells the 10am cron which reads to headline.
+  // "New" badge on /wins and tells the 11am cron which reads to headline.
   // On --rebuild, carry over stamps from the prior record so re-priced history
   // doesn't look "new" and flood the next digest.
   //
@@ -180,12 +180,12 @@ async function main() {
 
   console.error(`\n✅ Track record: ${merged.length} reads · Homepage: ${topReads.length} reads (last ${opts.window}d).`);
 
-  // Subscriber notifications now happen in the 10am ET cron
+  // Subscriber notifications now happen in the 11am ET cron
   // (/api/automated-scanner), which leads the daily digest with any read whose
-  // found_at stamp is <24h old. Run this script before 10am ET on trading days.
+  // found_at stamp is <24h old. Run this script before 11am ET on trading days.
   const publishedNew = merged.filter((r) => !knownKeys.has(readKey(r)));
   if (publishedNew.length > 0 && !opts.rebuild) {
-    console.error(`📣 ${publishedNew.length} new read(s) will lead the next 10am ET digest: ${publishedNew.map((r) => r.ticker).join(', ')}`);
+    console.error(`📣 ${publishedNew.length} new read(s) will lead the next 11am ET digest: ${publishedNew.map((r) => r.ticker).join(', ')}`);
   }
 }
 
