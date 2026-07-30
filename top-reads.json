@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-22T07:42:18.309Z",
+  "generated_at": "2026-07-30T12:37:23.188Z",
   "window_days": 90,
-  "since": "2026-04-23",
+  "since": "2026-05-01",
   "reads": [
     {
       "date": "2026-06-26",
@@ -39,25 +39,6 @@
       "asof_samples": 25,
       "contracts": [
         "O:CLH260618C00290000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-04-23",
-      "ticker": "LULU",
-      "volume_ratio": 3.21,
-      "dark_pool_value": 837468382.6999103,
-      "dark_pool_avg_price": 144.52750452753344,
-      "structure": "put",
-      "direction": "bearish",
-      "strike": 140,
-      "expiration": "2026-05-22",
-      "dte": 29,
-      "entry_premium": 5.08,
-      "asof_hit_rate": 64,
-      "asof_samples": 25,
-      "contracts": [
-        "O:LULU260522P00140000"
       ],
       "found_at": null
     },
@@ -103,25 +84,6 @@
     },
     {
       "date": "2026-06-26",
-      "ticker": "CM",
-      "volume_ratio": 3.4,
-      "dark_pool_value": 672644139.5748242,
-      "dark_pool_avg_price": 113.6685755360288,
-      "structure": "call",
-      "direction": "bullish",
-      "strike": 115,
-      "expiration": "2026-07-17",
-      "dte": 21,
-      "entry_premium": 1.31,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
-      "contracts": [
-        "O:CM260717C00115000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-06-26",
       "ticker": "TIGO",
       "volume_ratio": 3.64,
       "dark_pool_value": 385015036.85713434,
@@ -136,6 +98,25 @@
       "asof_samples": 26,
       "contracts": [
         "O:TIGO260717C00090000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-06-26",
+      "ticker": "CM",
+      "volume_ratio": 3.4,
+      "dark_pool_value": 672644139.5748242,
+      "dark_pool_avg_price": 113.6685755360288,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 115,
+      "expiration": "2026-07-17",
+      "dte": 21,
+      "entry_premium": 1.31,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
+      "contracts": [
+        "O:CM260717C00115000"
       ],
       "found_at": null
     },
@@ -155,6 +136,25 @@
       "asof_samples": 26,
       "contracts": [
         "O:TD260717C00120000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-07-09",
+      "ticker": "BBIO",
+      "volume_ratio": 3.07,
+      "dark_pool_value": 1209190973.1193683,
+      "dark_pool_avg_price": 90.24673943674392,
+      "structure": "call",
+      "direction": "neutral",
+      "strike": 90,
+      "expiration": "2026-08-21",
+      "dte": 43,
+      "entry_premium": 6.52,
+      "asof_hit_rate": 56.5,
+      "asof_samples": 23,
+      "contracts": [
+        "O:BBIO260821C00090000"
       ],
       "found_at": null
     }
