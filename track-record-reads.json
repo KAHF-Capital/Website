@@ -3,25 +3,6 @@
   "since": "2026-01-01",
   "reads": [
     {
-      "date": "2026-07-30",
-      "ticker": "MKTX",
-      "volume_ratio": 3.51,
-      "dark_pool_value": 724063926.2930137,
-      "dark_pool_avg_price": 163.0190090159145,
-      "structure": "put",
-      "direction": "bearish",
-      "strike": 165,
-      "expiration": "2026-08-21",
-      "dte": 22,
-      "entry_premium": 3.31,
-      "asof_hit_rate": 53.8,
-      "asof_samples": 26,
-      "contracts": [
-        "O:MKTX260821P00165000"
-      ],
-      "found_at": "2026-07-31T13:18:27.943Z"
-    },
-    {
       "date": "2026-07-16",
       "ticker": "BTSG",
       "volume_ratio": 3.79,
