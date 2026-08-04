@@ -2070,5 +2070,12 @@
     "status": "completed",
     "trades_found": 67141761,
     "dates_processed": 1
+  },
+  "2026-07-31.csv": {
+    "hash": "16036667905_1785742920000",
+    "processed_at": "2026-08-03T12:28:09.858Z",
+    "status": "completed",
+    "trades_found": 64950563,
+    "dates_processed": 1
   }
 }
