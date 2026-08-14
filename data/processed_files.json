@@ -2105,5 +2105,26 @@
     "status": "completed",
     "trades_found": 62007923,
     "dates_processed": 1
+  },
+  "2026-08-11.csv": {
+    "hash": "13559022201_1786535902000",
+    "processed_at": "2026-08-12T12:30:57.525Z",
+    "status": "completed",
+    "trades_found": 56406108,
+    "dates_processed": 1
+  },
+  "2026-08-10.csv": {
+    "hash": "14762577500_1786449804000",
+    "processed_at": "2026-08-12T12:50:39.717Z",
+    "status": "completed",
+    "trades_found": 61703596,
+    "dates_processed": 1
+  },
+  "2026-08-07.csv": {
+    "hash": "15143284403_1786451476000",
+    "processed_at": "2026-08-12T13:10:50.788Z",
+    "status": "completed",
+    "trades_found": 61510436,
+    "dates_processed": 1
   }
 }
