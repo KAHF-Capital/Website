@@ -352,7 +352,7 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal 
 
 // Build reads from local processed dark-pool data. `skipTickers` lets the daily
 // refresh price only NEW names (existing reads are stable history — no rebuild).
-export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys = null } = {}) {
+export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys = null, onlyKeys = null } = {}) {
   const opts = { ...DEFAULT_OPTS, ...userOpts };
   const signals = loadLocalSignals(opts);
   console.error(`Found ${signals.length} (ticker, day) signals${opts.since ? ` since ${opts.since}` : ` in last ${opts.days} days`}. Evaluating candidates...\n`);
@@ -362,6 +362,7 @@ export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys =
     if (reads.length >= opts.max) break;
     const key = `${s.ticker}__${s.date}`;
     if (skipKeys && skipKeys.has(key)) continue;
+    if (onlyKeys && !onlyKeys.has(key)) continue;
     if (skipTickers && skipTickers.has(s.ticker)) continue;
     if (EXCLUDED_TICKERS.has(s.ticker)) {
       console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (manual exclude)`);

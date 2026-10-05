@@ -7,7 +7,7 @@
  */
 import { markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
 import { isExcluded } from '../../lib/read-filters.js';
-import { getReadsJson } from '../../lib/blob-data';
+import { getReadsJson, listDataFiles } from '../../lib/blob-data';
 // Bundled fallback so the homepage works on a cold deploy. At runtime we prefer
 // the Blob copy (refreshed daily by scripts/refresh-track-record.js) so the
 // scoreboard updates without a redeploy. (Static fs reads return empty on
@@ -34,14 +34,18 @@ export default async function handler(req, res) {
   try {
     const fromBlob = await getReadsJson('top-reads.json').catch(() => null);
     const file = fromBlob && Array.isArray(fromBlob.reads) ? fromBlob : bundled;
-    // Drop manually-excluded tickers at serve time so a stale Blob copy can't
-    // surface a known-bad read before the next daily refresh rewrites it.
-    const reads = (Array.isArray(file.reads) ? file.reads : []).filter((r) => !isExcluded(r.ticker));
+    // Only signals from the latest ingested dark-pool day are shown — a stale
+    // Blob copy or the bundled fallback must never carry older 3x+ names
+    // forward. Excluded tickers are dropped at serve time for the same reason.
+    const latestFile = (await listDataFiles().catch(() => []))[0];
+    const signalDate = latestFile ? latestFile.filename.replace('.json', '') : file.signal_date || null;
+    const reads = (Array.isArray(file.reads) ? file.reads : [])
+      .filter((r) => r.date === signalDate && !isExcluded(r.ticker));
     const { marked, summary } = await markReads(reads);
 
     const payload = {
       generated_at: new Date().toISOString(),
-      window_days: file.window_days || 90,
+      signal_date: signalDate,
       summary,
       reads: marked,
       disclaimer: READS_DISCLAIMER

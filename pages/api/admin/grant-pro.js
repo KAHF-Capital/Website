@@ -57,7 +57,6 @@ export default async function handler(req, res) {
         status: live.subscriptionStatus,
         stripeCustomerId: live.customerId,
         stripeSubscriptionId: live.subscriptionId,
-        phoneNumber: live.customerPhone || undefined,
         email
       });
       return res.status(200).json({
@@ -75,8 +74,7 @@ export default async function handler(req, res) {
       email,
       status: live.subscriptionStatus,
       stripeCustomerId: live.customerId,
-      stripeSubscriptionId: live.subscriptionId,
-      phoneNumber: live.customerPhone
+      stripeSubscriptionId: live.subscriptionId
     });
 
     return res.status(200).json({

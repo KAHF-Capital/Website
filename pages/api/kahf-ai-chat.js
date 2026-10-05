@@ -1,12 +1,20 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { listDataFiles, getDataFile } from '../../lib/blob-data';
+import { getDataFile } from '../../lib/blob-data';
 import { getScannerSnapshot } from '../../lib/scanner-snapshot';
 import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin, ensureProAccess } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
-import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 import { getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
 import { isProStatus } from '../../lib/subscription-access';
+import {
+  POLYGON_API_BASE,
+  SCANNER_MIN_VOLUME,
+  SCANNER_MIN_PRICE,
+  SIGNAL_MIN_VOLUME_RATIO,
+  detectCatalysts,
+  summarizeTicker,
+  passesScannerFilters
+} from '../../lib/scanner-signals';
 
 const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
 // Signed-in but not subscribed: small monthly quota (encourages signup, gates Pro).
@@ -16,10 +24,6 @@ const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
 const SCANNER_LOOKBACK_DAYS = parseInt(process.env.KAHF_AI_LOOKBACK_DAYS || '5', 10);
 const TOP_PER_DAY = 5;
-
-const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
-const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
-const SIGNAL_MIN_VOLUME_RATIO = parseFloat(process.env.KAHF_AI_MIN_VOLUME_RATIO || '2.0');
 
 const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
 const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
@@ -46,18 +50,6 @@ function isModelUnavailableError(error) {
 const MCP_PUBLIC_URL = process.env.MCP_PUBLIC_URL || (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, '')}/api/mcp` : '');
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || '';
 const MCP_ENABLED = (process.env.KAHF_AI_MCP_ENABLED || 'true').toLowerCase() !== 'false' && Boolean(MCP_PUBLIC_URL);
-
-const POLYGON_API_BASE = 'https://api.massive.com';
-const CATALYST_KEYWORDS = [
-  { kind: 'earnings', words: ['earnings', 'q1 results', 'q2 results', 'q3 results', 'q4 results', 'eps', 'guidance', 'pre-announce', 'preliminary results'] },
-  { kind: 'fda', words: ['fda', 'phase 1', 'phase 2', 'phase 3', 'clinical trial', 'approval', 'pdufa', 'breakthrough designation'] },
-  { kind: 'm&a', words: ['acquire', 'acquisition', 'merger', 'buyout', 'takeover', 'tender offer'] },
-  { kind: 'analyst', words: ['upgrade', 'downgrade', 'price target', 'initiates coverage', 'reiterates'] },
-  { kind: 'product', words: ['launch', 'unveil', 'announces partnership', 'contract win', 'patent'] },
-  { kind: 'capital', words: ['buyback', 'share repurchase', 'dividend', 'secondary offering', 'spin-off', 'split'] },
-  { kind: 'macro', words: ['cpi', 'fomc', 'fed minutes', 'jobs report', 'payrolls'] },
-  { kind: 'legal', words: ['lawsuit', 'settlement', 'investigation', 'doj', 'sec charges'] }
-];
 
 const anonymousUsage = new Map();
 
@@ -282,44 +274,6 @@ async function reserveUsage(identity) {
     isUnlimited: false,
     period
   };
-}
-
-function summarizeTicker(ticker, avg7DayVolume) {
-  // If the ticker already carries a precomputed ratio (from the shared
-  // scanner-snapshot helper), use it verbatim so the AI matches the
-  // Scanner UI byte-for-byte. Otherwise fall back to local compute.
-  const precomputedRatio = typeof ticker.volume_ratio === 'number' && Number.isFinite(ticker.volume_ratio)
-    ? ticker.volume_ratio
-    : null;
-  const precomputedAvg = typeof ticker.avg_7day_volume === 'number' && ticker.avg_7day_volume > 0
-    ? ticker.avg_7day_volume
-    : null;
-
-  const avgForRatio = precomputedAvg ?? avg7DayVolume;
-  const ratio = precomputedRatio !== null
-    ? precomputedRatio
-    : avgForRatio > 0
-      ? Number((ticker.total_volume / avgForRatio).toFixed(2))
-      : null;
-  const avgPriceRounded = typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null;
-  return {
-    ticker: ticker.ticker,
-    darkPoolVolume: ticker.total_volume,
-    darkPoolValue: ticker.total_value,
-    darkPoolAvgPrice: avgPriceRounded,
-    darkPoolTradeCount: ticker.trade_count,
-    avg7DayDarkPoolVolume: avgForRatio,
-    volumeRatio: ratio
-  };
-}
-
-function passesScannerFilters(summary) {
-  return (
-    typeof summary.darkPoolValue === 'number' &&
-    summary.darkPoolValue >= SCANNER_MIN_VOLUME &&
-    typeof summary.darkPoolAvgPrice === 'number' &&
-    summary.darkPoolAvgPrice >= SCANNER_MIN_PRICE
-  );
 }
 
 async function getPriorRange(ticker, scannerDate) {
@@ -630,11 +584,6 @@ function derivePricedInSignal(strategies) {
   return { available: true, impliedMovePct, realizedAvgMovePct, pricedInRatio, verdict };
 }
 
-// Backwards-compatible alias so old code that called buildStraddleContext keeps working.
-async function buildStraddleContext(tickers) {
-  return buildOptionsContext(tickers);
-}
-
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
@@ -649,21 +598,6 @@ async function fetchJson(url, options = {}) {
   }
 
   return response.json();
-}
-
-function detectCatalysts(text) {
-  if (!text) return [];
-  const lowered = text.toLowerCase();
-  const hits = new Set();
-  for (const group of CATALYST_KEYWORDS) {
-    for (const word of group.words) {
-      if (lowered.includes(word)) {
-        hits.add(group.kind);
-        break;
-      }
-    }
-  }
-  return [...hits];
 }
 
 async function getPolygonNews(ticker) {

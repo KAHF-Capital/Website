@@ -226,10 +226,14 @@ async function saveProcessedData(dateMap, sourceFile) {
 // Rebuild the public track record + homepage scoreboard from the freshly
 // processed data and push them to Blob. Incremental + non-fatal — a failure here
 // never blocks the dark-pool upload above.
-function refreshTrackRecord() {
-  console.log('\n🔁 Refreshing track record + homepage reads...');
+//
+// `ingestedDay` is the newest trading day this run brought in. The refresh only
+// generates signals when it is also the latest day on disk, so re-processing an
+// old/modified CSV or catching up a backlog never produces signals for past days.
+function refreshTrackRecord(ingestedDay) {
+  console.log(`\n🔁 Refreshing track record + homepage reads (ingested through ${ingestedDay})...`);
   const script = path.join(__dirname, 'scripts', 'refresh-track-record.js');
-  const res = spawnSync(process.execPath, [script], { stdio: 'inherit', env: process.env });
+  const res = spawnSync(process.execPath, [script, '--signal-day', ingestedDay], { stdio: 'inherit', env: process.env });
   if (res.error) {
     console.error(`⚠️  Track record refresh could not start: ${res.error.message}`);
   } else if (res.status !== 0) {
@@ -374,8 +378,13 @@ async function processAllCSV(forceReprocess = false) {
     });
 
     // New dark-pool data landed — refresh the track record so the site stays current.
-    if (results.some(r => r.status === 'completed')) {
-      refreshTrackRecord();
+    const ingestedDays = results
+      .filter(r => r.status === 'completed' && r.trades_found > 0)
+      .map(r => path.basename(r.file, '.csv'))
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort();
+    if (ingestedDays.length > 0) {
+      refreshTrackRecord(ingestedDays[ingestedDays.length - 1]);
     }
 
   } catch (error) {

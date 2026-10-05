@@ -55,7 +55,6 @@ export default async function handler(req, res) {
         status,
         stripeCustomerId: customerInfo.customerId,
         stripeSubscriptionId: customerInfo.subscriptionId,
-        phoneNumber: customerInfo.customerPhone || undefined,
         email: userEmail || sessionEmail
       });
 

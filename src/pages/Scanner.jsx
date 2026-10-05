@@ -7,37 +7,9 @@ import DraggableFilter from '../components/DraggableFilter';
 import DarkPoolAnalysis from '../components/DarkPoolAnalysis';
 import EmailCaptureModal from '../components/EmailCaptureModal';
 import AskAIButton from '../components/AskAIButton';
-import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock, Bot, Sparkles } from 'lucide-react';
+import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock, Bot, Sparkles, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
-
-// Safe icon components
-const SafeRefreshCw = () => {
-  try {
-    const { RefreshCw } = require("lucide-react");
-    return <RefreshCw className="h-4 w-4" />;
-  } catch (error) {
-    return <span>🔄</span>;
-  }
-};
-
-const SafeBarChart3 = () => {
-  try {
-    const { BarChart3 } = require("lucide-react");
-    return <BarChart3 className="h-4 w-4" />;
-  } catch (error) {
-    return <span>📊</span>;
-  }
-};
-
-const SafeTrendingUp = () => {
-  try {
-    const { TrendingUp } = require("lucide-react");
-    return <TrendingUp className="h-4 w-4" />;
-  } catch (error) {
-    return <span>📈</span>;
-  }
-};
 
 export default function Scanner() {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -278,16 +250,6 @@ export default function Scanner() {
             <span className="text-sm text-gray-600">Total Value:</span>
             <span className="font-medium text-gray-900">${formatValue(ticker.total_value)}</span>
           </div>
-          
-          {/* Performance Data */}
-          {ticker.performance && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Today's Change:</span>
-              <span className={`font-semibold ${ticker.performance.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {ticker.performance.change >= 0 ? '+' : ''}${ticker.performance.change.toFixed(2)} ({ticker.performance.changePercent >= 0 ? '+' : ''}{ticker.performance.changePercent.toFixed(2)}%)
-              </span>
-            </div>
-          )}
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
@@ -385,7 +347,7 @@ export default function Scanner() {
                 title="Refresh data"
                 disabled={isLoading}
               >
-                <SafeRefreshCw className={`h-6 w-6 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-6 w-6 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
             <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
@@ -510,7 +472,7 @@ export default function Scanner() {
         {isLoading && (
           <div className="bg-gray-50 py-12 px-4">
             <div className="max-w-6xl mx-auto text-center">
-              <SafeRefreshCw className="h-8 w-8 text-green-600 animate-spin mx-auto mb-4" />
+              <RefreshCw className="h-8 w-8 text-green-600 animate-spin mx-auto mb-4" />
               <p className="text-gray-600">Loading dark pool data...</p>
             </div>
           </div>
@@ -551,7 +513,7 @@ export default function Scanner() {
                 </div>
                 
                 <div className="flex items-center space-x-2 text-green-600">
-                  <SafeTrendingUp className="h-5 w-5" />
+                  <TrendingUp className="h-5 w-5" />
                   <span className="text-sm font-semibold">Highest First</span>
                 </div>
                 
@@ -601,7 +563,7 @@ export default function Scanner() {
         {!isLoading && !darkPoolData && (
           <div className="bg-gray-50 py-12 px-4">
             <div className="max-w-6xl mx-auto text-center">
-              <SafeBarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
               <p className="text-gray-600">Please process CSV files first using the command line processor.</p>
             </div>

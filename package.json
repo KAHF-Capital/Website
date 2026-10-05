@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup": "node setup-env.js",
-    "check-env": "node check-env.js",
     "process-csv": "node process-csv.js",
     "refresh-track-record": "node scripts/refresh-track-record.js"
   },
@@ -16,21 +14,18 @@
     "@anthropic-ai/sdk": "^0.91.1",
     "@vercel/blob": "^2.3.1",
     "csv-parser": "^3.0.0",
-    "csv-writer": "^1.6.0",
     "firebase": "^10.14.1",
     "firebase-admin": "^12.7.0",
     "framer-motion": "^10.16.0",
     "lucide-react": "^0.400.0",
     "next": "^14.0.0",
-    "node-fetch": "^2.7.0",
     "posthog-js": "^1.372.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.10.0",
-    "stripe": "^14.25.0",
-    "twilio": "^4.23.0"
+    "stripe": "^14.25.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",

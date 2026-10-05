@@ -18,62 +18,23 @@
  */
 
 import { listDataFiles, getDataFile } from '../../lib/blob-data';
+import { getScannerSnapshot } from '../../lib/scanner-snapshot';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 import { getOptionsSuccessRate, getAllStrategyAnalyses, STRATEGIES } from '../../lib/options-analysis-service.js';
+import {
+  POLYGON_API_BASE,
+  SCANNER_MIN_VOLUME,
+  SCANNER_MIN_PRICE,
+  SIGNAL_MIN_VOLUME_RATIO,
+  detectCatalysts,
+  summarizeTicker,
+  passesScannerFilters
+} from '../../lib/scanner-signals';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_NAME = 'kahf-data';
 const SERVER_VERSION = '1.0.0';
-
-const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
-const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
-const SIGNAL_MIN_VOLUME_RATIO = parseFloat(process.env.KAHF_AI_MIN_VOLUME_RATIO || '2.0');
-
-const POLYGON_API_BASE = 'https://api.massive.com';
-const CATALYST_KEYWORDS = [
-  { kind: 'earnings', words: ['earnings', 'q1 results', 'q2 results', 'q3 results', 'q4 results', 'eps', 'guidance', 'pre-announce', 'preliminary results'] },
-  { kind: 'fda', words: ['fda', 'phase 1', 'phase 2', 'phase 3', 'clinical trial', 'approval', 'pdufa', 'breakthrough designation'] },
-  { kind: 'm&a', words: ['acquire', 'acquisition', 'merger', 'buyout', 'takeover', 'tender offer'] },
-  { kind: 'analyst', words: ['upgrade', 'downgrade', 'price target', 'initiates coverage', 'reiterates'] },
-  { kind: 'product', words: ['launch', 'unveil', 'announces partnership', 'contract win', 'patent'] },
-  { kind: 'capital', words: ['buyback', 'share repurchase', 'dividend', 'secondary offering', 'spin-off', 'split'] },
-  { kind: 'macro', words: ['cpi', 'fomc', 'fed minutes', 'jobs report', 'payrolls'] },
-  { kind: 'legal', words: ['lawsuit', 'settlement', 'investigation', 'doj', 'sec charges'] }
-];
-
-function detectCatalysts(text) {
-  if (!text) return [];
-  const lowered = text.toLowerCase();
-  const hits = new Set();
-  for (const group of CATALYST_KEYWORDS) {
-    if (group.words.some((word) => lowered.includes(word))) hits.add(group.kind);
-  }
-  return [...hits];
-}
-
-function summarizeTicker(ticker, avg7DayVolume) {
-  const ratio = avg7DayVolume > 0 ? Number((ticker.total_volume / avg7DayVolume).toFixed(2)) : null;
-  const avgPriceRounded = typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null;
-  return {
-    ticker: ticker.ticker,
-    darkPoolVolume: ticker.total_volume,
-    darkPoolValue: ticker.total_value,
-    darkPoolAvgPrice: avgPriceRounded,
-    darkPoolTradeCount: ticker.trade_count,
-    avg7DayDarkPoolVolume: avg7DayVolume,
-    volumeRatio: ratio
-  };
-}
-
-function passesScannerFilters(summary) {
-  return (
-    typeof summary.darkPoolValue === 'number' &&
-    summary.darkPoolValue >= SCANNER_MIN_VOLUME &&
-    typeof summary.darkPoolAvgPrice === 'number' &&
-    summary.darkPoolAvgPrice >= SCANNER_MIN_PRICE
-  );
-}
 
 // -------------- Tool implementations --------------
 
@@ -111,14 +72,11 @@ function compute7DayAvg(averageFiles, dataMap) {
 }
 
 async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 10, includeCurrentPrice = true } = {}) {
-  const { windowFiles, averageFiles, data } = await loadScannerWindow(7);
-  if (windowFiles.length === 0) return { available: false, reason: 'No scanner files' };
-  const latest = windowFiles[0];
-  const latestData = data[latest.filename];
-  if (!latestData?.tickers) return { available: false, reason: 'Latest scanner empty' };
-  const avgFor = compute7DayAvg(averageFiles, data);
-  const signals = latestData.tickers
-    .map((t) => summarizeTicker(t, avgFor(t.ticker)))
+  const snapshot = await getScannerSnapshot();
+  if (!snapshot) return { available: false, reason: 'No scanner files' };
+  if (!snapshot.tickers?.length) return { available: false, reason: 'Latest scanner empty' };
+  const signals = snapshot.tickers
+    .map((t) => summarizeTicker(t))
     .filter(passesScannerFilters)
     .filter((s) => s.volumeRatio !== null && s.volumeRatio >= minVolumeRatio)
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
@@ -138,7 +96,7 @@ async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RAT
   return {
     available: true,
     sourceEndpoint: '/api/darkpool-trades (same as Scanner page)',
-    date: latest.filename.replace('.json', ''),
+    date: snapshot.date,
     filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE, minVolumeRatio },
     fieldGlossary: {
       darkPoolAvgPrice: 'Volume-weighted avg dark pool price today (matches Scanner UI Price column).',

@@ -3,7 +3,6 @@
 // for ops/CLI only — digests read Firestore (with file fallback for manual entries).
 import { verifyWebhookSignature, getCheckoutSessionCustomer } from '../../lib/stripe-service';
 import { addSubscriber, updateSubscriberStatus, removeSubscriber } from '../../lib/subscribers-store';
-import { sendWelcomeMessage, validatePhoneNumber } from '../../lib/twilio-service';
 import { statusFromStripe } from '../../lib/subscription-access';
 
 let firebaseAdmin = null;
@@ -39,22 +38,13 @@ function parseCheckoutUid(clientReferenceId) {
   return null;
 }
 
-function normalizePhone(phoneNumber) {
-  if (!phoneNumber) return null;
-  const validation = validatePhoneNumber(phoneNumber);
-  if (validation.valid) return validation.formatted;
-  console.warn('Invalid phone number format:', phoneNumber);
-  return null;
-}
-
 /** Grant or update Pro on Firestore; park as pending if no account yet. */
 async function grantFirestoreAccess({
   uid,
   email,
   stripeCustomerId,
   stripeSubscriptionId,
-  status,
-  phoneNumber
+  status
 }) {
   if (!firebaseAdmin || !firebaseAdmin.isFirebaseAdminConfigured?.()) {
     console.warn('Firebase Admin not configured — skipping durable Pro grant');
@@ -72,7 +62,6 @@ async function grantFirestoreAccess({
       status,
       stripeCustomerId,
       stripeSubscriptionId,
-      phoneNumber: phoneNumber || undefined,
       email
     });
     console.log(`Firestore Pro granted to uid=${found.uid} via ${found.matchedBy} (status=${status})`);
@@ -85,8 +74,7 @@ async function grantFirestoreAccess({
       email,
       status,
       stripeCustomerId,
-      stripeSubscriptionId,
-      phoneNumber
+      stripeSubscriptionId
     });
     console.log(`No Firebase user for ${email} — saved pending_subscriptions`);
     return { granted: false, pending: true };
@@ -142,12 +130,6 @@ export default async function handler(req, res) {
         const customerInfo = await getCheckoutSessionCustomer(session.id);
         if (!customerInfo) break;
 
-        const phoneNumber = normalizePhone(
-          session.metadata?.phone_number ||
-          session.customer_details?.phone ||
-          customerInfo.customerPhone
-        );
-
         // Prefer real Stripe subscription status (trialing during trial, else active)
         const resolvedStatus = statusFromStripe(customerInfo.subscriptionStatus) || 'active';
         const checkoutUid = parseCheckoutUid(session.client_reference_id);
@@ -158,7 +140,6 @@ export default async function handler(req, res) {
             stripeCustomerId: customerInfo.customerId,
             stripeSubscriptionId: customerInfo.subscriptionId,
             email: customerInfo.customerEmail,
-            phoneNumber,
             minVolumeRatio: 3
           });
         } catch (e) {
@@ -170,13 +151,8 @@ export default async function handler(req, res) {
           email: customerInfo.customerEmail,
           stripeCustomerId: customerInfo.customerId,
           stripeSubscriptionId: customerInfo.subscriptionId,
-          status: resolvedStatus,
-          phoneNumber
+          status: resolvedStatus
         });
-
-        if (phoneNumber) {
-          await sendWelcomeMessage(phoneNumber);
-        }
         break;
       }
 

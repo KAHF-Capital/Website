@@ -1,8 +1,7 @@
-// Automated Scanner - Sends consolidated SMS + email digest to subscribers
+// Automated Scanner - Sends the daily email digest to subscribers
 // Called by Vercel Cron at 10 AM ET (14:00 UTC) on trading days
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
-import { sendDailyDigest } from '../../lib/twilio-service';
 import { sendDailyDigestEmail } from '../../lib/email-service';
 import { listDataFiles, getDataFile, getReadsJson } from '../../lib/blob-data';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service';
@@ -18,7 +17,7 @@ try {
 /**
  * Digest recipients: Firestore Pro users (durable) merged with the local file
  * store (keeps manually-added CLI subscribers working until migrated).
- * Deduped by email / phone so nobody gets two messages.
+ * Deduped by email so nobody gets two messages.
  */
 async function loadDigestSubscribers() {
   const byKey = new Map();
@@ -26,25 +25,20 @@ async function loadDigestSubscribers() {
   const add = (s) => {
     if (!s) return;
     const email = normalizeEmail(s.email) || null;
-    const phone = s.phoneNumber || null;
-    if (!email && !phone) return;
-    const key = email ? `e:${email}` : `p:${phone}`;
-    const existing = byKey.get(key);
+    if (!email) return;
+    const existing = byKey.get(email);
     if (existing) {
-      // Prefer whichever has more contact channels / richer prefs
-      byKey.set(key, {
+      byKey.set(email, {
         ...existing,
         ...s,
-        email: email || existing.email,
-        phoneNumber: phone || existing.phoneNumber,
+        email,
         preferences: { ...(existing.preferences || {}), ...(s.preferences || {}) },
         id: existing.id || s.id || s.uid || s.stripeCustomerId
       });
     } else {
-      byKey.set(key, {
-        id: s.id || s.uid || s.stripeCustomerId || key,
+      byKey.set(email, {
+        id: s.id || s.uid || s.stripeCustomerId || email,
         email,
-        phoneNumber: phone,
         preferences: s.preferences || {},
         stripeCustomerId: s.stripeCustomerId || null
       });
@@ -94,10 +88,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const emailOnly = req.query.emailOnly === '1' || req.query.emailOnly === 'true';
-  const smsOnly = req.query.smsOnly === '1' || req.query.smsOnly === 'true';
-
-  console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}${emailOnly ? ' [email-only]' : ''}${smsOnly ? ' [sms-only]' : ''}`);
+  console.log(`Automated scanner triggered at ${new Date().toISOString()} via ${isVercelCron ? 'Vercel Cron' : 'Manual/API'}`);
 
   try {
     const darkPoolData = await getLatestDarkPoolDataWithRatios();
@@ -166,19 +157,16 @@ export default async function handler(req, res) {
 
     // Trade-grade reads published by the local pipeline in the last 24h
     // (found_at stamped by scripts/refresh-track-record.js). When present they
-    // lead the email/SMS; the scanner table becomes supporting context.
-    const newReads = await getNewReadsSince(Date.now() - 24 * 60 * 60 * 1000);
+    // lead the email; the scanner table becomes supporting context.
+    const newReads = await getNewReadsSince(Date.now() - 24 * 60 * 60 * 1000, darkPoolData.date);
     if (newReads.length > 0) {
       console.log(`Leading digest with ${newReads.length} new read(s): ${newReads.map(r => r.ticker).join(', ')}`);
     }
 
     // Honor the unsubscribe suppression list (Blob-backed, written by
-    // /api/unsubscribe). Email is suppressed; SMS opt-out is handled by
-    // Twilio STOP replies.
+    // /api/unsubscribe).
     const unsubscribed = await getUnsubscribedSet();
-    const subscribers = (await loadDigestSubscribers()).map(s => (
-      s.email && unsubscribed.has(s.email) ? { ...s, email: null } : s
-    )).filter(s => s.email || s.phoneNumber);
+    const subscribers = (await loadDigestSubscribers()).filter(s => !unsubscribed.has(s.email));
     if (unsubscribed.size > 0) {
       console.log(`Suppression list active: ${unsubscribed.size} unsubscribed email(s)`);
     }
@@ -197,10 +185,6 @@ export default async function handler(req, res) {
     const results = [];
 
     for (const subscriber of subscribers) {
-      const hasPhone = !!subscriber.phoneNumber;
-      const hasEmail = !!subscriber.email;
-      if (!hasPhone && !hasEmail) continue;
-
       let relevant;
       if (isQuietDay) {
         relevant = tickersToSend;
@@ -218,35 +202,21 @@ export default async function handler(req, res) {
         if (relevant.length === 0) continue;
       }
 
-      const subResult = { subscriberId: subscriber.id, tickerCount: relevant.length, sms: null, email: null };
-
-      // Send SMS (will fail gracefully if toll-free not verified yet)
-      if (hasPhone && !emailOnly) {
-        try {
-          subResult.sms = await sendDailyDigest(subscriber.phoneNumber, relevant, darkPoolData.date, isQuietDay, newReads);
-        } catch (error) {
-          subResult.sms = { success: false, error: error.message };
-        }
+      const subResult = { subscriberId: subscriber.id, tickerCount: relevant.length, email: null };
+      try {
+        subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay, newReads);
+      } catch (error) {
+        subResult.email = { success: false, error: error.message };
       }
 
-      // Send email
-      if (hasEmail && !smsOnly) {
-        try {
-          subResult.email = await sendDailyDigestEmail(subscriber.email, relevant, darkPoolData.date, isQuietDay, newReads);
-        } catch (error) {
-          subResult.email = { success: false, error: error.message };
-        }
-      }
-
-      const anySuccess = subResult.sms?.success || subResult.email?.success;
-      if (anySuccess) recordAlertSent(subscriber.stripeCustomerId || subscriber.id);
+      if (subResult.email?.success) recordAlertSent(subscriber.stripeCustomerId || subscriber.id);
       results.push(subResult);
 
       await new Promise(resolve => setTimeout(resolve, 250));
     }
 
-    const sent = results.filter(r => r.sms?.success || r.email?.success).length;
-    const failed = results.filter(r => !r.sms?.success && !r.email?.success).length;
+    const sent = results.filter(r => r.email?.success).length;
+    const failed = results.length - sent;
 
     return res.status(200).json({
       success: true,
@@ -266,25 +236,22 @@ export default async function handler(req, res) {
 // Reads from the published track record whose found_at stamp is newer than
 // `sinceMs`. Fails soft — a Blob hiccup shouldn't stop the daily digest.
 //
-// Hard rule: alerts are only for fresh signals. Even if a stale read carries a
-// recent found_at (e.g. a methodology change backfilled history), the digest
-// never headlines a signal whose trading date is older than a few days.
-const MAX_SIGNAL_AGE_DAYS = 5;
-async function getNewReadsSince(sinceMs) {
+// Hard rule: alerts are only for signals from the latest ingested dark-pool day
+// (`signalDate`). Even if an older read carries a recent found_at (e.g. a
+// methodology change backfilled history), the digest never headlines it.
+async function getNewReadsSince(sinceMs, signalDate) {
   try {
     const file = await getReadsJson('track-record-reads.json');
     if (!file || !Array.isArray(file.reads)) return [];
-    const dateCutoff = new Date(Date.now() - MAX_SIGNAL_AGE_DAYS * 24 * 60 * 60 * 1000)
-      .toISOString().slice(0, 10);
     const fresh = file.reads
       .filter(r => !isExcluded(r.ticker))
       .filter(r => r.found_at && new Date(r.found_at).getTime() >= sinceMs);
-    const stale = fresh.filter(r => r.date < dateCutoff);
+    const stale = fresh.filter(r => r.date !== signalDate);
     if (stale.length > 0) {
-      console.warn(`Suppressing ${stale.length} stale read(s) from digest (signal date too old): ${stale.map(r => `${r.ticker} ${r.date}`).join(', ')}`);
+      console.warn(`Suppressing ${stale.length} read(s) from digest (not from latest day ${signalDate}): ${stale.map(r => `${r.ticker} ${r.date}`).join(', ')}`);
     }
     return fresh
-      .filter(r => r.date >= dateCutoff)
+      .filter(r => r.date === signalDate)
       .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0));
   } catch (err) {
     console.error('Could not load new reads for digest (non-fatal):', err.message);

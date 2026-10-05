@@ -2,39 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
-  User, Mail, Phone, Bell, Shield, CreditCard,
+  User, Mail, Bell, Shield, CreditCard,
   Settings, Save, AlertCircle, CheckCircle, Zap,
   ArrowLeft, Gift, Copy, Check
 } from 'lucide-react';
 import { siteConfig } from '../../lib/site-config';
 import { track } from '../../lib/analytics';
 import { useAuth } from '../context/AuthContext';
-import { updateUserPhone, updateUserPreferences } from '../../lib/firebase';
+import { updateUserPreferences } from '../../lib/firebase';
 import Header from '../components/Header';
-
-// Client-side phone validation
-function validatePhoneNumber(phoneNumber) {
-  const cleaned = phoneNumber.replace(/[^\d+]/g, '');
-  
-  if (cleaned.startsWith('+1') && cleaned.length === 12) {
-    return { valid: true, formatted: cleaned };
-  }
-  if (/^\d{10}$/.test(cleaned)) {
-    return { valid: true, formatted: `+1${cleaned}` };
-  }
-  if (cleaned.startsWith('1') && cleaned.length === 11) {
-    return { valid: true, formatted: `+${cleaned}` };
-  }
-  
-  return { valid: false, formatted: null };
-}
 import Footer from './Footer';
 
 export default function Account() {
   const router = useRouter();
   const { user, userData, loading, refreshUserData, hasActiveSubscription } = useAuth();
-  
-  const [phoneNumber, setPhoneNumber] = useState('');
+
   const [preferences, setPreferences] = useState({
     minVolumeRatio: 3,
     maxAlertsPerDay: 25,
@@ -68,7 +50,6 @@ export default function Account() {
   // Load user data
   useEffect(() => {
     if (userData) {
-      setPhoneNumber(userData.phoneNumber || '');
       setPreferences({
         minVolumeRatio: userData.preferences?.minVolumeRatio || 3,
         maxAlertsPerDay: userData.preferences?.maxAlertsPerDay || 25,
@@ -77,34 +58,6 @@ export default function Account() {
       setWatchlistInput((userData.preferences?.watchlist || []).join(', '));
     }
   }, [userData]);
-
-  const handleSavePhone = async () => {
-    if (!phoneNumber) {
-      setMessage({ type: 'error', text: 'Please enter a phone number' });
-      return;
-    }
-
-    // Validate phone
-    const validation = validatePhoneNumber(phoneNumber);
-    if (!validation.valid) {
-      setMessage({ type: 'error', text: 'Please enter a valid US phone number' });
-      return;
-    }
-
-    setSaving(true);
-    setMessage({ type: '', text: '' });
-
-    const result = await updateUserPhone(user.uid, validation.formatted);
-    
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Phone number saved successfully!' });
-      await refreshUserData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Failed to save phone number' });
-    }
-
-    setSaving(false);
-  };
 
   const handleSavePreferences = async () => {
     setSaving(true);
@@ -303,39 +256,6 @@ export default function Account() {
               >
                 Email a friend →
               </a>
-            </div>
-          </div>
-
-          {/* Phone (optional contact — alerts go to your email) */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <Phone className="h-5 w-5 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">Mobile number (optional)</h2>
-            </div>
-            
-            <p className="text-gray-600 text-sm mb-4">
-              {hasActiveSubscription() 
-                ? 'Daily unusual dark pool digests go to your account email on file. Optionally add a phone number here — not required for email alerts.'
-                : 'Upgrade to Pro for daily email alerts on unusual dark pool activity.'}
-            </p>
-            
-            <div className="flex space-x-3">
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1 (555) 123-4567"
-                disabled={!hasActiveSubscription()}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400"
-              />
-              <button
-                onClick={handleSavePhone}
-                disabled={saving || !hasActiveSubscription()}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                <Save className="h-4 w-4 mr-1" />
-                Save
-              </button>
             </div>
           </div>
 

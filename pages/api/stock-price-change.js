@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 // Yahoo Finance API endpoints
 const YAHOO_FINANCE_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 

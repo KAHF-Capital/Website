@@ -28,12 +28,11 @@ STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 ```
 
-### Twilio (SMS Alerts)
+### Resend (Email Alerts)
 ```bash
-# Get from Twilio Console
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_PHONE_NUMBER=+1234567890
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM="KAHF Capital <alerts@kahfcapital.com>"
+UNSUBSCRIBE_SECRET=your_random_unsubscribe_secret
 ```
 
 ### Security
@@ -126,29 +125,9 @@ stripe listen --forward-to localhost:3000/api/stripe-webhook
 
 ---
 
-## Twilio Setup
-
-### 1. Create Account
-1. Go to [Twilio Console](https://console.twilio.com/)
-2. Create a free account
-3. Verify your phone number
-
-### 2. Get Credentials
-1. Copy **Account SID** and **Auth Token** from dashboard
-2. Go to **Phone Numbers** > **Manage** > **Buy a number**
-3. Buy a phone number (or use trial number)
-4. Copy number to `TWILIO_PHONE_NUMBER` (format: `+1234567890`)
-
-### 3. For Production
-- Upgrade from trial to paid account
-- Register your business for better deliverability
-- Consider setting up a Messaging Service for higher volume
-
----
-
 ## Automated Alerts (Cron Job)
 
-The `/api/automated-scanner` endpoint sends SMS alerts. Call it daily via:
+The `/api/automated-scanner` endpoint sends the daily email digest. Call it daily via:
 
 ### Option 1: Vercel Cron (Recommended)
 Add to `vercel.json`:
@@ -191,10 +170,8 @@ Use [cron-job.org](https://cron-job.org/) or similar to call the endpoint daily.
 - [ ] Firestore saves user data on signup
 - [ ] Stripe checkout redirects correctly
 - [ ] Stripe webhook updates subscription status
-- [ ] Twilio sends welcome SMS on subscription
-- [ ] Automated scanner sends alerts to subscribers
+- [ ] Automated scanner emails the digest to subscribers
 - [ ] Account page shows subscription status
-- [ ] Phone number saves correctly
 
 ---
 
@@ -208,9 +185,8 @@ Use [cron-job.org](https://cron-job.org/) or similar to call the endpoint daily.
 - Make sure `STRIPE_WEBHOOK_SECRET` matches your webhook endpoint
 - For local testing, use Stripe CLI's webhook secret
 
-### "Twilio authentication error"
-- Verify Account SID and Auth Token are correct
-- Check if trial account has restrictions
+### Digest emails not arriving
+- Verify `RESEND_API_KEY` is set and the sender domain is verified in Resend
 
 ### "Permission denied" on Firestore
 - Check security rules allow authenticated users

@@ -1,7 +1,299 @@
 {
-  "generated_at": "2026-08-12T13:12:40.995Z",
+  "generated_at": "2026-10-05T03:20:53.833Z",
   "since": "2026-01-01",
   "reads": [
+    {
+      "date": "2026-09-30",
+      "ticker": "FNV",
+      "volume_ratio": 3.26,
+      "dark_pool_value": 388434059.50420314,
+      "dark_pool_avg_price": 236.92718208502228,
+      "structure": "call",
+      "direction": "neutral",
+      "strike": 240,
+      "expiration": "2026-10-16",
+      "dte": 16,
+      "entry_premium": 7.58,
+      "asof_hit_rate": 50,
+      "asof_samples": 32,
+      "contracts": [
+        "O:FNV261016C00240000"
+      ],
+      "found_at": "2026-10-02T13:14:08.300Z"
+    },
+    {
+      "date": "2026-09-22",
+      "ticker": "MKSI",
+      "volume_ratio": 3.77,
+      "dark_pool_value": 1408305371.572338,
+      "dark_pool_avg_price": 260.13149891219865,
+      "structure": "straddle",
+      "direction": "bullish",
+      "strike": 260,
+      "expiration": "2026-10-16",
+      "dte": 24,
+      "entry_premium": 29.71,
+      "asof_hit_rate": 53.8,
+      "asof_samples": 26,
+      "contracts": [
+        "O:MKSI261016C00260000",
+        "O:MKSI261016P00260000"
+      ],
+      "found_at": "2026-09-23T14:33:37.594Z"
+    },
+    {
+      "date": "2026-09-18",
+      "ticker": "BLDR",
+      "volume_ratio": 3.46,
+      "dark_pool_value": 648947915.3622584,
+      "dark_pool_avg_price": 58.06323400075251,
+      "structure": "straddle",
+      "direction": "bullish",
+      "strike": 60,
+      "expiration": "2026-10-16",
+      "dte": 28,
+      "entry_premium": 7.45,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
+      "contracts": [
+        "O:BLDR261016C00060000",
+        "O:BLDR261016P00060000"
+      ],
+      "found_at": "2026-09-22T08:29:33.376Z"
+    },
+    {
+      "date": "2026-09-18",
+      "ticker": "CORT",
+      "volume_ratio": 3.47,
+      "dark_pool_value": 553819191.4759479,
+      "dark_pool_avg_price": 110.58303503291076,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 110,
+      "expiration": "2026-10-16",
+      "dte": 28,
+      "entry_premium": 10.93,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
+      "contracts": [
+        "O:CORT261016C00110000",
+        "O:CORT261016P00110000"
+      ],
+      "found_at": "2026-09-22T08:29:33.376Z"
+    },
+    {
+      "date": "2026-09-18",
+      "ticker": "HALO",
+      "volume_ratio": 3.75,
+      "dark_pool_value": 876579256.3249611,
+      "dark_pool_avg_price": 111.11821418751295,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 110,
+      "expiration": "2026-10-16",
+      "dte": 28,
+      "entry_premium": 4.69,
+      "asof_hit_rate": 50,
+      "asof_samples": 26,
+      "contracts": [
+        "O:HALO261016C00110000"
+      ],
+      "found_at": "2026-09-22T08:29:33.376Z"
+    },
+    {
+      "date": "2026-09-17",
+      "ticker": "GNRC",
+      "volume_ratio": 3.63,
+      "dark_pool_value": 986070220.0484703,
+      "dark_pool_avg_price": 211.04884449322032,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 210,
+      "expiration": "2026-10-16",
+      "dte": 29,
+      "entry_premium": 24.55,
+      "asof_hit_rate": 50,
+      "asof_samples": 24,
+      "contracts": [
+        "O:GNRC261016C00210000",
+        "O:GNRC261016P00210000"
+      ],
+      "found_at": "2026-09-22T08:29:33.376Z"
+    },
+    {
+      "date": "2026-09-16",
+      "ticker": "JBHT",
+      "volume_ratio": 3.34,
+      "dark_pool_value": 533460349.5634084,
+      "dark_pool_avg_price": 238.81026918554872,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 240,
+      "expiration": "2026-10-16",
+      "dte": 30,
+      "entry_premium": 23.58,
+      "asof_hit_rate": 52,
+      "asof_samples": 25,
+      "contracts": [
+        "O:JBHT261016C00240000",
+        "O:JBHT261016P00240000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-09-04",
+      "ticker": "FICO",
+      "volume_ratio": 3.26,
+      "dark_pool_value": 567393521.9639516,
+      "dark_pool_avg_price": 929.2545275290319,
+      "structure": "call",
+      "direction": "neutral",
+      "strike": 930,
+      "expiration": "2026-10-16",
+      "dte": 42,
+      "entry_premium": 62.49,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
+      "contracts": [
+        "O:FICO261016C00930000"
+      ],
+      "found_at": "2026-09-08T13:05:18.062Z"
+    },
+    {
+      "date": "2026-08-31",
+      "ticker": "RPM",
+      "volume_ratio": 3.54,
+      "dark_pool_value": 390934092.70783,
+      "dark_pool_avg_price": 104.41314532268568,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 105,
+      "expiration": "2026-09-18",
+      "dte": 18,
+      "entry_premium": 4.95,
+      "asof_hit_rate": 60.7,
+      "asof_samples": 28,
+      "contracts": [
+        "O:RPM260918C00105000",
+        "O:RPM260918P00105000"
+      ],
+      "found_at": "2026-09-01T12:50:12.926Z"
+    },
+    {
+      "date": "2026-08-28",
+      "ticker": "SOLS",
+      "volume_ratio": 3.13,
+      "dark_pool_value": 524959433.600068,
+      "dark_pool_avg_price": 64.89274916446514,
+      "structure": "call",
+      "direction": "neutral",
+      "strike": 65,
+      "expiration": "2026-09-18",
+      "dte": 21,
+      "entry_premium": 3.15,
+      "asof_hit_rate": 54,
+      "asof_samples": 187,
+      "contracts": [
+        "O:SOLS260918C00065000"
+      ],
+      "found_at": "2026-08-31T13:50:42.521Z"
+    },
+    {
+      "date": "2026-08-26",
+      "ticker": "ANF",
+      "volume_ratio": 4.02,
+      "dark_pool_value": 1467659164.269349,
+      "dark_pool_avg_price": 146.43308865972023,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 150,
+      "expiration": "2026-09-25",
+      "dte": 30,
+      "entry_premium": 7.21,
+      "asof_hit_rate": 54.2,
+      "asof_samples": 24,
+      "contracts": [
+        "O:ANF260925C00150000"
+      ],
+      "found_at": "2026-08-28T02:09:46.779Z"
+    },
+    {
+      "date": "2026-08-25",
+      "ticker": "SLF",
+      "volume_ratio": 3.42,
+      "dark_pool_value": 467286186.80644584,
+      "dark_pool_avg_price": 79.0405560922814,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 80,
+      "expiration": "2026-09-18",
+      "dte": 24,
+      "entry_premium": 0.89,
+      "asof_hit_rate": 53.8,
+      "asof_samples": 26,
+      "contracts": [
+        "O:SLF260918C00080000"
+      ],
+      "found_at": "2026-08-28T02:09:46.779Z"
+    },
+    {
+      "date": "2026-08-19",
+      "ticker": "WPM",
+      "volume_ratio": 3.02,
+      "dark_pool_value": 626456817.822554,
+      "dark_pool_avg_price": 142.33947654146306,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 145,
+      "expiration": "2026-09-18",
+      "dte": 30,
+      "entry_premium": 7.6,
+      "asof_hit_rate": 60,
+      "asof_samples": 25,
+      "contracts": [
+        "O:WPM260918C00145000"
+      ],
+      "found_at": "2026-08-24T14:12:14.963Z"
+    },
+    {
+      "date": "2026-08-18",
+      "ticker": "BIDU",
+      "volume_ratio": 3,
+      "dark_pool_value": 703219121.861734,
+      "dark_pool_avg_price": 92.44015009570872,
+      "structure": "put",
+      "direction": "bearish",
+      "strike": 90,
+      "expiration": "2026-09-18",
+      "dte": 31,
+      "entry_premium": 3.43,
+      "asof_hit_rate": 58.3,
+      "asof_samples": 24,
+      "contracts": [
+        "O:BIDU260918P00090000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-08-14",
+      "ticker": "RDDT",
+      "volume_ratio": 3.09,
+      "dark_pool_value": 1739383171.455075,
+      "dark_pool_avg_price": 178.48455068127546,
+      "structure": "straddle",
+      "direction": "neutral",
+      "strike": 180,
+      "expiration": "2026-09-11",
+      "dte": 28,
+      "entry_premium": 22.53,
+      "asof_hit_rate": 60.7,
+      "asof_samples": 524,
+      "contracts": [
+        "O:RDDT260911C00180000",
+        "O:RDDT260911P00180000"
+      ],
+      "found_at": "2026-08-18T12:43:23.992Z"
+    },
     {
       "date": "2026-07-16",
       "ticker": "BTSG",
@@ -102,39 +394,20 @@
     },
     {
       "date": "2026-06-26",
-      "ticker": "TIGO",
-      "volume_ratio": 3.64,
-      "dark_pool_value": 385015036.85713434,
-      "dark_pool_avg_price": 85.14780348414175,
+      "ticker": "GSAT",
+      "volume_ratio": 3.14,
+      "dark_pool_value": 278603077.1509579,
+      "dark_pool_avg_price": 80.23216881369089,
       "structure": "call",
       "direction": "bullish",
-      "strike": 90,
+      "strike": 80,
       "expiration": "2026-07-17",
       "dte": 21,
-      "entry_premium": 3.54,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
+      "entry_premium": 1.2,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
       "contracts": [
-        "O:TIGO260717C00090000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-06-26",
-      "ticker": "CM",
-      "volume_ratio": 3.4,
-      "dark_pool_value": 672644139.5748242,
-      "dark_pool_avg_price": 113.6685755360288,
-      "structure": "call",
-      "direction": "bullish",
-      "strike": 115,
-      "expiration": "2026-07-17",
-      "dte": 21,
-      "entry_premium": 1.31,
-      "asof_hit_rate": 57.7,
-      "asof_samples": 26,
-      "contracts": [
-        "O:CM260717C00115000"
+        "O:GSAT260717C00080000"
       ],
       "found_at": null
     },
@@ -160,20 +433,39 @@
     },
     {
       "date": "2026-06-26",
-      "ticker": "GSAT",
-      "volume_ratio": 3.14,
-      "dark_pool_value": 278603077.1509579,
-      "dark_pool_avg_price": 80.23216881369089,
+      "ticker": "CM",
+      "volume_ratio": 3.4,
+      "dark_pool_value": 672644139.5748242,
+      "dark_pool_avg_price": 113.6685755360288,
       "structure": "call",
       "direction": "bullish",
-      "strike": 80,
+      "strike": 115,
       "expiration": "2026-07-17",
       "dte": 21,
-      "entry_premium": 1.2,
-      "asof_hit_rate": 56,
-      "asof_samples": 25,
+      "entry_premium": 1.31,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
       "contracts": [
-        "O:GSAT260717C00080000"
+        "O:CM260717C00115000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-06-26",
+      "ticker": "TIGO",
+      "volume_ratio": 3.64,
+      "dark_pool_value": 385015036.85713434,
+      "dark_pool_avg_price": 85.14780348414175,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 90,
+      "expiration": "2026-07-17",
+      "dte": 21,
+      "entry_premium": 3.54,
+      "asof_hit_rate": 57.7,
+      "asof_samples": 26,
+      "contracts": [
+        "O:TIGO260717C00090000"
       ],
       "found_at": null
     },
@@ -256,20 +548,21 @@
     },
     {
       "date": "2026-05-06",
-      "ticker": "ETR",
-      "volume_ratio": 3.83,
-      "dark_pool_value": 1408604584.5086186,
-      "dark_pool_avg_price": 112.950022264266,
-      "structure": "call",
-      "direction": "bullish",
-      "strike": 115,
+      "ticker": "TMDX",
+      "volume_ratio": 3.06,
+      "dark_pool_value": 287091579.2028439,
+      "dark_pool_avg_price": 73.26242989410294,
+      "structure": "straddle",
+      "direction": "bearish",
+      "strike": 75,
       "expiration": "2026-06-18",
       "dte": 43,
-      "entry_premium": 2.93,
-      "asof_hit_rate": 56,
-      "asof_samples": 25,
+      "entry_premium": 12.76,
+      "asof_hit_rate": 52.4,
+      "asof_samples": 21,
       "contracts": [
-        "O:ETR260618C00115000"
+        "O:TMDX260618C00075000",
+        "O:TMDX260618P00075000"
       ],
       "found_at": null
     },
@@ -294,21 +587,20 @@
     },
     {
       "date": "2026-05-06",
-      "ticker": "TMDX",
-      "volume_ratio": 3.06,
-      "dark_pool_value": 287091579.2028439,
-      "dark_pool_avg_price": 73.26242989410294,
-      "structure": "straddle",
-      "direction": "bearish",
-      "strike": 75,
+      "ticker": "ETR",
+      "volume_ratio": 3.83,
+      "dark_pool_value": 1408604584.5086186,
+      "dark_pool_avg_price": 112.950022264266,
+      "structure": "call",
+      "direction": "bullish",
+      "strike": 115,
       "expiration": "2026-06-18",
       "dte": 43,
-      "entry_premium": 12.76,
-      "asof_hit_rate": 52.4,
-      "asof_samples": 21,
+      "entry_premium": 2.93,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
       "contracts": [
-        "O:TMDX260618C00075000",
-        "O:TMDX260618P00075000"
+        "O:ETR260618C00115000"
       ],
       "found_at": null
     },
@@ -489,21 +781,20 @@
     },
     {
       "date": "2026-03-20",
-      "ticker": "VRT",
-      "volume_ratio": 4.09,
-      "dark_pool_value": 12656809463.360552,
-      "dark_pool_avg_price": 256.5158315203412,
-      "structure": "straddle",
+      "ticker": "UPS",
+      "volume_ratio": 3.33,
+      "dark_pool_value": 1730830627.0692868,
+      "dark_pool_avg_price": 95.94393105891372,
+      "structure": "put",
       "direction": "bearish",
-      "strike": 260,
+      "strike": 95,
       "expiration": "2026-04-17",
       "dte": 28,
-      "entry_premium": 37.72,
-      "asof_hit_rate": 56,
-      "asof_samples": 25,
+      "entry_premium": 2.82,
+      "asof_hit_rate": 50,
+      "asof_samples": 26,
       "contracts": [
-        "O:VRT260417C00260000",
-        "O:VRT260417P00260000"
+        "O:UPS260417P00095000"
       ],
       "found_at": null
     },
@@ -528,20 +819,21 @@
     },
     {
       "date": "2026-03-20",
-      "ticker": "UPS",
-      "volume_ratio": 3.33,
-      "dark_pool_value": 1730830627.0692868,
-      "dark_pool_avg_price": 95.94393105891372,
-      "structure": "put",
+      "ticker": "VRT",
+      "volume_ratio": 4.09,
+      "dark_pool_value": 12656809463.360552,
+      "dark_pool_avg_price": 256.5158315203412,
+      "structure": "straddle",
       "direction": "bearish",
-      "strike": 95,
+      "strike": 260,
       "expiration": "2026-04-17",
       "dte": 28,
-      "entry_premium": 2.82,
-      "asof_hit_rate": 50,
-      "asof_samples": 26,
+      "entry_premium": 37.72,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
       "contracts": [
-        "O:UPS260417P00095000"
+        "O:VRT260417C00260000",
+        "O:VRT260417P00260000"
       ],
       "found_at": null
     },
@@ -566,25 +858,6 @@
     },
     {
       "date": "2026-02-27",
-      "ticker": "ELS",
-      "volume_ratio": 3.51,
-      "dark_pool_value": 377686510.8864828,
-      "dark_pool_avg_price": 67.22504621757642,
-      "structure": "put",
-      "direction": "bearish",
-      "strike": 65,
-      "expiration": "2026-03-20",
-      "dte": 21,
-      "entry_premium": 0.54,
-      "asof_hit_rate": 46.2,
-      "asof_samples": 26,
-      "contracts": [
-        "O:ELS260320P00065000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-02-27",
       "ticker": "CW",
       "volume_ratio": 3.71,
       "dark_pool_value": 710670408.134502,
@@ -599,6 +872,25 @@
       "asof_samples": 26,
       "contracts": [
         "O:CW260320C00700000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-02-27",
+      "ticker": "ELS",
+      "volume_ratio": 3.51,
+      "dark_pool_value": 377686510.8864828,
+      "dark_pool_avg_price": 67.22504621757642,
+      "structure": "put",
+      "direction": "bearish",
+      "strike": 65,
+      "expiration": "2026-03-20",
+      "dte": 21,
+      "entry_premium": 0.54,
+      "asof_hit_rate": 46.2,
+      "asof_samples": 26,
+      "contracts": [
+        "O:ELS260320P00065000"
       ],
       "found_at": null
     },
@@ -662,25 +954,6 @@
     },
     {
       "date": "2026-02-06",
-      "ticker": "ARWR",
-      "volume_ratio": 3.72,
-      "dark_pool_value": 965433631.991618,
-      "dark_pool_avg_price": 64.6645575613147,
-      "structure": "put",
-      "direction": "bearish",
-      "strike": 65,
-      "expiration": "2026-03-20",
-      "dte": 42,
-      "entry_premium": 4.6,
-      "asof_hit_rate": 54.5,
-      "asof_samples": 22,
-      "contracts": [
-        "O:ARWR260320P00065000"
-      ],
-      "found_at": null
-    },
-    {
-      "date": "2026-02-06",
       "ticker": "CIEN",
       "volume_ratio": 3.45,
       "dark_pool_value": 5094697817.719407,
@@ -695,6 +968,25 @@
       "asof_samples": 25,
       "contracts": [
         "O:CIEN260306C00270000"
+      ],
+      "found_at": null
+    },
+    {
+      "date": "2026-02-06",
+      "ticker": "ARWR",
+      "volume_ratio": 3.72,
+      "dark_pool_value": 965433631.991618,
+      "dark_pool_avg_price": 64.6645575613147,
+      "structure": "put",
+      "direction": "bearish",
+      "strike": 65,
+      "expiration": "2026-03-20",
+      "dte": 42,
+      "entry_premium": 4.6,
+      "asof_hit_rate": 54.5,
+      "asof_samples": 22,
+      "contracts": [
+        "O:ARWR260320P00065000"
       ],
       "found_at": null
     },

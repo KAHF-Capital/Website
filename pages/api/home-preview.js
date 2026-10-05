@@ -9,10 +9,7 @@
  * Cached for 5 minutes at the edge so a viral homepage doesn't hammer Polygon.
  */
 import { getScannerSnapshot } from '../../lib/scanner-snapshot';
-
-const POLYGON_API_BASE = 'https://api.massive.com';
-const SCANNER_MIN_VOLUME = parseInt(process.env.KAHF_AI_SCANNER_MIN_VOLUME || '250000000', 10);
-const SCANNER_MIN_PRICE = parseFloat(process.env.KAHF_AI_SCANNER_MIN_PRICE || '50');
+import { POLYGON_API_BASE, SCANNER_MIN_VOLUME, SCANNER_MIN_PRICE } from '../../lib/scanner-signals';
 
 async function fetchSnapshotPrice(ticker) {
   if (!process.env.POLYGON_API_KEY) return null;
