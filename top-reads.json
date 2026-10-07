@@ -1,5 +1,25 @@
 {
-  "generated_at": "2026-10-05T03:20:54.159Z",
-  "signal_date": "2026-10-01",
-  "reads": []
+  "generated_at": "2026-10-06T14:02:34.870Z",
+  "signal_date": "2026-10-05",
+  "reads": [
+    {
+      "date": "2026-10-05",
+      "ticker": "PTC",
+      "volume_ratio": 4.42,
+      "dark_pool_value": 3334177157.8069234,
+      "dark_pool_avg_price": 193.57572660378887,
+      "structure": "put",
+      "direction": "bearish",
+      "strike": 190,
+      "expiration": "2026-11-20",
+      "dte": 46,
+      "entry_premium": 0.33,
+      "asof_hit_rate": 56,
+      "asof_samples": 25,
+      "contracts": [
+        "O:PTC261120P00190000"
+      ],
+      "found_at": "2026-10-06T14:02:33.987Z"
+    }
+  ]
 }

@@ -1,5 +1,14 @@
 # Automated Email Digest
 
+> **Status: PAUSED.** The cron jobs were removed from `vercel.json`, so neither the daily digest nor the onboarding drip runs. To resume, add this back to `vercel.json` and redeploy:
+>
+> ```json
+> "crons": [
+>   { "path": "/api/automated-scanner", "schedule": "0 14 * * 1-5" },
+>   { "path": "/api/onboarding-tick", "schedule": "0 15 * * *" }
+> ]
+> ```
+
 The site emails a daily unusual dark pool digest to Pro subscribers at **10 AM ET** (14:00 UTC) on weekdays.
 
 ---
