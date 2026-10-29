@@ -241,6 +241,30 @@ function refreshTrackRecord(ingestedDay) {
   }
 }
 
+// Keep KAHF AI's full-history index on the same days the scanner just ingested.
+// Non-fatal: the latest scanner day still comes from the daily blob files.
+function refreshHistoryIndex(days) {
+  const indexScript = path.join(__dirname, 'scripts', 'build-scanner-history-index.js');
+  const manifest = path.join(__dirname, 'data', 'history-index', 'manifest.json');
+  if (!fs.existsSync(manifest)) {
+    console.log('\n📚 History index is not built yet. Run: npm run build-history-index');
+    return;
+  }
+  for (const day of days) {
+    const filePath = path.join(PROCESSED_DIR, `${day}.json`);
+    if (!fs.existsSync(filePath)) continue;
+    console.log(`\n📚 Updating dark-pool history index for ${day}...`);
+    const args = [indexScript, '--append', filePath];
+    if (process.env.BLOB_READ_WRITE_TOKEN) args.push('--upload');
+    const res = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
+    if (res.error) {
+      console.error(`⚠️  History index update could not start: ${res.error.message}`);
+    } else if (res.status !== 0) {
+      console.error('⚠️  History index update exited non-zero (non-fatal).');
+    }
+  }
+}
+
 // Get all CSV files in the daily directory
 function getAllCSVFiles() {
   const files = fs.readdirSync(DAILY_CSV_DIR)
@@ -385,6 +409,7 @@ async function processAllCSV(forceReprocess = false) {
       .sort();
     if (ingestedDays.length > 0) {
       refreshTrackRecord(ingestedDays[ingestedDays.length - 1]);
+      refreshHistoryIndex(ingestedDays);
     }
 
   } catch (error) {

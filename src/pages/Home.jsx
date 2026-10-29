@@ -3,7 +3,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import {
   Bot,
-  Sparkles,
   ArrowRight,
   Zap,
   ShieldCheck,
@@ -12,7 +11,8 @@ import {
   BarChart3,
   Search,
   MessageSquare,
-  CheckCircle2
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
@@ -25,33 +25,34 @@ const HOW_IT_WORKS = [
   {
     icon: MessageSquare,
     title: 'Ask in plain English',
-    body: '"Find me a high-conviction trade." "Score the scanner." "What\'s the best play on NVDA into earnings?" KAHF AI takes it from there.'
+    body: '"How unusual is the flow on NVDA?" "Compare hit rates on the scanner." "Is this earnings move already in the IV?" KAHF AI walks through the numbers.'
   },
   {
     icon: BarChart3,
     title: 'AI runs the KAHF Read',
-    body: 'Five factors — institutional flow, options direction (call/put), historical edge, liquidity, and whether the catalyst is already priced into IV — combine into one verdict and the structure that actually fits.'
+    body: 'Five factors side by side — institutional flow, call/put direction, historical hit rate, liquidity, and whether the catalyst is already priced into IV.'
   },
   {
     icon: Bot,
-    title: 'Get a tradeable read',
-    body: 'Trade, watchlist, or skip — with the receipts. Direction, strike, expiration, and the volatility sanity checks behind it. Pro includes a daily email when dark pool volume is unusually high.'
+    title: 'Read the setup',
+    body: 'Flow, hit rates, liquidity, and the volatility checks behind them. You decide what to do with it. Pro includes a daily email when dark pool volume is unusually high.'
   }
 ];
 
 const FEATURES = [
-  { icon: Bot, title: 'KAHF AI · Volatility Analyst', body: 'Unlimited Claude-powered analyst that finds the best volatility play on any ticker — using real options data, dark pool flow, and 3 years of price history.', tag: 'Headline' },
+  { icon: Bot, title: 'KAHF AI · Volatility Analysis', body: 'Unlimited chat that walks through options data, dark pool flow, and 3 years of price history on any ticker.', tag: 'Headline' },
   { icon: Search, title: 'Dark Pool Scanner', body: 'Track $250M+ institutional prints. Sorted by volume ratio, with options stats and catalyst tags.', tag: 'Free' },
+  { icon: Calendar, title: 'News Scanner', body: 'Upcoming earnings, FDA dates, deal closes, splits, and IPOs. Only events that already have a calendar day.', tag: 'Free' },
   { icon: TrendingUp, title: 'Volatility Calculator', body: 'Run any ticker against ATM strikes, real Polygon premiums, and a 3-year historical hit rate. See if the move is priced fairly.', tag: 'Free' },
   { icon: Zap, title: 'Daily email digest', body: 'Pro subscribers get a daily email roundup of unusual dark pool activity — the same setups that power the scanner, in your inbox.', tag: 'Pro' },
-  { icon: ShieldCheck, title: 'Track Record Page', body: 'Every flagged alert with the result, public after a 24h delay. Receipts, not promises.', tag: 'Public' },
+  { icon: ShieldCheck, title: 'Track Record Page', body: 'Every scored setup with the marked result, public after a 24h delay. The history is on the page.', tag: 'Public' },
   { icon: Clock, title: '7-Day Free Trial', body: 'Full Pro access. Cancel anytime. 14-day money-back guarantee even after.', tag: 'No risk' }
 ];
 
 const FAQ = [
   {
     q: 'What is KAHF AI?',
-    a: 'An AI volatility analyst built on Claude. It finds the best strategy for each setup — or tells you to stay flat — by reconciling 3 years of historical hit-rate math with the forward catalyst direction, IV regime, options liquidity, and dark pool flow. Plain English in, tradeable read out.'
+    a: 'An analysis assistant on the KAHF Capital platform. It walks through historical hit rates, catalyst context, IV, options liquidity, and dark pool flow in plain English. The trading decision stays with you.'
   },
   {
     q: 'Is the dark pool data real?',
@@ -76,13 +77,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>KAHF AI — Your personal volatility analyst | KAHF Capital</title>
+        <title>KAHF Capital — Options analysis for volatility traders</title>
         <meta
           name="description"
-          content="KAHF AI is your AI volatility analyst. Find the best volatility play on any ticker using real dark pool flow and 3 years of historical hit-rate math. 7-day free trial."
+          content="KAHF Capital is a platform for options traders. Dark pool flow, historical hit rates, and an AI that walks through the setup. 7-day free trial."
         />
-        <meta property="og:title" content="KAHF AI — Trade like the 1%" />
-        <meta property="og:description" content="Your personal volatility analyst. Trained on a decade of institutional flow." />
+        <meta property="og:title" content="KAHF Capital — Options analysis for volatility traders" />
+        <meta property="og:description" content="Dark pool flow, historical hit rates, and an AI that walks through the setup." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={siteConfig.url} />
         <meta name="twitter:card" content="summary_large_image" />
@@ -94,16 +95,12 @@ export default function Home() {
       <section className="relative pt-12 pb-16 px-4 overflow-hidden bg-gradient-to-b from-green-50/40 via-white to-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold mb-5">
-              <Sparkles className="h-3.5 w-3.5" />
-              Powered by Claude · Built on a decade of institutional flow
-            </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 mb-5 leading-[1.05] tracking-tight">
-              Your personal{' '}
-              <span className="text-green-600">AI volatility analyst.</span>
+              Options analysis{' '}
+              <span className="text-green-600">for volatility traders.</span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-7 max-w-2xl mx-auto leading-relaxed">
-              Score any ticker against 3 years of price history, real options flow, and institutional dark pool prints in seconds.
+              Dark pool flow, historical hit rates, and IV versus realized — on any ticker, in seconds.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-5">
@@ -143,7 +140,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-2">How it works</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">From idea to tradeable read in 6 seconds.</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">From a question to the numbers in 6 seconds.</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {HOW_IT_WORKS.map((step, i) => (

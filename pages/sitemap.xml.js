@@ -6,6 +6,7 @@ const STATIC_PAGES = [
   { loc: '', priority: '1.0', changefreq: 'daily' },
   { loc: 'kahf-ai', priority: '0.95', changefreq: 'daily' },
   { loc: 'scanner', priority: '0.95', changefreq: 'daily' },
+  { loc: 'news-scanner', priority: '0.9', changefreq: 'daily' },
   { loc: 'wins', priority: '0.9', changefreq: 'daily' },
   { loc: 'pricing', priority: '0.9', changefreq: 'weekly' },
   { loc: 'calculator', priority: '0.9', changefreq: 'weekly' },

@@ -15,6 +15,7 @@ export default function Footer() {
   const products = [
     { href: '/kahf-ai', label: 'KAHF AI' },
     { href: '/scanner', label: 'Dark Pool Scanner' },
+    { href: '/news-scanner', label: 'News Scanner' },
     { href: '/calculator', label: 'Volatility Calculator' },
     { href: '/wins', label: 'Track Record' }
   ];
@@ -42,7 +43,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5 max-w-md">
-              Your AI volatility analyst. Trained on a decade of institutional flow, dark pool prints, and historical options moves — finds the best volatility play for any setup.
+              A platform for options traders. Dark pool prints, historical options moves, and an AI that walks through the setup.
             </p>
             <div className="flex items-center gap-3">
               {siteConfig.social.twitter && (
@@ -68,7 +69,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-white text-sm font-semibold uppercase tracking-wider mb-4">Product</h4>
+            <h4 className="text-white text-sm font-semibold uppercase tracking-wider mb-4">Platform</h4>
             <ul className="space-y-2.5 text-sm">
               {products.map((it) => (
                 <li key={it.href}>

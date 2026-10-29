@@ -3,7 +3,8 @@
 
 import { getActiveSubscribers, recordAlertSent } from '../../lib/subscribers-store';
 import { sendDailyDigestEmail } from '../../lib/email-service';
-import { listDataFiles, getDataFile, getReadsJson } from '../../lib/blob-data';
+import { getReadsJson } from '../../lib/blob-data';
+import { getScannerSnapshot } from '../../lib/scanner-snapshot';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service';
 import { isExcluded } from '../../lib/read-filters';
 import { getUnsubscribedSet } from '../../lib/unsubscribe';
@@ -260,55 +261,16 @@ async function getNewReadsSince(sinceMs, signalDate) {
 }
 
 async function getLatestDarkPoolDataWithRatios() {
-  const files = await listDataFiles();
-  if (files.length === 0) return null;
+  const snapshot = await getScannerSnapshot();
+  if (!snapshot?.tickers?.length) return null;
 
-  const latestFile = files[0];
-  const latestData = await getDataFile(latestFile.url);
-  if (!latestData || !latestData.tickers) return null;
-
-  const filenameDate = latestFile.filename.replace('.json', '');
-  const currentDate = new Date(filenameDate);
-  const sevenDaysAgo = new Date(currentDate);
-  sevenDaysAgo.setDate(currentDate.getDate() - 6);
-
-  const recentFiles = files
-    .filter(f => {
-      const d = new Date(f.filename.replace('.json', ''));
-      return d >= sevenDaysAgo && d <= currentDate;
-    })
-    .slice(0, 7);
-
-  const tickerTotals = {};
-  const tickerCounts = {};
-
-  for (const file of recentFiles) {
-    try {
-      const data = await getDataFile(file.url);
-      if (!data?.tickers) continue;
-      for (const t of data.tickers) {
-        tickerTotals[t.ticker] = (tickerTotals[t.ticker] || 0) + t.total_volume;
-        tickerCounts[t.ticker] = (tickerCounts[t.ticker] || 0) + 1;
-      }
-    } catch (e) {
-      console.error(`Error reading ${file.filename}:`, e.message);
-    }
-  }
-
-  const tickerAverages = {};
-  for (const ticker of Object.keys(tickerTotals)) {
-    tickerAverages[ticker] = Math.round(tickerTotals[ticker] / tickerCounts[ticker]);
-  }
-
-  const tickers = latestData.tickers
-    .filter(t => t.total_value >= MIN_TOTAL_VALUE && t.avg_price >= MIN_AVG_PRICE)
-    .map(t => ({
+  const tickers = snapshot.tickers
+    .filter((t) => t.total_value >= MIN_TOTAL_VALUE && t.avg_price >= MIN_AVG_PRICE)
+    .map((t) => ({
       ...t,
-      avg_7day_volume: tickerAverages[t.ticker] || 0,
-      volume_ratio: tickerAverages[t.ticker] > 0
-        ? (t.total_volume / tickerAverages[t.ticker]).toFixed(2)
-        : 'N/A'
+      avg_7day_volume: t.avg_7day_volume || 0,
+      volume_ratio: t.volume_ratio != null ? t.volume_ratio.toFixed(2) : 'N/A'
     }));
 
-  return { date: filenameDate, tickers };
+  return { date: snapshot.date, tickers };
 }

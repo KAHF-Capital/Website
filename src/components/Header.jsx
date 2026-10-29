@@ -8,7 +8,8 @@ import { track } from '../../lib/analytics';
 
 const navigationItems = [
   { href: '/kahf-ai', label: 'KAHF AI', primary: true },
-  { href: '/scanner', label: 'Scanner' },
+  { href: '/scanner', label: 'Dark Pool Scanner' },
+  { href: '/news-scanner', label: 'News Scanner' },
   { href: '/calculator', label: 'Calculator' },
   { href: '/wins', label: 'Track Record' },
   { href: '/pricing', label: 'Pricing' }
@@ -31,7 +32,7 @@ export default function Header() {
 
   const renderNavItem = (item) => {
     const isActive = isActiveRoute(item.href);
-    let cls = 'transition-colors font-medium text-sm';
+    let cls = 'transition-colors font-medium text-sm whitespace-nowrap';
     if (item.primary) {
       cls += isActive
         ? ' text-green-600 inline-flex items-center gap-1.5'
@@ -156,16 +157,16 @@ export default function Header() {
             />
             <div>
               <h1 className="text-lg font-bold text-gray-900 leading-none">KAHF</h1>
-              <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-wider mt-0.5">AI Volatility Analyst</p>
+              <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-wider mt-0.5">Options analysis</p>
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-7">
-            <nav className="flex items-center space-x-6">{navigationItems.map(renderNavItem)}</nav>
+          <div className="hidden lg:flex items-center space-x-5">
+            <nav className="flex items-center space-x-4">{navigationItems.map(renderNavItem)}</nav>
             {renderAuthButtons()}
           </div>
 
-          <div className="md:hidden flex items-center space-x-2">
+          <div className="lg:hidden flex items-center space-x-2">
             {!loading && user ? (
               <button onClick={() => setShowUserMenu(!showUserMenu)} className="p-1">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -201,7 +202,7 @@ export default function Header() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="md:hidden absolute right-4 top-16 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+            className="lg:hidden absolute right-4 top-16 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
           >
             <div className="px-4 py-3 border-b border-gray-100">
               <p className="text-sm font-medium text-gray-900">{user.displayName || 'User'}</p>
@@ -238,7 +239,7 @@ export default function Header() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden border-t border-gray-200"
+            className="lg:hidden overflow-hidden border-t border-gray-200"
           >
             <nav className="flex flex-col p-3 space-y-1 bg-white">
               {navigationItems.map((item) => {

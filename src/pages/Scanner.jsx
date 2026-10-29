@@ -6,8 +6,7 @@ import Header from '../components/Header';
 import DraggableFilter from '../components/DraggableFilter';
 import DarkPoolAnalysis from '../components/DarkPoolAnalysis';
 import EmailCaptureModal from '../components/EmailCaptureModal';
-import AskAIButton from '../components/AskAIButton';
-import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock, Bot, Sparkles, RefreshCw } from 'lucide-react';
+import { Info, Bell, Zap, BarChart3, Filter, Plus, TrendingUp, Lock, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
@@ -253,16 +252,6 @@ export default function Scanner() {
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-          <AskAIButton
-            prompt={`Run the KAHF Read on ${ticker.ticker}. Conviction, call/put direction, historical edge, liquidity, catalyst + priced-in — trade, watch, or pass? What's the best structure?`}
-            ticker={ticker.ticker}
-            source="scanner_card"
-            variant="primary"
-            size="md"
-            className="w-full justify-center"
-          >
-            <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Ask KAHF AI</span>
-          </AskAIButton>
           <button
             onClick={() => openDarkPoolAnalysis(ticker.ticker)}
             className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-center text-xs"
@@ -307,7 +296,7 @@ export default function Scanner() {
     <div className="min-h-screen bg-white">
       <Head>
         <title>Dark Pool Scanner — Live Institutional Prints | KAHF Capital</title>
-        <meta name="description" content="Real-time dark pool scanner with volume ratio, best-strategy hit rate, and AI-graded setups. Free to use." />
+        <meta name="description" content="Real-time dark pool scanner with volume ratio and historical options hit rates. Free to use." />
       </Head>
       <Header />
           
@@ -351,30 +340,6 @@ export default function Scanner() {
               </button>
             </div>
             <p className="text-lg text-gray-600">Institutional-grade dark pool analytics</p>
-
-            {/* AI-first CTA */}
-            <div className="mt-6 mb-6 p-5 bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-800 rounded-xl text-white">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-center sm:text-left">
-                  <div className="inline-flex items-center gap-1.5 text-green-300 text-xs font-semibold uppercase tracking-wider mb-1">
-                    <Sparkles className="h-3 w-3" /> KAHF AI · KAHF Read grader
-                  </div>
-                  <h3 className="text-xl font-bold mb-1">Don't read the table — let the AI score it.</h3>
-                  <p className="text-gray-300 text-sm">Ask for a structured trade/watch/skip read on every ticker on the board, in seconds.</p>
-                </div>
-                <AskAIButton
-                  prompt="Score the top tickers on today's scanner. For each: volume ratio, best-strategy hit rate, liquidity, catalyst, verdict (trade/watch/skip)."
-                  source="scanner_top_cta"
-                  variant="primary"
-                  size="lg"
-                  className="flex-shrink-0 bg-green-500 hover:bg-green-400 text-white"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Bot className="h-4 w-4" /> Grade today's board
-                  </span>
-                </AskAIButton>
-              </div>
-            </div>
 
             {/* Draggable Filters Panel */}
             {showFilters && (
@@ -588,7 +553,7 @@ export default function Scanner() {
         onSuccess={() => { setEmailUnlocked(true); track('scanner_email_unlocked'); }}
         source="scanner_locked_card"
         title="Unlock the top 3 signals"
-        subtitle="Free, no credit card. Instant access to the highest-conviction tickers on the board — plus a short intro to KAHF AI."
+        subtitle="Free, no credit card. Instant access to the top of the board by volume ratio — plus a short intro to KAHF AI."
         cta="Unlock now"
       />
     </div>

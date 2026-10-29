@@ -31,7 +31,7 @@ function WinnerCard({ w, rank }) {
         </div>
         {rank === 0 && (
           <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-amber-50 text-amber-600 inline-flex items-center gap-1">
-            <Trophy className="h-3 w-3" /> Top read
+            <Trophy className="h-3 w-3" /> Largest move
           </span>
         )}
       </div>
@@ -41,7 +41,7 @@ function WinnerCard({ w, rank }) {
         <span className="text-3xl font-extrabold text-green-600">{fmtPct(w.estimated_return_pct)}</span>
       </div>
 
-      <p className="text-xs text-gray-500 mt-auto">Flagged {fmtDate(w.date)}</p>
+      <p className="text-xs text-gray-500 mt-auto">Scored {fmtDate(w.date)}</p>
     </div>
   );
 }
@@ -78,14 +78,14 @@ export default function HomeTopReads() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
-            <Trophy className="h-4 w-4" /> Biggest winners · {new Date().getFullYear()}
+            <Trophy className="h-4 w-4" /> Largest marked moves · {new Date().getFullYear()}
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-            The best reads of the year.
+            How scored setups marked this year.
           </h2>
           <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
-            KAHF AI's highest-returning reads this year, marked to the live options market.
-            The complete history — every read, wins and losses — lives on the track record page.
+            The largest marked moves on setups scored from unusual dark pool flow.
+            Wins and losses both live on the track record page.
           </p>
         </div>
 

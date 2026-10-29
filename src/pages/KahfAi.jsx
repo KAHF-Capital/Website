@@ -11,14 +11,14 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
 const ALL_PROMPTS = [
-  'Find me a high-conviction trade right now',
+  'How unusual is dark pool flow on the scanner today?',
   'Run the KAHF Read on the top scanner tickers',
-  'Any setups from the last 3 days that still make sense?',
-  'Upcoming earnings or FDA catalysts on the scanner',
-  'What\'s the best structure on NVDA into next week?',
+  'How has dark pool volume changed over the last 3 days?',
+  'Upcoming earnings or FDA dates on the scanner',
+  'Break down NVDA: flow, hit rates, and IV versus realized',
   'Is the move on the top signal already priced in?',
   'Which tickers are printing $1B+ dark pool volume?',
-  'Show me the riskiest setups to avoid right now'
+  'Where is options liquidity thin on the scanner?'
 ];
 
 // Pick 4 prompts that rotate by day-of-year so the page feels alive on each visit.
@@ -105,16 +105,16 @@ export default function KahfAi() {
     {
       role: 'assistant',
       content: [
-        "I'm KAHF AI, your volatility analyst. I read the setup, prescribe the structure — long call, long put, or straddle — or tell you to stay flat, and walk you through why.",
+        "I'm KAHF AI. I help options traders read a setup — dark pool flow, call/put/straddle hit rates, IV versus realized, liquidity, and catalysts. I don't pick the trade.",
         '',
-        'Every setup runs through the KAHF Read — 5 factors:',
-        '- **Conviction** — how unusual the dark pool flow is (volume vs the 7-day average)',
-        '- **Direction** — call/put flow and where it printed vs the prior range',
-        '- **Edge** — the chosen structure’s historical hit rate at ~30 DTE',
-        '- **Liquidity & cost** — real OI, tight spreads, reasonable premium',
-        '- **Catalyst & priced-in** — a real catalyst, the right sentiment, and whether the move is already priced into IV',
+        'A read lines up 5 factors:',
+        '- **Flow** — how unusual the dark pool volume is versus the 7-day average',
+        '- **Direction** — call/put flow and where it printed versus the prior range',
+        '- **Hit rates** — call, put, and straddle history at ~30 DTE, side by side',
+        '- **Liquidity & cost** — open interest, spreads, premium',
+        '- **Catalyst & priced-in** — whether there is a catalyst, and whether the move is already in the IV',
         '',
-        'Then I sanity-check against priced-in IV, skew, direction conflicts, and IV-crush risk. Ask anything in plain English, or tap a starter below.'
+        'I also note skew and whether earnings sits inside the window. Ask in plain English, or tap a starter below.'
       ].join('\n')
     },
     {
@@ -124,23 +124,17 @@ export default function KahfAi() {
     {
       role: 'assistant',
       content: [
-        '**Sample read (illustrative).**',
+        '**Sample read (illustrative, not a live ticker).**',
         '',
-        '**Verdict:** Trade.',
-        '**Setup:** Bullish bias into a 9-day earnings catalyst. Dark pool VWAP above last close. ATM strike at the next round number, ~45 DTE expiration.',
-        '**Why this structure:** Call-heavy flow + dark pool printing at the highs points up, and the long-call historical edge (~64% at 30 DTE) agrees — backward and forward both point up.',
+        '**Flow:** 4.2× dark pool volume. VWAP printed above the prior close.',
+        '**Direction:** call volume about 2.1× put volume.',
+        '**Hit rates at ~30 DTE:** long call 64%, long put 41%, straddle 52%. Sample size is solid on all three.',
+        '**Liquidity:** open interest 50k+, spreads under 0.5% of premium.',
+        '**Catalyst:** earnings in 9 days. Implied move about 6% versus an 11% average realized move, so IV is not rich versus history. Skew is balanced.',
         '',
-        '| Factor | Read |',
-        '|---|---|',
-        '| Conviction (vol ratio) | 4.2× ✓ |',
-        '| Direction (call/put flow) | 2.1× call-heavy → bullish ✓ |',
-        '| Edge (long call, 30 DTE) | 64% hit rate ✓ |',
-        '| Liquidity & cost | OI 50k+, spreads <0.5% ✓ |',
-        '| Catalyst & priced-in | Earnings in 9d; IV fair vs realized ✓ |',
+        'Call flow and the call hit rate point the same way. That is the read. What to do with it is yours.',
         '',
-        'Implied move ~6% vs the 11% avg realized — not priced in, so the directional long is live. Skew balanced. No IV-crush risk if held into print.',
-        '',
-        '_Now you ask — for a live ticker._'
+        '_Ask about a live ticker._'
       ].join('\n')
     }
   ]), []);
@@ -273,8 +267,8 @@ export default function KahfAi() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>KAHF AI — Your AI volatility analyst | KAHF Capital</title>
-        <meta name="description" content="Ask KAHF AI for the best volatility play on any ticker. Real dark pool flow, real options pricing, 3 years of historical hit-rate math. Free 1-message demo. Powered by Claude." />
+        <title>KAHF AI — Options analysis | KAHF Capital</title>
+        <meta name="description" content="Ask KAHF AI to walk through dark pool flow, options pricing, and 3 years of historical hit rates. Free 1-message demo." />
       </Head>
       <Header />
 
@@ -286,7 +280,7 @@ export default function KahfAi() {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight">KAHF AI</h2>
-              <p className="text-lg text-gray-600">Your personal volatility analyst</p>
+              <p className="text-lg text-gray-600">Analysis for options traders</p>
             </div>
           </div>
         </div>
@@ -362,22 +356,22 @@ export default function KahfAi() {
             <div className="border border-gray-200 bg-white rounded-lg p-5">
               <h3 className="font-semibold text-gray-900 mb-3">The KAHF Read — 5 factors</h3>
               <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li><span className="font-semibold text-gray-900">Conviction:</span> how unusual the dark pool flow is vs the 7-day avg.</li>
-                <li><span className="font-semibold text-gray-900">Direction:</span> call/put flow + where it printed vs the prior range → call, put, or two-sided.</li>
-                <li><span className="font-semibold text-gray-900">Edge:</span> the chosen structure&apos;s historical hit rate at ~30 DTE.</li>
-                <li><span className="font-semibold text-gray-900">Liquidity &amp; cost:</span> real OI, tight spreads, reasonable premium.</li>
-                <li><span className="font-semibold text-gray-900">Catalyst &amp; priced-in:</span> a real catalyst, right sentiment, and whether the move is already priced into IV.</li>
+                <li><span className="font-semibold text-gray-900">Flow:</span> how unusual the dark pool volume is versus the 7-day average.</li>
+                <li><span className="font-semibold text-gray-900">Direction:</span> call/put flow and where it printed versus the prior range.</li>
+                <li><span className="font-semibold text-gray-900">Hit rates:</span> call, put, and straddle history at ~30 DTE, side by side.</li>
+                <li><span className="font-semibold text-gray-900">Liquidity &amp; cost:</span> open interest, spreads, premium.</li>
+                <li><span className="font-semibold text-gray-900">Catalyst &amp; priced-in:</span> whether there is a catalyst, and whether the move is already in the IV.</li>
               </ul>
-              <p className="text-xs text-gray-500 mt-3">Strong on all five = trade. Missing one = watchlist. Gate fails = pass.</p>
+              <p className="text-xs text-gray-500 mt-3">The factors describe the setup. The trading decision stays with you.</p>
             </div>
 
             <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">Sanity vetoes</h3>
-              <p className="text-xs text-gray-500 mb-2">Even a strong setup can fail these. The AI vetoes when:</p>
+              <h3 className="font-semibold text-gray-900 mb-3">What the read calls out</h3>
+              <p className="text-xs text-gray-500 mb-2">Context that sits next to the five factors:</p>
               <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
                 <li><span className="font-semibold text-gray-900">IV looks rich</span> vs the stock's historical realized move.</li>
                 <li><span className="font-semibold text-gray-900">Skew is loud</span> — the market is already paying for one side.</li>
-                <li><span className="font-semibold text-gray-900">Direction conflict</span> — best historical leg disagrees with the catalyst.</li>
+                <li><span className="font-semibold text-gray-900">Direction conflict</span> — the highest historical hit rate disagrees with the catalyst.</li>
                 <li><span className="font-semibold text-gray-900">IV crush risk</span> — long premium past an earnings print.</li>
               </ul>
             </div>
@@ -398,7 +392,7 @@ export default function KahfAi() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-gray-900">Chat</h3>
-                  <p className="text-sm text-gray-600">Ask for direct, trade-focused outputs.</p>
+                  <p className="text-sm text-gray-600">Ask about flow, hit rates, IV, or a ticker.</p>
                 </div>
                 <Link
                   href="/pricing"
@@ -472,7 +466,7 @@ export default function KahfAi() {
                 <input
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder="Ask for a setup, a ticker, or 'what's the best play on NVDA?'..."
+                  placeholder="Ask about a ticker, the scanner, or how IV compares to the historical move..."
                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   disabled={isSending}
                 />

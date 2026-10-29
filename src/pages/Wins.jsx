@@ -160,7 +160,7 @@ export default function Wins() {
     <div className="min-h-screen bg-white">
       <Head>
         <title>Track Record — KAHF AI alerts | KAHF Capital</title>
-        <meta name="description" content="Public track record of every dark pool alert KAHF AI has flagged. Receipts, not promises." />
+        <meta name="description" content="Public track record of setups scored from unusual dark pool flow and marked to the live options market." />
       </Head>
       <Header />
 
@@ -175,7 +175,7 @@ export default function Wins() {
               Receipts &gt; promises.
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Every setup KAHF AI scored as tradeable this year — each one marked to the live options market. Open positions to market, settled ones to expiry.
+              Setups scored from unusual dark pool flow this year, each marked to the live options market. Open marks to market, settled calls and puts to expiry.
             </p>
           </div>
 
@@ -275,7 +275,7 @@ export default function Wins() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <AskAIButton
-                              prompt={`Why did KAHF AI flag ${a.ticker} on ${a.date}?`}
+                              prompt={`Walk through why ${a.ticker} was scored on ${a.date}: flow, hit rates, and IV. Do not pick a trade.`}
                               ticker={a.ticker}
                               source="wins"
                               size="sm"

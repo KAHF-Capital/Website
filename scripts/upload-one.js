@@ -52,6 +52,18 @@ async function main() {
   } else {
     console.warn('WARNING: file not found in blob index. May take a few seconds to propagate.');
   }
+
+  const indexScript = path.join(__dirname, 'build-scanner-history-index.js');
+  const manifest = path.join(__dirname, '..', 'data', 'history-index', 'manifest.json');
+  if (fs.existsSync(manifest)) {
+    console.log(`\nUpdating history index for ${date}...`);
+    const { spawnSync } = require('child_process');
+    const res = spawnSync(process.execPath, [indexScript, '--append', filePath, '--upload'], {
+      stdio: 'inherit',
+      env: process.env
+    });
+    if (res.status !== 0) console.warn('History index update failed. Run npm run build-history-index.');
+  }
 }
 
 main().catch((err) => {

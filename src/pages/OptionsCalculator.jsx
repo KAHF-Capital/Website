@@ -9,8 +9,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronDown,
-  Sparkles,
-  Trophy
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -50,6 +49,8 @@ export default function OptionsCalculator() {
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [availableExpirations, setAvailableExpirations] = useState([]);
   const [showInfo, setShowInfo] = useState(false);
+  const [fullTape, setFullTape] = useState(null);
+  const [tapeLoading, setTapeLoading] = useState(false);
   const debounceRef = useRef(null);
 
   // -- API helpers ---------------------------------------------------------
@@ -83,6 +84,7 @@ export default function OptionsCalculator() {
       setError('');
       setNotices([]);
       setResults(null);
+      setFullTape(null);
       setAvailableExpirations([]);
       try {
         const price = await fetchCurrentPrice(value);
@@ -149,6 +151,7 @@ export default function OptionsCalculator() {
     setError('');
     setNotices([]);
     setResults(null);
+    setFullTape(null);
     track('calculator_run_best_strategy', { ticker: inputs.ticker });
 
     try {
@@ -159,6 +162,7 @@ export default function OptionsCalculator() {
       if (!response.ok) throw new Error(data.error || 'Analysis failed');
       if (!data.available) {
         setError(data.reason || 'No data available for this ticker and expiration.');
+        if (data.darkPool) setResults(data);
         return;
       }
       setResults(data);
@@ -186,6 +190,21 @@ export default function OptionsCalculator() {
     if (!s) return 0;
     const d = new Date(s + 'T12:00:00');
     return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+  };
+
+  const loadFullTape = async () => {
+    if (!inputs.ticker) return;
+    setTapeLoading(true);
+    try {
+      const response = await fetch(`/api/dark-pool-history?ticker=${inputs.ticker.toUpperCase()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'History failed');
+      setFullTape(data.data || []);
+    } catch (err) {
+      setError('Failed to load dark pool history: ' + err.message);
+    } finally {
+      setTapeLoading(false);
+    }
   };
 
   // Derived: winner breakdown for the visual P/L chart.
@@ -242,7 +261,7 @@ export default function OptionsCalculator() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gray-900 text-white text-[11px] font-semibold uppercase tracking-wider mb-3">
-                <Sparkles className="h-3 w-3 text-green-400" /> AI Volatility Analyst
+                <Sparkles className="h-3 w-3 text-green-400" /> Options analysis
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight flex items-center gap-2">
                 Volatility Calculator
@@ -255,12 +274,12 @@ export default function OptionsCalculator() {
                 </button>
               </h1>
               <p className="text-base text-gray-600 mt-1">
-                Enter a ticker. We find the best volatility play and score it against ~3 years of real price history.
+                Enter a ticker. Compare call, put, and straddle against ~3 years of price history.
               </p>
             </div>
             {inputs.ticker && (
               <AskAIButton
-                prompt={`Run a full volatility read on ${inputs.ticker} at ~30 DTE. Which strategy has the best historical edge right now and why?`}
+                prompt={`Walk through ${inputs.ticker} at ~30 DTE: call, put, and straddle hit rates, IV versus realized, dark pool flow, and any catalyst. Do not pick a trade.`}
                 ticker={inputs.ticker}
                 source="calculator"
                 variant="primary"
@@ -279,10 +298,10 @@ export default function OptionsCalculator() {
               <h3 className="font-semibold text-green-800 mb-2">How the calculator works</h3>
               <div className="text-sm text-green-700 space-y-2">
                 <p>
-                  Enter a ticker and pick an expiration. We pull the live ATM strike + real options prices from Polygon for every volatility setup that pencils out, then count how often the underlying actually moved past each breakeven over ~3 years of N-day rolling windows.
+                  Enter a ticker and pick an expiration. We pull the live ATM strike and options prices from Polygon for a call, a put, and a straddle, then count how often the underlying moved past each breakeven over ~3 years of rolling windows.
                 </p>
                 <p>
-                  The setup with the highest historical hit rate wins. We surface it as the recommendation, with the runners-up shown for context — so you see the math behind the pick.
+                  The highest historical hit rate is listed first. The other structures stay on the page so you can compare the math.
                 </p>
                 <p className="text-xs text-green-600 italic">
                   Hit rate is historical, not a forecast. Liquidity, IV regime, and event risk matter — ask KAHF AI for the full read.
@@ -299,7 +318,7 @@ export default function OptionsCalculator() {
               <div className="border border-gray-200 hover:shadow-lg transition-shadow duration-200 bg-white rounded-lg">
                 <div className="p-5 sm:p-6">
                   <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-gray-800">
-                    Find the best play
+                    Compare structures
                   </h2>
 
                   <div className="space-y-4">
@@ -376,11 +395,11 @@ export default function OptionsCalculator() {
                     >
                       {loading ? (
                         <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Scoring all strategies…
+                          <Loader2 className="h-4 w-4 animate-spin" /> Comparing structures…
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" /> Find the best strategy
+                          <Sparkles className="h-4 w-4" /> Compare hit rates
                         </span>
                       )}
                     </Button>
@@ -426,10 +445,72 @@ export default function OptionsCalculator() {
 
                 {!results && !loading && (
                   <div className="border border-dashed border-gray-300 bg-white rounded-lg p-8 sm:p-12 text-center">
-                    <Trophy className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-600 text-sm">
-                      Enter a ticker and expiration — we&apos;ll score every volatility setup and surface the strongest.
+                      Enter a ticker and expiration — call, put, and straddle hit rates, side by side.
                     </p>
+                  </div>
+                )}
+
+                {results?.darkPool?.latest && (
+                  <div className="border border-gray-200 bg-white rounded-lg overflow-hidden mb-4">
+                    <div className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                      Dark pool — same tape as the Scanner
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <Stat
+                          label="Volume ratio"
+                          value={results.darkPool.latest.volume_ratio != null ? `${Number(results.darkPool.latest.volume_ratio).toFixed(2)}x` : '—'}
+                          highlight
+                        />
+                        <Stat
+                          label="Avg price"
+                          value={results.darkPool.latest.avg_price != null ? `$${Number(results.darkPool.latest.avg_price).toFixed(2)}` : '—'}
+                        />
+                        <Stat
+                          label="Volume"
+                          value={Number(results.darkPool.latest.total_volume || 0).toLocaleString()}
+                        />
+                        <Stat label="Session" value={results.darkPool.latest.date || '—'} />
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        {results.darkPool.sessionCount} sessions on record
+                        {results.darkPool.firstDate ? ` (${results.darkPool.firstDate} to ${results.darkPool.lastDate})` : ''}.
+                        Each volume ratio uses only that day and the prior 6 calendar days, the same window as the Scanner.
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="text-xs uppercase tracking-wider text-gray-500">
+                            <tr>
+                              <th className="text-left py-2">Date</th>
+                              <th className="text-right py-2">Vol ratio</th>
+                              <th className="text-right py-2">Avg price</th>
+                              <th className="text-right py-2">Volume</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...(fullTape || results.darkPool.recent || [])].reverse().map((day) => (
+                              <tr key={day.date} className="border-t border-gray-100">
+                                <td className="py-2 text-gray-700">{day.date}</td>
+                                <td className="py-2 text-right font-mono">{day.volume_ratio != null ? `${Number(day.volume_ratio).toFixed(2)}x` : '—'}</td>
+                                <td className="py-2 text-right">{day.avg_price != null ? `$${Number(day.avg_price).toFixed(2)}` : '—'}</td>
+                                <td className="py-2 text-right">{Number(day.total_volume || 0).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {!fullTape && results.darkPool.sessionCount > (results.darkPool.recent || []).length && (
+                        <button
+                          type="button"
+                          onClick={loadFullTape}
+                          disabled={tapeLoading}
+                          className="mt-3 text-sm font-semibold text-green-700 hover:text-green-800"
+                        >
+                          {tapeLoading ? 'Loading full history…' : `Show all ${results.darkPool.sessionCount} sessions`}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -437,9 +518,8 @@ export default function OptionsCalculator() {
                   <>
                     {/* Winner card */}
                     <div className="border-2 border-green-500 bg-gradient-to-br from-green-50 to-white rounded-lg overflow-hidden">
-                      <div className="bg-green-600 text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                        <Trophy className="h-3.5 w-3.5" />
-                        Best historical edge
+                      <div className="bg-green-600 text-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider">
+                        Highest historical hit rate
                       </div>
                       <div className="p-5 sm:p-6">
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
@@ -499,7 +579,7 @@ export default function OptionsCalculator() {
                         {inputs.ticker && (
                           <div className="mt-4">
                             <AskAIButton
-                              prompt={`The strongest historical setup on ${inputs.ticker} is a ${STRATEGY_LABELS[winner.strategy]} at $${winner.quote.strikePrice} (${winnerDte}d, premium $${winner.quote.premium.toFixed(2)}) — ${winner.analysis.successRate.toFixed(1)}% hit rate over ${winner.analysis.historyYears} years. Give me a tradeable read: IV vs realized, dark pool flow, catalyst, and a trade / watch / skip verdict.`}
+                              prompt={`On ${inputs.ticker}, the highest historical hit rate is a ${STRATEGY_LABELS[winner.strategy]} at $${winner.quote.strikePrice} (${winnerDte}d, premium $${winner.quote.premium.toFixed(2)}) — ${winner.analysis.successRate.toFixed(1)}% over ${winner.analysis.historyYears} years. Dark pool on ${results.darkPool?.latest?.date || 'the latest session'}: volume ratio ${results.darkPool?.latest?.volume_ratio ?? 'unavailable'}x, average price $${results.darkPool?.latest?.avg_price != null ? Number(results.darkPool.latest.avg_price).toFixed(2) : 'unavailable'}, volume ${results.darkPool?.latest?.total_volume ?? 'unavailable'}. Those figures are the Scanner tape. Walk through IV versus realized, dark pool flow, and any catalyst. Do not pick a trade.`}
                               ticker={inputs.ticker}
                               source="calculator_winner"
                               variant="primary"
@@ -507,7 +587,7 @@ export default function OptionsCalculator() {
                               className="w-full justify-center"
                             >
                               <span className="inline-flex items-center gap-1.5">
-                                <Sparkles className="h-4 w-4" /> Grade this trade with KAHF AI
+                                <Sparkles className="h-4 w-4" /> Walk through this with KAHF AI
                               </span>
                             </AskAIButton>
                           </div>
@@ -519,7 +599,7 @@ export default function OptionsCalculator() {
                     {results.candidates.length > 1 && (
                       <div className="border border-gray-200 bg-white rounded-lg p-5 sm:p-6">
                         <h4 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">
-                          Also considered
+                          Other structures
                         </h4>
                         <div className="space-y-2">
                           {results.candidates
@@ -548,7 +628,7 @@ export default function OptionsCalculator() {
                             ))}
                         </div>
                         <p className="text-xs text-gray-500 mt-3 italic">
-                          The winner is chosen on highest historical hit rate. Ties break on sample size, then lower premium.
+                          Sorted by historical hit rate. Ties break on sample size, then lower premium.
                         </p>
                       </div>
                     )}
@@ -595,14 +675,14 @@ export default function OptionsCalculator() {
         {/* Cross-link to AI + scanner */}
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/scanner" className="group p-5 bg-white border border-gray-200 rounded-xl hover:border-green-300 hover:shadow-md transition-all">
-            <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Find a candidate</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Unusual volume</div>
             <div className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">Dark Pool Scanner →</div>
             <p className="text-sm text-gray-600 mt-1">Tickers with unusual institutional volume today.</p>
           </Link>
           <Link href="/kahf-ai" className="group p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-xl hover:from-black hover:to-gray-900 transition-all">
-            <div className="text-xs font-semibold uppercase tracking-wider text-green-300 mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Skip the calculator</div>
-            <div className="font-bold">Let KAHF AI grade it for you →</div>
-            <p className="text-sm text-gray-300 mt-1">The full read — IV vs realized, dark pool flow, catalyst direction, and a clear verdict.</p>
+            <div className="text-xs font-semibold uppercase tracking-wider text-green-300 mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" /> Ask in plain English</div>
+            <div className="font-bold">Walk through a ticker with KAHF AI →</div>
+            <p className="text-sm text-gray-300 mt-1">IV versus realized, dark pool flow, and catalyst context, in one place.</p>
           </Link>
         </div>
       </div>

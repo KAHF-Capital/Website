@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "process-csv": "node process-csv.js",
-    "refresh-track-record": "node scripts/refresh-track-record.js"
+    "refresh-track-record": "node scripts/refresh-track-record.js",
+    "build-history-index": "node --max-old-space-size=8192 scripts/build-scanner-history-index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

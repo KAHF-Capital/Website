@@ -7,29 +7,29 @@ import { track } from '../../lib/analytics';
 // (no specific dollar amounts that could be stale).
 const FALLBACK_SCRIPT = [
   {
-    user: 'Find me a high-conviction trade right now.',
+    user: 'How unusual is dark pool flow on the scanner today?',
     answer: [
-      "I'd run the KAHF Read on every scanner candidate first — 5 factors:",
+      "I'd line up the KAHF Read on the scanner names — 5 factors, no pick:",
       '',
-      '- **Conviction** — dark pool volume ratio ≥ 3.0x',
-      '- **Direction** — call/put flow + where it printed vs the range',
-      '- **Edge** — the chosen structure’s historical hit rate at 30 DTE',
+      '- **Flow** — dark pool volume ratio vs the 7-day average',
+      '- **Direction** — call/put flow and where it printed vs the range',
+      '- **Hit rate** — call, put, and straddle history at ~30 DTE, side by side',
       '- **Liquidity & cost** — tight spreads, real OI',
       '- **Catalyst & priced-in** — a real catalyst, and whether the move is already in the IV',
       '',
-      "Open the full chat to see today's actual picks with live prices."
+      'Open the full chat for today\'s scanner with live prices.'
     ].join('\n')
   },
   {
-    user: 'How do you decide what to recommend?',
+    user: 'How do you compare call, put, and straddle?',
     answer: [
-      "I compare three numbers per ticker at ~30 DTE — directional bullish, directional bearish, and non-directional — and pick the one with the highest historical hit rate.",
+      'I put three numbers next to each other at ~30 DTE — call hit rate, put hit rate, and straddle hit rate — and leave the comparison on the page.',
       '',
-      '- Then I reconcile that against the forward catalyst direction.',
-      '- If the historical edge and the catalyst agree, that\'s the play.',
-      '- If they disagree, I either flag the conflict or default to the non-directional setup.',
+      '- Then I set those next to the forward catalyst and the call/put flow.',
+      '- If the highest historical hit rate and the catalyst point different ways, I say they conflict.',
+      '- I also note IV versus the historical realized move, skew, and whether earnings sits inside the window.',
       '',
-      'Finally I sanity-check IV regime, skew, and post-event crush risk before greenlighting.'
+      'The numbers are the analysis. What to do with them is yours.'
     ].join('\n')
   }
 ];
@@ -49,30 +49,30 @@ function buildLiveScript(preview) {
     : 'live price unavailable';
 
   const findTrade = {
-    user: 'Find me a high-conviction trade right now.',
+    user: 'How unusual is dark pool flow on the scanner today?',
     answer: [
-      `**$${top.ticker} — Worth a look.** ${top.volumeRatio.toFixed(2)}x dark pool volume is the loudest signal on the board today.`,
+      `**$${top.ticker}** has the highest volume ratio on the board today, at ${top.volumeRatio.toFixed(2)}x.`,
       '',
       `- **Flow:** ${top.volumeRatio.toFixed(2)}x volume ratio, ${pluralize(top.tradeCount, 'print')} totaling $${(top.darkPoolValue / 1e6).toFixed(0)}M notional. Dark pool VWAP was $${top.darkPoolAvgPrice.toFixed(2)}.`,
       `- **Price now:** ${topPriceLine}.`,
-      '- **Best strategy:** I\'d run the historical hit-rate analysis at 30 DTE before committing — whichever setup has the strongest edge wins.',
-      '- **Catalyst check:** I\'d run `get_news` and a web search for the next 30-day catalyst.',
+      '- **Hit rates:** in the full chat I pull call, put, and straddle history at ~30 DTE and show them side by side.',
+      '- **Catalyst:** I pull headlines and check whether the move is already in the IV.',
       '',
-      `Setups that clear all five get a "Trade" verdict — open the full chat to see how $${top.ticker} actually scores against the historical edge and priced-in IV.`
+      `Open the full chat to see $${top.ticker} against historical hit rates and priced-in IV. The read is the analysis — not a trade.`
     ].join('\n')
   };
 
   const compare = second
     ? {
-        user: `What's the best play on $${second.ticker}?`,
+        user: `Walk me through the flow on $${second.ticker}.`,
         answer: [
-          `**$${second.ticker} — Watch, not trade${second.currentPrice ? ` (spot ~$${second.currentPrice.toFixed(2)})` : ''}.** Strong flow but I need to lock in the historical edge before recommending a strike.`,
+          `**$${second.ticker}${second.currentPrice ? ` (spot ~$${second.currentPrice.toFixed(2)})` : ''}.**`,
           '',
-          `- Volume ratio ${second.volumeRatio.toFixed(2)}x — institutional positioning is real.`,
+          `- Volume ratio ${second.volumeRatio.toFixed(2)}x versus the trailing average.`,
           `- Dark pool VWAP was $${second.darkPoolAvgPrice.toFixed(2)}.`,
-          '- I\'d run the historical hit-rate analysis at ~30 DTE and reconcile it against the forward catalyst direction.',
+          '- Historical hit rates at ~30 DTE sit next to the catalyst and the call/put flow.',
           '',
-          'In live chat I pull both and reconcile them. If the backward-looking edge disagrees with the forward catalyst, I flag the conflict.'
+          'If the highest historical hit rate and the catalyst point different ways, I say they conflict and leave both numbers up.'
         ].join('\n')
       }
     : null;
@@ -86,7 +86,7 @@ function buildLiveScript(preview) {
       '|---|---|---|---|---|',
       ...sigs.map((s) => `| **$${s.ticker}** | ${s.volumeRatio.toFixed(2)}x | $${s.darkPoolAvgPrice.toFixed(2)} | ${s.currentPrice ? `$${s.currentPrice.toFixed(2)}` : '—'} | $${(s.darkPoolValue / 1e6).toFixed(0)}M |`),
       '',
-      'Ranking is volume-ratio only — open the full chat to layer in the best-strategy hit rate, catalyst direction, and IV regime for each name.'
+      'Ranking is volume-ratio only — open the full chat to add call, put, and straddle hit rates, catalyst context, and IV versus realized for each name.'
     ].join('\n')
   };
 
@@ -226,7 +226,7 @@ export default function HomeAIPreview() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything: 'Score the scanner', 'Why is NVDA spiking?'..."
+            placeholder="Ask about flow, hit rates, or a ticker..."
             className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
           />
           <button

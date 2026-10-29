@@ -3,15 +3,66 @@
  *
  * Runs the full volatility read on a ticker — pulls live ATM quotes for all
  * three strategies (call / put / straddle) and runs the historical hit-rate
- * analysis for each, then picks the strongest as the recommendation.
+ * analysis for each, then sorts by historical hit rate so the calculator can
+ * show them side by side.
  *
- * This is what powers the calculator's "Find best strategy" mode. The user
- * never picks a strategy themselves — they just enter a ticker + expiration,
- * we figure out the best play.
+ * The user enters a ticker and expiration. The highest historical hit rate
+ * is listed first. That sort is not a trade recommendation.
  */
 import { getOptionsQuote, getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
+import { getScannerSnapshot } from '../../lib/scanner-snapshot';
+import { getTickerHistory } from '../../lib/scanner-history';
+import { SCANNER_MIN_VOLUME, SCANNER_MIN_PRICE } from '../../lib/scanner-signals';
 
 const STRATEGIES = ['call', 'put', 'straddle'];
+
+function slimDay(day) {
+  return {
+    date: day.date,
+    total_volume: day.total_volume,
+    avg_price: day.avg_price,
+    total_value: day.total_value,
+    trade_count: day.trade_count,
+    avg_7day_volume: day.avg_7day_volume,
+    volume_ratio: day.volume_ratio
+  };
+}
+
+async function loadDarkPool(ticker) {
+  const [snapshot, history] = await Promise.all([
+    getScannerSnapshot().catch(() => null),
+    getTickerHistory(ticker).catch(() => null)
+  ]);
+  const days = history?.days || [];
+  const live = snapshot?.tickers?.find((row) => row.ticker === ticker) || null;
+  let latest = null;
+  if (live && snapshot) {
+    latest = {
+      date: snapshot.date,
+      total_volume: live.total_volume,
+      avg_price: live.avg_price,
+      total_value: live.total_value,
+      trade_count: live.trade_count,
+      avg_7day_volume: live.avg_7day_volume,
+      volume_ratio: live.volume_ratio,
+      passesScannerFilters: live.total_value >= SCANNER_MIN_VOLUME && live.avg_price >= SCANNER_MIN_PRICE,
+      source: 'scanner'
+    };
+  } else if (days.length) {
+    latest = { ...slimDay(days[days.length - 1]), passesScannerFilters: false, source: 'history' };
+  }
+  return {
+    available: Boolean(latest),
+    scannerDate: snapshot?.date || null,
+    sameAsScanner: latest?.source === 'scanner',
+    lookahead: false,
+    sessionCount: days.length,
+    firstDate: history?.firstDate || null,
+    lastDate: history?.lastDate || null,
+    latest,
+    recent: days.slice(-12).map(slimDay)
+  };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -26,11 +77,12 @@ export default async function handler(req, res) {
 
   try {
     // Parallel: live quotes for all 3 strategies + 3 historical analyses.
-    const [callQuote, putQuote, straddleQuote, analyses] = await Promise.all([
+    const [callQuote, putQuote, straddleQuote, analyses, darkPool] = await Promise.all([
       getOptionsQuote(ticker, expiration, 'call').catch(() => null),
       getOptionsQuote(ticker, expiration, 'put').catch(() => null),
       getOptionsQuote(ticker, expiration, 'straddle').catch(() => null),
-      getAllStrategyAnalyses(ticker).catch(() => ({ call: null, put: null, straddle: null }))
+      getAllStrategyAnalyses(ticker).catch(() => ({ call: null, put: null, straddle: null })),
+      loadDarkPool(ticker)
     ]);
 
     const quoteByStrategy = { call: callQuote, put: putQuote, straddle: straddleQuote };
@@ -76,6 +128,7 @@ export default async function handler(req, res) {
         ticker,
         expiration,
         available: false,
+        darkPool,
         reason: 'No live quotes + analysis available for this ticker / expiration.'
       });
     }
@@ -99,10 +152,11 @@ export default async function handler(req, res) {
       available: true,
       bestStrategy: winner.strategy,
       candidates,
-      winner
+      winner,
+      darkPool
     });
   } catch (err) {
     console.error('[options-best-strategy] failed:', err);
-    return res.status(500).json({ error: err.message || 'Failed to compute best strategy' });
+    return res.status(500).json({ error: err.message || 'Failed to compare structures' });
   }
 }

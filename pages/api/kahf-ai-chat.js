@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import { getDataFile } from '../../lib/blob-data';
-import { getScannerSnapshot } from '../../lib/scanner-snapshot';
+import { buildAlignedScannerContext, extractSignalDate } from '../../lib/kahf-scanner-context';
 import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin, ensureProAccess } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
@@ -11,9 +10,7 @@ import {
   SCANNER_MIN_VOLUME,
   SCANNER_MIN_PRICE,
   SIGNAL_MIN_VOLUME_RATIO,
-  detectCatalysts,
-  summarizeTicker,
-  passesScannerFilters
+  detectCatalysts
 } from '../../lib/scanner-signals';
 
 const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
@@ -22,22 +19,21 @@ const FREE_ACCOUNT_LIMIT = parseInt(process.env.KAHF_AI_FREE_ACCOUNT_LIMIT || '5
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
-const SCANNER_LOOKBACK_DAYS = parseInt(process.env.KAHF_AI_LOOKBACK_DAYS || '5', 10);
+const SCANNER_LOOKBACK_DAYS = parseInt(process.env.KAHF_AI_LOOKBACK_DAYS || '8', 10);
 const TOP_PER_DAY = 5;
+const MAX_HISTORY_TICKERS_IN_PROMPT = 4;
 
 const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
 const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
 
-// Primary model + automatic fallbacks. If the configured model is unavailable on
-// the deployment (retired, typo'd env var, or no org access) Anthropic returns a
-// 404 not_found_error. Rather than surface that to the user we fall through this
-// list of known-good models so the chat keeps working.
+// Primary model + automatic fallbacks. If the configured model is unavailable
+// (retired, typo'd env var, or no access) the provider returns a 404. Rather
+// than surface that to the user we fall through this list so the chat keeps working.
 const PRIMARY_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 const MODEL_FALLBACKS = ['claude-sonnet-4-6', 'claude-opus-4-8', 'claude-opus-4-7'];
 
-// Opus 4.7+, Opus 5, Sonnet 4.6+, Fable and Mythos all deprecated the
-// `temperature` sampling parameter; sending it returns a 400. Only set it for
-// older models that still accept it.
+// Some current models reject the `temperature` sampling parameter with a 400.
+// Only set it for models that still accept it.
 function modelSupportsTemperature(model) {
   return !/opus-4-[789]|opus-[5-9]|sonnet-4-[6-9]|sonnet-[5-9]|fable|mythos/i.test(model || '');
 }
@@ -89,7 +85,10 @@ function extractTickers(messages) {
     'PRO', 'PUT', 'QUICK', 'RESEARCH', 'SELL', 'SETUP', 'SHOW', 'THE', 'TOP',
     'TRADE', 'USD', 'US', 'VOL', 'WHY', 'YOU', 'KAHF', 'SCAN', 'STOP', 'PLAY',
     'INTO', 'WITH', 'FROM', 'OVER', 'UNDER', 'EACH', 'SOME', 'MANY', 'FEW', 'ANY',
-    'ALL', 'BOTH', 'PAST', 'YEAR', 'WEEK', 'DAY', 'HOUR', 'MIN', 'SEC', 'TIME'
+    'ALL', 'BOTH', 'PAST', 'YEAR', 'WEEK', 'DAY', 'DAYS', 'HOUR', 'MIN', 'SEC', 'TIME',
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    'SIGNAL', 'SIGNALS', 'HISTORY', 'RATIO', 'AVERAGE', 'PRINT', 'PRINTS', 'FLOW',
+    'SESSION', 'SESSIONS', 'FLAG', 'FLAGGED', 'BEFORE', 'AFTER', 'SINCE', 'UNTIL'
   ]);
   const text = messages
     .filter((message) => message.role === 'user')
@@ -276,230 +275,19 @@ async function reserveUsage(identity) {
   };
 }
 
-async function getPriorRange(ticker, scannerDate) {
-  if (!process.env.POLYGON_API_KEY) return null;
-
-  try {
-    const endDate = scannerDate || new Date().toISOString().split('T')[0];
-    const startDate = new Date(new Date(`${endDate}T12:00:00`).getTime() - 14 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0];
-    const history = await getHistoricalStockData(ticker, startDate, endDate);
-    const prior = [...history].reverse().find((day) => day.date < endDate);
-    if (!prior) return null;
-    return {
-      date: prior.date,
-      high: prior.high,
-      low: prior.low,
-      close: prior.close
-    };
-  } catch (error) {
-    console.warn(`Prior range unavailable for ${ticker}:`, error.message);
-    return null;
-  }
-}
-
-async function buildScannerContext(requestedTickers) {
-  // Latest-day data + per-ticker 7-day average + volume ratio comes from the
-  // SAME helper the Scanner UI uses. This guarantees today's numbers match.
-  const snapshot = await getScannerSnapshot();
-  if (!snapshot) {
-    return {
-      available: false,
-      reason: 'No scanner files found',
-      tradableTickers: [],
-      filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE }
-    };
-  }
-
-  const files = snapshot.files;
-  const latestFile = snapshot.latestFile;
-  // snapshot.tickers already has avg_7day_volume + volume_ratio baked in.
-  const latestData = {
-    tickers: snapshot.tickers,
-    total_tickers: snapshot.total_tickers,
-    total_volume: snapshot.total_volume,
-    processed_at: snapshot.last_updated
-  };
-
-  if (!latestData.tickers?.length) {
-    return {
-      available: false,
-      reason: 'Latest scanner file has no tickers',
-      tradableTickers: [],
-      filters: { minVolumeUsd: SCANNER_MIN_VOLUME, minPrice: SCANNER_MIN_PRICE }
-    };
-  }
-
-  const recentFiles = files.slice(0, 20);
-  // averageFiles is still used for the rolling 20-day "recurring signals"
-  // pass below; the latest-day numbers no longer depend on it.
-  const averageFiles = files.slice(0, 7);
-  const volumeTotals = {};
-  const volumeCounts = {};
-  const requestedSet = new Set(requestedTickers);
-  const historyByTicker = {};
-  const dailySnapshots = [];
-  const tickerAppearances = {};
-
-  for (const [index, file] of recentFiles.entries()) {
-    try {
-      const data = file.url === latestFile.url ? latestData : await getDataFile(file.url);
-      if (!data?.tickers) continue;
-
-      const date = file.filename.replace('.json', '');
-
-      for (const ticker of data.tickers) {
-        if (averageFiles.some((averageFile) => averageFile.filename === file.filename)) {
-          volumeTotals[ticker.ticker] = (volumeTotals[ticker.ticker] || 0) + ticker.total_volume;
-          volumeCounts[ticker.ticker] = (volumeCounts[ticker.ticker] || 0) + 1;
-        }
-
-        if (requestedSet.has(ticker.ticker)) {
-          if (!historyByTicker[ticker.ticker]) historyByTicker[ticker.ticker] = [];
-          historyByTicker[ticker.ticker].push({
-            date,
-            darkPoolVolume: ticker.total_volume,
-            darkPoolAvgPrice: typeof ticker.avg_price === 'number' ? Number(ticker.avg_price.toFixed(2)) : null,
-            darkPoolValue: ticker.total_value,
-            darkPoolTradeCount: ticker.trade_count
-          });
-        }
-      }
-
-      if (index < SCANNER_LOOKBACK_DAYS) {
-        const sevenDayAvg = (ticker) => {
-          const c = volumeCounts[ticker] || 0;
-          return c > 0 ? Math.round((volumeTotals[ticker] || 0) / c) : 0;
-        };
-
-        const summaries = data.tickers
-          .map((ticker) => summarizeTicker(ticker, sevenDayAvg(ticker.ticker)))
-          .filter(passesScannerFilters)
-          .filter((ticker) => ticker.volumeRatio !== null && ticker.volumeRatio >= SIGNAL_MIN_VOLUME_RATIO);
-
-        const top = summaries
-          .sort((a, b) => b.volumeRatio - a.volumeRatio)
-          .slice(0, TOP_PER_DAY);
-
-        dailySnapshots.push({
-          date,
-          isLatest: index === 0,
-          topByVolumeRatio: top.map((ticker) => ({
-            ticker: ticker.ticker,
-            volumeRatio: ticker.volumeRatio,
-            darkPoolAvgPrice: ticker.darkPoolAvgPrice,
-            darkPoolValue: ticker.darkPoolValue
-          }))
-        });
-
-        for (const ticker of top) {
-          if (!tickerAppearances[ticker.ticker]) {
-            tickerAppearances[ticker.ticker] = { ticker: ticker.ticker, daysInTop: 0, dates: [], maxRatio: 0 };
-          }
-          tickerAppearances[ticker.ticker].daysInTop += 1;
-          tickerAppearances[ticker.ticker].dates.push(date);
-          tickerAppearances[ticker.ticker].maxRatio = Math.max(
-            tickerAppearances[ticker.ticker].maxRatio,
-            ticker.volumeRatio
-          );
-        }
-      }
-    } catch (error) {
-      console.warn(`Skipping scanner context file ${file.filename}:`, error.message);
-    }
-  }
-
-  const averageFor = (ticker) => {
-    const count = volumeCounts[ticker] || 0;
-    return count > 0 ? Math.round((volumeTotals[ticker] || 0) / count) : 0;
-  };
-
-  const allSummaries = latestData.tickers.map((ticker) => summarizeTicker(ticker, averageFor(ticker.ticker)));
-  const tradableSummaries = allSummaries.filter(passesScannerFilters);
-
-  const qualifyingSummaries = tradableSummaries
-    .filter((ticker) => ticker.volumeRatio !== null && ticker.volumeRatio >= SIGNAL_MIN_VOLUME_RATIO);
-
-  const topSignals = qualifyingSummaries
-    .sort((a, b) => b.volumeRatio - a.volumeRatio)
-    .slice(0, MAX_CONTEXT_TICKERS);
-
-  const tradableTickerSet = new Set(tradableSummaries.map((ticker) => ticker.ticker));
-
-  const recurringSignals = Object.values(tickerAppearances)
-    .filter((entry) => entry.daysInTop >= 2 && entry.maxRatio >= SIGNAL_MIN_VOLUME_RATIO)
-    .sort((a, b) => b.daysInTop - a.daysInTop || b.maxRatio - a.maxRatio)
-    .slice(0, MAX_CONTEXT_TICKERS);
-
-  const selectedSymbols = [
-    ...new Set([
-      ...requestedTickers.filter((ticker) => tradableTickerSet.has(ticker)),
-      ...topSignals.map((ticker) => ticker.ticker),
-      ...recurringSignals.map((entry) => entry.ticker)
-    ])
-  ].slice(0, MAX_CONTEXT_TICKERS);
-
-  const selectedSignals = await Promise.all(selectedSymbols.map(async (symbol) => {
-    const latest = tradableSummaries.find((ticker) => ticker.ticker === symbol);
-    if (!latest) return null;
-    const [priorRange, currentStockPrice] = await Promise.all([
-      getPriorRange(symbol, latestFile.filename.replace('.json', '')),
-      getCurrentStockPrice(symbol).catch(() => null)
-    ]);
-    const recurrence = tickerAppearances[symbol] || null;
-    return {
-      ...latest,
-      currentStockPrice: typeof currentStockPrice === 'number' ? Number(currentStockPrice.toFixed(2)) : null,
-      priorRange,
-      darkPoolAvgPriceVsPriorRange: priorRange
-        ? latest.darkPoolAvgPrice > priorRange.high
-          ? 'above prior range'
-          : latest.darkPoolAvgPrice < priorRange.low
-            ? 'below prior range'
-            : 'inside prior range'
-        : 'unavailable',
-      daysInTopOverLookback: recurrence ? recurrence.daysInTop : 1,
-      lookbackDates: recurrence ? recurrence.dates : []
-    };
-  }));
-
-  const requestedOffScanner = requestedTickers.filter((ticker) => !tradableTickerSet.has(ticker));
-
-  return {
-    available: true,
-    sourceEndpoint: '/api/darkpool-trades (same data as the Scanner page)',
-    date: latestFile.filename.replace('.json', ''),
+async function buildScannerContext(requestedTickers, namedDate) {
+  return buildAlignedScannerContext(requestedTickers, namedDate, {
+    maxContextTickers: MAX_CONTEXT_TICKERS,
     lookbackDays: SCANNER_LOOKBACK_DAYS,
-    filters: {
-      minVolumeUsd: SCANNER_MIN_VOLUME,
-      minPrice: SCANNER_MIN_PRICE,
-      description: `Tickers must show >= $${(SCANNER_MIN_VOLUME / 1e6).toFixed(0)}M dark pool value and >= $${SCANNER_MIN_PRICE} avg price.`
-    },
-    fieldGlossary: {
-      darkPoolVolume: 'Total share volume of dark pool prints today.',
-      darkPoolValue: 'Total dollar value of dark pool prints today (= darkPoolVolume * darkPoolAvgPrice).',
-      darkPoolAvgPrice: 'Volume-weighted average dark pool trade price for today, rounded to 2 decimals. THIS IS WHAT THE SCANNER PAGE SHOWS IN ITS "PRICE" COLUMN.',
-      currentStockPrice: 'Last regular-session close from Polygon, rounded to 2 decimals. Use this when the user asks for the stock price.',
-      volumeRatio: 'Today darkPoolVolume divided by the 7-day avg dark pool volume, rounded to 2 decimals. Display as e.g. "5.27x".',
-      avg7DayDarkPoolVolume: '7-day trailing average dark pool volume.',
-      priorRange: 'Prior trading day high/low/close from Polygon.',
-      darkPoolAvgPriceVsPriorRange: 'Where the darkPoolAvgPrice falls vs. priorRange (above / inside / below).'
-    },
-    totalTickers: latestData.total_tickers || latestData.tickers.length,
-    tradableCount: tradableTickerSet.size,
-    totalDarkPoolVolume: latestData.total_volume,
-    tradableTickers: [...tradableTickerSet].sort(),
-    topSignals,
-    selectedSignals: selectedSignals.filter(Boolean),
-    dailySnapshots,
-    recurringSignals,
-    requestedHistory: historyByTicker,
-    requestedOffScanner
-  };
+    topPerDay: TOP_PER_DAY,
+    maxHistoryTickers: MAX_HISTORY_TICKERS_IN_PROMPT,
+    minVolume: SCANNER_MIN_VOLUME,
+    minPrice: SCANNER_MIN_PRICE,
+    minRatio: SIGNAL_MIN_VOLUME_RATIO
+  });
 }
 
-async function buildOptionsContext(tickers) {
+async function buildOptionsContext(tickers, asOfDate) {
   if (!process.env.POLYGON_API_KEY || tickers.length === 0) {
     return {
       available: false,
@@ -512,7 +300,7 @@ async function buildOptionsContext(tickers) {
   const analyses = await Promise.all(
     tickers.slice(0, MAX_STRADDLE_TICKERS).map(async (ticker) => {
       try {
-        const strategies = await getAllStrategyAnalyses(ticker);
+        const strategies = await getAllStrategyAnalyses(ticker, { asOfDate: asOfDate || null });
         if (!strategies.call && !strategies.put && !strategies.straddle) {
           return { ticker, unavailable: true };
         }
@@ -540,9 +328,9 @@ async function buildOptionsContext(tickers) {
     fieldGlossary: {
       strategies: 'For each ticker: { call, put, straddle } each with successRate, breakevens, liquidity, IV, premium, dte.',
       bestStrategy: 'Which of the three (call/put/straddle) has the highest historical hit rate for this ticker at ~30 DTE.',
-      bestSuccessRate: 'The hit rate (%) of the best strategy. Cite this verbatim when ranking tickers.',
+      bestSuccessRate: 'The highest of the three historical hit rates. Cite it as a statistic. Do not rank tickers into a trade list from it.',
       flow: 'Options flow direction: cpVolumeRatio (call vol / put vol) and cpOIRatio (call OI / put OI) today, plus lean (bullish/bearish/neutral). >1.3 vol = call-heavy/bullish lean; <0.77 = put-heavy/bearish lean. This is Factor 2 (Directional signal).',
-      valuation: 'Priced-in gauge (Factor 5): impliedMovePct = ATM straddle premium / strike (the move the options are pricing); realizedAvgMovePct = average historical move over the same window; pricedInRatio = implied / realized; verdict ("cheap" <0.9, "fair" 0.9-1.2, "rich/priced-in" >1.2). Rich = prefer a spread or pass on naked longs.'
+      valuation: 'Priced-in gauge (Factor 5): impliedMovePct = ATM straddle premium / strike (the move the options are pricing); realizedAvgMovePct = average historical move over the same window; pricedInRatio = implied / realized; verdict ("cheap" <0.9, "fair" 0.9-1.2, "rich/priced-in" >1.2). Rich means the implied move is rich versus the historical realized move. Report that. Do not tell the user to buy a spread or skip a long option.'
     }
   };
 }
@@ -600,17 +388,18 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
-async function getPolygonNews(ticker) {
+async function getPolygonNews(ticker, asOfDate) {
   if (!process.env.POLYGON_API_KEY) {
     return { ticker, unavailable: true, reason: 'Polygon API key not configured', source: 'polygon' };
   }
   try {
+    const cutoff = asOfDate ? `&published_utc.lte=${encodeURIComponent(`${asOfDate}T23:59:59Z`)}` : '';
     const data = await fetchJson(
-      `${POLYGON_API_BASE}/v2/reference/news?ticker=${encodeURIComponent(ticker)}&limit=8&order=desc&sort=published_utc&apiKey=${process.env.POLYGON_API_KEY}`
+      `${POLYGON_API_BASE}/v2/reference/news?ticker=${encodeURIComponent(ticker)}&limit=8&order=desc&sort=published_utc&apiKey=${process.env.POLYGON_API_KEY}${cutoff}`
     );
     const items = (data.results || []).slice(0, 8);
     if (items.length === 0) {
-      return { ticker, source: 'polygon', news: [], catalysts: [] };
+      return { ticker, source: 'polygon', news: [], catalysts: [], asOfDate: asOfDate || null, lookahead: false };
     }
     const news = items.map((item) => {
       const titleAndDesc = `${item.title || ''} ${item.description || ''}`;
@@ -622,16 +411,16 @@ async function getPolygonNews(ticker) {
         catalysts: detectCatalysts(titleAndDesc),
         keywords: Array.isArray(item.keywords) ? item.keywords.slice(0, 6) : []
       };
-    });
+    }).filter((item) => !asOfDate || !item.publishedAt || item.publishedAt.slice(0, 10) <= asOfDate);
     const catalysts = [...new Set(news.flatMap((item) => item.catalysts))];
-    return { ticker, source: 'polygon', news, catalysts };
+    return { ticker, source: 'polygon', news, catalysts, asOfDate: asOfDate || null, lookahead: false };
   } catch (error) {
     console.warn(`Polygon news unavailable for ${ticker}:`, error.message);
     return { ticker, source: 'polygon', unavailable: true, reason: error.message };
   }
 }
 
-async function getYahooFallback(ticker) {
+async function getYahooFallback(ticker, asOfDate) {
   try {
     const data = await fetchJson(
       `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(ticker)}&quotesCount=1&newsCount=5`,
@@ -650,29 +439,44 @@ async function getYahooFallback(ticker) {
         : null,
       url: item.link,
       catalysts: detectCatalysts(item.title || '')
-    }));
-    return { ticker, source: 'yahoo', news, catalysts: [...new Set(news.flatMap((n) => n.catalysts))] };
+    })).filter((item) => !asOfDate || !item.publishedAt || item.publishedAt.slice(0, 10) <= asOfDate);
+    return { ticker, source: 'yahoo', news, catalysts: [...new Set(news.flatMap((n) => n.catalysts))], asOfDate: asOfDate || null, lookahead: false };
   } catch (error) {
     return { ticker, source: 'yahoo', unavailable: true, reason: error.message };
   }
 }
 
-async function getNewsResearch(ticker) {
-  const polygon = await getPolygonNews(ticker);
+async function getNewsResearch(ticker, asOfDate) {
+  const polygon = await getPolygonNews(ticker, asOfDate);
   if (!polygon.unavailable && Array.isArray(polygon.news) && polygon.news.length > 0) {
     return polygon;
   }
-  const yahoo = await getYahooFallback(ticker);
+  const yahoo = await getYahooFallback(ticker, asOfDate);
   if (!yahoo.unavailable && Array.isArray(yahoo.news) && yahoo.news.length > 0) {
     return yahoo;
   }
   return polygon.unavailable ? polygon : yahoo;
 }
 
-async function getPriceResearch(ticker) {
+async function getPriceResearch(ticker, asOfDate) {
   try {
     if (!process.env.POLYGON_API_KEY) {
       return { ticker, unavailable: true, reason: 'Polygon API key not configured' };
+    }
+    if (asOfDate) {
+      const start = new Date(new Date(`${asOfDate}T12:00:00Z`).getTime() - 10 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const history = await getHistoricalStockData(ticker, start, asOfDate);
+      const bar = [...history].reverse().find((day) => day.date <= asOfDate);
+      if (!bar) return { ticker, asOfDate, unavailable: true, lookahead: false, reason: 'No close on or before that date' };
+      return {
+        ticker,
+        price: bar.close,
+        asOf: bar.date,
+        lookahead: false,
+        source: 'daily close on or before the signal date'
+      };
     }
 
     const price = await getCurrentStockPrice(ticker);
@@ -691,11 +495,11 @@ async function getPriceResearch(ticker) {
   }
 }
 
-async function buildResearchContext(tickers) {
+async function buildResearchContext(tickers, asOfDate) {
   const researchTickers = tickers.slice(0, MAX_RESEARCH_TICKERS);
   const [prices, news] = await Promise.all([
-    Promise.all(researchTickers.map(getPriceResearch)),
-    Promise.all(researchTickers.map(getNewsResearch))
+    Promise.all(researchTickers.map((ticker) => getPriceResearch(ticker, asOfDate))),
+    Promise.all(researchTickers.map((ticker) => getNewsResearch(ticker, asOfDate)))
   ]);
 
   const catalystMap = {};
@@ -717,28 +521,43 @@ async function buildResearchContext(tickers) {
 
 async function buildMarketContext(messages) {
   const requestedTickers = extractTickers(messages);
-  const scanner = await buildScannerContext(requestedTickers);
+  const namedDate = extractSignalDate(messages);
+  const scanner = await buildScannerContext(requestedTickers, namedDate);
+  const asOfDate = scanner.asOfDate || null;
   const tradableSet = new Set(scanner.tradableTickers || []);
 
   if (MCP_ENABLED) {
     return {
       requestedTickers,
+      asOfDate,
       scanner,
-      options: { available: false, reason: 'Use the kahf-data MCP tool `get_options_analysis` (strategy: call|put|straddle) on demand.' },
-      straddle: { available: false, reason: 'Use the kahf-data MCP tool `get_options_analysis` (strategy: straddle) on demand. (Legacy alias kept for back-compat.)' },
+      options: {
+        available: false,
+        asOfDate,
+        reason: asOfDate
+          ? `Use get_options_analysis with asOfDate ${asOfDate}. The hit rate must not include prices after that date. Live premiums are not the premiums from that date.`
+          : 'Use the kahf-data MCP tool `get_options_analysis` (strategy: call|put|straddle) on demand.'
+      },
+      straddle: { available: false, reason: 'Use get_options_analysis.' },
       research: {
         enabled: true,
         webSearchEnabled: WEB_SEARCH_ENABLED,
-        scope: 'Live data via the kahf-data MCP server tools (get_news, get_stock_price, get_scanner_history, etc.) plus web_search.'
+        asOfDate,
+        scope: asOfDate
+          ? `Past signal. Every tool call must include asOfDate ${asOfDate}. get_scanner_history returns the full tape through that date and withholds later days.`
+          : 'Live data via the kahf-data MCP server tools (get_news, get_stock_price, get_scanner_history, etc.) plus web_search. get_scanner_history returns the full blob history with a point-in-time volume ratio on every date.'
       }
     };
   }
 
-  const tickersForOptions = (
-    requestedTickers.filter((ticker) => tradableSet.has(ticker)).length > 0
-      ? requestedTickers.filter((ticker) => tradableSet.has(ticker))
-      : scanner.topSignals?.slice(0, MAX_STRADDLE_TICKERS).map((ticker) => ticker.ticker) || []
-  );
+  const namedForOptions = requestedTickers.slice(0, MAX_STRADDLE_TICKERS);
+  const tickersForOptions = asOfDate
+    ? namedForOptions
+    : (
+      requestedTickers.filter((ticker) => tradableSet.has(ticker)).length > 0
+        ? requestedTickers.filter((ticker) => tradableSet.has(ticker))
+        : scanner.topSignals?.slice(0, MAX_STRADDLE_TICKERS).map((ticker) => ticker.ticker) || []
+    );
 
   const tickersForResearch = (
     requestedTickers.length > 0
@@ -746,15 +565,14 @@ async function buildMarketContext(messages) {
       : scanner.topSignals?.slice(0, MAX_RESEARCH_TICKERS).map((ticker) => ticker.ticker) || []
   );
 
-  const options = await buildOptionsContext(tickersForOptions);
-  const research = await buildResearchContext(tickersForResearch);
+  const options = await buildOptionsContext(tickersForOptions, asOfDate);
+  const research = await buildResearchContext(tickersForResearch, asOfDate);
 
   return {
     requestedTickers,
+    asOfDate,
     scanner,
     options,
-    // Legacy alias: older parts of the prompt still reference `straddle`.
-    // Point them at the same payload so we don't double-fetch.
     straddle: options,
     research
   };
@@ -767,114 +585,120 @@ function buildSystemPrompt() {
         'You have direct access to KAHF\'s data via these MCP tools. Call them as needed.',
         '',
         '**Dark pool / scanner (KAHF proprietary):**',
-        '- `get_scanner_signals(minVolumeRatio?, limit?)` — today\'s top scanner candidates.',
-        '- `get_recurring_signals(minDaysInTop?, lookbackDays?, minVolumeRatio?)` — tickers in the top list multiple days.',
-        '- `get_scanner_history(ticker, days?)` — per-day scanner history for one ticker (max 30 days).',
+        '- `get_scanner_signals(minVolumeRatio?, limit?, asOfDate?)` — scanner board. Omit asOfDate for today (same numbers as the Scanner page). Pass asOfDate for a past session; the volume ratio then uses only data through that date.',
+        '- `get_recurring_signals(minDaysInTop?, lookbackDays?, minVolumeRatio?, asOfDate?)` — names in the daily top list on more than one session. Pass asOfDate so the lookback cannot see later days.',
+        '- `get_scanner_history(ticker, asOfDate?, days?)` — FULL dark-pool history for one ticker: share volume, average price, dollar value, trade count, and point-in-time volume ratio on every archived date. Omit days to get the entire tape. Pass asOfDate to withhold every session after that date.',
+        '- `get_scanner_day(date, ticker?, universe?)` — one session for every ticker, or one ticker. universe "signals" is the scanner filter; universe "all" pages the whole tape.',
         '',
         '**Live market data (Polygon — Stocks Developer plan, 15-min delayed):**',
-        '- `get_stock_price(ticker)` — FRESH snapshot: last trade, today OHLCV, prev day, intraday change %. CALL THIS WHENEVER YOU QUOTE A STOCK PRICE. Returns `asOf` timestamp.',
+        '- `get_stock_price(ticker, asOfDate?)` — live snapshot when asOfDate is omitted. For a past signal, pass asOfDate and you get the daily close on or before that date, not today\'s price.',
         '- `get_market_status()` — open/closed/pre-market/after-hours. Call once at the start of a session so you can frame "current" prices correctly.',
-        '- `get_intraday_chart(ticker, timespan?, multiplier?, days?)` — minute/hour/day bars. Use to confirm "is the stock breaking out today?" or check realized vol vs IV.',
+        '- `get_intraday_chart(ticker, timespan?, multiplier?, days?, asOfDate?)` — bars. Pass asOfDate for a past signal so bars after that date are dropped.',
         '- `get_prior_range(ticker, asOfDate?)` — prior trading day high/low/close.',
-        '- `get_ticker_details(ticker)` — name, type (CS / ETF), sector, market cap, exchange. Use for context and to confirm a name is a tradeable common stock (NOT an ETF) before recommending.',
+        '- `get_ticker_details(ticker)` — name, type (CS / ETF), sector, market cap, exchange. Use for context and to see whether a name is a common stock or an ETF.',
         '- `get_top_movers(direction?, limit?)` — today\'s biggest gainers / losers. Use for market color.',
         '- `get_dividends(ticker, limit?)` — upcoming/historical dividends. Large ex-divs distort calls/puts on the date — flag them.',
         '',
         '**Options data (Polygon — Options Basic plan):**',
-        '- `get_options_analysis(ticker, strategy?)` — 30-day ATM hit rate + premium + breakevens + liquidity + IV. `strategy` is `call|put|straddle|all` (default: straddle). Use `"all"` to get the full directional read in one call.',
-        '- `get_options_chain(ticker, expirationDate?, strikeWindowPct?, contractType?)` — chain snapshot near ATM with IV + Greeks (delta/gamma/theta/vega) + OI per strike. USE THIS to pick the right strike before recommending.',
+        '- `get_options_analysis(ticker, strategy?, asOfDate?)` — 30-day ATM hit rate + premium + breakevens + liquidity + IV. Pass asOfDate for a past signal so the hit rate stops on that date. The premium on that response is today\'s live premium, not the premium that was listed on the past date — say so.',
+        '- `get_options_chain(ticker, expirationDate?, strikeWindowPct?, contractType?)` — chain snapshot near ATM with IV + Greeks (delta/gamma/theta/vega) + OI per strike. Use this to quote a real contract. Do not use it to tell the user which strike to trade.',
         '- `get_option_quote(optionTicker, ticker?)` — live snapshot for a SINGLE contract (bid/ask, OI, IV, Greeks). Use after the chain narrows it down.',
         '- `get_straddle_analysis(ticker)` — LEGACY alias. Prefer `get_options_analysis`.',
         '',
         '**Catalysts & news:**',
-        '- `get_news(ticker, limit?)` — recent headlines tagged with catalyst categories (earnings, fda, m&a, analyst, product, capital, macro, legal).',
+        '- `get_news(ticker, limit?, asOfDate?)` — headlines. Pass asOfDate to drop anything published after that date.',
         '- `web_search(query)` — for live questions, earnings calendar lookups, and anything not in Polygon.',
         '',
         'Tool-use rules:',
         '- For ANY price you mention (stock or option), CALL THE APPROPRIATE TOOL. Never invent a number, never paraphrase old context.',
-        '- For ANY recommendation, call `get_options_chain` first so you can quote a real strike + premium that exists.',
+        '- Before you quote a specific option contract, call `get_options_chain` so the strike and premium are real.',
         '- Call `get_market_status` early so you can say "market is open, last trade 11:34am ET" vs "market closed at $X Friday".',
         '- Chain calls when a question needs multiple data points. Keep responses concise — the user does not need to see the tool calls themselves.',
-        '- If a tool returns `unavailable: true`, do a `web_search` fallback before saying "data unavailable".'
+        '- If the user asks about a past signal or names a date, every tool call for that question must include asOfDate. Do not describe today\'s price, today\'s volume ratio, or a later headline as if it was known on that date.',
+        '- If a tool returns `unavailable: true`, do a `web_search` fallback before saying "data unavailable". For a past signal, ignore search results published after asOfDate.'
       ].join('\n')
     : '';
 
   return [
     '# Role',
-    'You are KAHF AI, the volatility analyst for KAHF Capital. You find the BEST volatility play on any ticker — or tell the user to stay flat when nothing pencils. Speak like a calm, experienced trader briefing a teammate. Plain English, no jargon dumps, no hype.',
-    'You are NOT a fundamentals analyst. You score VOLATILITY: is the implied move priced fairly vs historical realized moves, is there a real catalyst, is there directional bias, is liquidity tradeable.',
+    'You are KAHF AI on the KAHF Capital platform. You help options traders analyze a setup: dark pool flow, call/put/straddle historical hit rates, IV versus the historical realized move, liquidity, and catalysts. Speak in plain English. No jargon dumps, no hype.',
+    'You do not recommend trades. You do not rank a "best play," tell the user what to buy, sell, hold, or avoid, size a position, or issue a Trade, Watch, or Skip verdict. KAHF helps with the analysis. The trading decision stays with the user.',
+    'You are not a fundamentals analyst and you are not an adviser. Describe the volatility picture: is the implied move rich or cheap versus historical realized moves, is there a catalyst, what does call versus put flow say, and is the listed market liquid enough to read.',
     '',
-    '# Internal strategy selection (do not lead your output with this — pick silently and just recommend the play)',
-    'You have ALL options structures available to choose from. Pick whichever fits the setup:',
-    '  - LONG CALL: bullish catalyst, dark pool VWAP above prior range, call hit rate >= 55%, IV not blown out.',
-    '  - LONG PUT:  bearish catalyst, dark pool VWAP below prior range, put hit rate >= 55%, IV not blown out.',
-    '  - LONG STRADDLE: catalyst direction is genuinely uncertain (binary event with two-sided risk), or directional and non-directional hit rates are within ~3 points of each other.',
-    '  - DEBIT SPREAD / CALENDAR: when IV is rich and you still want directional exposure with bounded vega.',
-    '  - SKIP: IV looks rich vs historical realized AND no defined-risk alternative, OR no catalyst, OR liquidity is thin.',
-    'Always reconcile the BACKWARD-LOOKING hit rate (historical %) with the FORWARD-LOOKING catalyst direction. If they disagree (e.g. the strongest historical edge is bullish but the catalyst is clearly bearish), call out the conflict and lean toward the catalyst direction or a non-directional setup.',
-    '**Brand voice note:** Do NOT lead your answer with "I analyzed calls, puts, and straddles for you" or "I evaluated three strategies". The brand is "find the best volatility play" — make the choice silently and recommend it. The user does not need to see the menu of options you considered, only the winner.',
+    '# How to compare structures (show the comparison — do not pick a winner for the user)',
+    'When structure is relevant, put the numbers side by side:',
+    '  - LONG CALL: call hit rate, call flow, dark pool VWAP versus the prior range, IV.',
+    '  - LONG PUT: put hit rate, put flow, dark pool VWAP versus the prior range, IV.',
+    '  - LONG STRADDLE: straddle hit rate, and whether the catalyst is two-sided.',
+    '  - DEBIT SPREAD / CALENDAR: only as context when IV is rich versus realized. Describe the math. Do not tell the user to switch into one.',
+    'Reconcile the backward-looking hit rate with the forward-looking catalyst. If they disagree, say they disagree and show both numbers. Do not resolve it by telling the user which trade to take.',
+    'You may state which structure has the highest historical hit rate as a fact from the data. Do not turn that fact into an instruction to trade it.',
+    'Show the comparison. Do not hide the other structures to manufacture a single answer.',
 
     mcpBlock,
 
     '# Data you have in the prompt',
-    'Scanner snapshot is pre-attached and IS THE SAME DATA THE SCANNER PAGE SHOWS. Use only this for any volume / price numbers about today\'s signals.',
-    'Key scanner fields (see `scanner.fieldGlossary` for full definitions): `volumeRatio` (today vs 7-day avg, e.g. 5.27 -> "5.27x"), `darkPoolAvgPrice` (volume-weighted avg of today\'s dark pool prints, matches Scanner UI "Price" column), `currentStockPrice` (last close from Polygon), `priorRange` (yesterday high/low/close).',
-    'Lists available: `scanner.tradableTickers`, `scanner.topSignals`, `scanner.recurringSignals`, `scanner.dailySnapshots`, `scanner.selectedSignals`. Anything absent from these lists is already weak.',
+    'Today\'s scanner board, when `scanner.asOfDate` is null, is the same snapshot the Scanner page shows. Use it for today\'s volume and price.',
+    '`scanner.tickerHistories` is the full dark-pool archive for tickers the user named: share volume, average price, dollar value, and volume ratio on every date. Each volume ratio is point-in-time. It does not use later sessions.',
+    '`scanner.dailySnapshots` and `scanner.recurringSignals` are recent sessions ending at `scanner.asOfDate` or today. They use the same ratio math as the Scanner.',
+    'If `scanner.asOfDate` is set, later sessions were withheld on purpose. Do not fill them in from memory or from today\'s board.',
+    'Key fields (see `scanner.fieldGlossary`): `volumeRatio`, `darkPoolAvgPrice` (Scanner Price column), `darkPoolVolume`, `darkPoolValue`.',
     MCP_ENABLED
-      ? 'For options analysis (call/put/straddle), news, prior range, and any ticker history beyond what is pre-attached, use the MCP tools above.'
-      : 'Options analyses (call/put/straddle) and news are pre-fetched for the top scanner tickers. See `options.analyses[i].strategies.{call,put,straddle}` for the three hit rates per ticker, and `bestStrategy` for the AI-preferred one.',
+      ? 'If a ticker or date is not already in tickerHistories, call `get_scanner_history` or `get_scanner_day`. Those tools see the whole blob, not a 30-day sample. For options, news, and stock price on a past date, pass asOfDate.'
+      : 'Options analyses and news are pre-fetched. When asOfDate is set, hit rates and headlines stop on that date. Live option premiums are still today\'s premiums — do not describe them as the premium on the past date.',
     'Web search: you have a `web_search` tool. USE IT for live questions, current events, or to confirm upcoming earnings/FDA dates. Search with concise queries like "AAPL earnings date next".',
 
     '# Numbers rule (CRITICAL — your trust depends on this)',
     'Every numeric value you mention (price, volume ratio, premium, IV, success rate, etc.) MUST come from a tool call or the attached scanner context. NEVER invent, round, paraphrase, or recycle a number from earlier in the chat. Stale numbers are the #1 way to lose user trust.',
-    'For STOCK PRICES: always call `get_stock_price(ticker)` before quoting one. It returns the freshest snapshot Polygon offers (15-min delayed) along with an `asOf` timestamp. Cite the price + `asOf` (e.g. "NVDA $134.20, last trade 11:34am ET"). NEVER quote a stock price from chat history or the pre-attached `currentStockPrice` field if the conversation has already moved on or you\'re unsure of freshness — re-call the tool.',
-    'For OPTIONS PRICES: never invent a strike + premium. Call `get_options_chain(ticker, expirationDate?)` to see what actually trades, then quote the specific contract\'s bid/ask/mid + IV + Greeks verbatim.',
-    'For DARK POOL levels: use `darkPoolAvgPrice` from the scanner snapshot — it is the volume-weighted avg of today\'s dark pool prints, NOT the live stock price. Don\'t confuse the two.',
+    'For STOCK PRICES: call `get_stock_price(ticker)` before quoting a live price. For a past signal, call `get_stock_price(ticker, asOfDate)` and quote that close. Do not substitute today\'s price.',
+    'For OPTIONS PRICES: never invent a strike + premium. Call `get_options_chain` for a live chain. On a past signal, say the live chain is today\'s market, not the chain from that date.',
+    'For DARK POOL levels: use `darkPoolAvgPrice` and `volumeRatio` from tickerHistories or the scanner snapshot for that exact date. A ratio from a later date is look-ahead. Do not use it.',
     'For VOLUME RATIO: format as "Nx" matching the data\'s precision (e.g. "5.27x", not "5x" or "5.3x").',
     'If a number you need is not in any tool response and a `web_search` also turns up nothing, say "unavailable" in one short clause. Never make one up.',
 
-    '# Universe rule',
-    'Only recommend, suggest, or rank tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker not on the list, say so in one line, share neutral context (price/news) only, and do not issue a trade idea.',
+    '# Universe',
+    'When discussing today\'s scanner, stick to tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker outside that list, you may still analyze it with tools (price, chain, news). Do not volunteer a shortlist of trades.',
 
-    '# The KAHF Read (5-factor scoring model — use this to score, pick a structure, and filter)',
-    'You are a full volatility + directional analyst. Read the SETUP first, then prescribe the STRUCTURE (long call, long put, or ATM straddle). Score these five factors:',
-    '1. **Institutional conviction (flow intensity):** Dark pool `volumeRatio` (today vs 7-day avg). Gate >= 2.0 to consider; 3x+ is unusual; 5x+ exceptional. This is the trigger that smart money is positioning.',
-    '2. **Directional signal:** Use `options.analyses[i].flow` (cpVolumeRatio = call vol / put vol, cpOIRatio, and `lean`) PLUS where the dark pool printed vs the prior range (`darkPoolAvgPrice` near the highs = accumulation/bullish; near the lows = distribution/bearish). Call-heavy flow + printing at highs = bullish -> long call. Put-heavy + printing at lows = bearish -> long put. Mixed / binary catalyst / conflicting = two-sided -> straddle.',
-    '3. **Historical edge:** The CHOSEN structure\'s hit rate at ~30 DTE (see `strategies.{call,put,straddle}.successRate`, or call `get_options_analysis`). Require sample size >= 25 ("medium" data quality or better). Directional longs need a hit rate that clears their premium; straddles need >= 55%. Never trade a structure whose own historical edge is weak just because flow looks exciting.',
-    '4. **Liquidity & cost:** `liquidity.rating` "medium" or "high" (or call+put OI >= 1,000 and day volume >= 500), bid-ask spread under ~10% of premium. Illiquid -> say "illiquid — pass" and stop.',
-    '5. **Catalyst & sentiment + priced-in:** Is there a real catalyst (earnings, FDA, M&A, analyst, product, macro) in ~30 days or just hit? Use `get_news`, then `web_search` if direction is unclear. Read the sentiment (bullish/bearish/uncertain) and check `options.analyses[i].valuation` (the priced-in gauge): if `verdict` is "rich" (impliedMovePct >> realizedAvgMovePct), the move is ALREADY PRICED IN — prefer a debit spread or pass on the naked long; if "cheap", a directional long is attractive. Sentiment direction must agree with the chosen structure or pivot to a straddle and flag the conflict.',
-    'Score each candidate: strong on all five = **Trade**. Solid but missing one (e.g. no fresh catalyst, or fairly-but-not-richly priced) = **Watch**. Any hard gate fails (illiquid, weak edge, fully priced-in with no cheap structure, no conviction) = **Pass**.',
+    '# If they ask you to pick a trade',
+    'If the user asks you to find a trade, name a high-conviction play, say what to buy, or asks for the best play: do not pick one. One short line — KAHF helps with the analysis, and the decision is theirs — then answer with the data (scanner flow, hit rates, IV versus realized, liquidity, catalyst). Do not add a disclaimer paragraph.',
 
-    '# Sanity vetoes (override the score — veto even a strong setup)',
-    '- **Priced-in:** `valuation.verdict` = "rich" -> the premium is the trade. Recommend a spread, a smaller size, or wait for IV to come in. Do not recommend a naked long into rich IV.',
-    '- **Skew:** If put IV >> call IV, downside is already paid for — a long put is expensive; say so. If call IV >> put IV, upside is bid — a long call is expensive.',
-    '- **Direction conflict:** If the historical best structure disagrees with the catalyst/flow direction, prefer the forward (catalyst+flow) read or a straddle, and call out the conflict. Never blindly trust the backward-looking hit rate.',
-    '- **IV crush / post-event:** Earnings + DTE more than ~7 days past the event -> expect IV crush. Recommend closing before the event or sizing down.',
+    '# The KAHF Read (5 factors — organize the analysis, do not turn it into a trade)',
+    'Report what the data says. Do not convert a score into a trade instruction.',
+    '1. **Flow:** Dark pool `volumeRatio` (today vs 7-day avg). 3x+ is unusual versus that average; 5x+ is more unusual. Say what the ratio is.',
+    '2. **Direction:** Use `options.analyses[i].flow` (cpVolumeRatio = call vol / put vol, cpOIRatio, and `lean`) PLUS where the dark pool printed vs the prior range (`darkPoolAvgPrice` near the highs vs near the lows). Describe the lean. Do not map it to "buy the call" or "buy the put."',
+    '3. **Historical hit rates:** Quote call, put, and straddle success rates at ~30 DTE (see `strategies.{call,put,straddle}.successRate`, or call `get_options_analysis`), with sample size. Note when a sample is under 25. Do not tell the user to trade the highest one.',
+    '4. **Liquidity & cost:** `liquidity.rating`, open interest, day volume, bid-ask spread versus premium. If it is thin, say the market is thin and the numbers are harder to read.',
+    '5. **Catalyst and priced-in:** Is there a catalyst (earnings, FDA, M&A, analyst, product, macro) in ~30 days or just hit? Use `get_news`, then `web_search` if the picture is unclear. State the sentiment and `options.analyses[i].valuation`: if `verdict` is "rich", the implied move is rich versus the historical realized move; if "cheap", implied is below that history. If sentiment and the highest hit rate point different ways, say they conflict.',
+    'Describe where a factor is strong or weak. Do not label the setup Trade, Watch, or Pass, and do not tell the user to enter, pass, size down, or wait.',
+
+    '# Context to mention (describe it — do not instruct a trade)',
+    '- **Priced-in:** `valuation.verdict` = "rich" means the implied move is rich versus the historical realized move. Say that. Do not tell them to buy a spread, cut size, or skip a long option.',
+    '- **Skew:** If put IV is well above call IV, say downside is already bid. If call IV is well above put IV, say upside is already bid.',
+    '- **Direction conflict:** If the highest historical hit rate disagrees with the catalyst or the flow, show both and say they conflict.',
+    '- **IV after an event:** If earnings sits inside the window and expiration runs well past the print, say IV often compresses after the event.',
 
     '# Multi-day perspective',
-    'Always check `scanner.dailySnapshots` and `scanner.recurringSignals`. A ticker that printed 3x+ volume two or three days in a row is a stronger signal than a one-day spike. If a setup from 1-3 days ago still has no catalyst yet has held above the prior range, flag it as still-valid.',
+    'Use `scanner.tickerHistories` for a named ticker and `scanner.dailySnapshots` for the recent board. A 3x print that repeats is a more persistent print than a one-day spike. Say that. Each day\'s ratio already excludes later days. Do not call an old print a live trade.',
 
-    '# What to show the user (CRITICAL)',
-    'NEVER show, list, or name tickers that you would Skip. Only surface Trade or Watch verdicts.',
-    'If asked for "top setups" or "find me a trade", evaluate every qualifying candidate silently and respond ONLY with the Trade/Watch winners (max 3). Do not enumerate the rejects or explain who you skipped.',
-    'If nothing qualifies as Trade or Watch, say exactly: "No qualifying setups today. Best to wait." then offer ONE concrete next step (e.g., "Want me to look back 3-5 days?" or "I can lower the bar to 2x volume - say the word.").',
-    'Never use the word "Skip" in the output. Internal scoring only.',
+    '# What to show the user',
+    'Answer the question they asked. If they ask about the scanner, show a comparison (volume ratio, flow, hit rates) for the names in the data. Do not hide names to manufacture a winner, and do not return a shortlist of trades.',
+    'If they ask for a trade and nothing in the data is unusual, say the board is quiet and offer to look at a specific ticker or the last few days. Do not say "best to wait" as a trading instruction.',
+    'Do not use Trade, Watch, or Skip as verdicts.',
 
-    '# Output format for trades',
-    'For each Trade or Watch you surface, use this exact markdown structure:',
-    '**Verdict:** Trade or Watch',
-    '**Setup:** one-line summary (ticker, current stock price from `currentStockPrice`, chosen leg + strike + expiration). Example: "AAPL @ $182.43 — long $185 call, Apr 18 (45 DTE)".',
-    '**Directional bias:** one line stating the direction (bullish / bearish / two-sided) and why (catalyst direction + dark pool VWAP vs prior range + best-leg historical hit rate). If the backward hit rate and the forward catalyst direction conflict, say so here.',
-    '**Dark pool factors:** 1-3 bullets. Quote `volumeRatio` (e.g. "5.27x") and `darkPoolAvgPrice` (e.g. "$182.43") vs prior range verbatim from the data.',
-    '**Volatility factors:** 1-3 bullets. Cite hit rate for the chosen leg (NOT just straddle), DTE, premium, liquidity rating, IV — all from the data. If IV looks rich vs historical realized, flag it.',
-    '**Catalyst:** 1-2 bullets. Cite catalyst type + headline + publish date or web_search source.',
-    '**Why now:** one line tying it together (flow + vol + catalyst + direction in one sentence).',
-    '**Risk note:** one line. Always close each recommendation with: "Research, not financial advice."',
+    '# Output format',
+    'For a ticker, use this markdown:',
+    '**Ticker:** symbol, stock price with as-of time, and what they asked.',
+    '**Flow:** 1-3 bullets. Quote `volumeRatio` (e.g. "5.27x") and `darkPoolAvgPrice` versus the prior range from the data.',
+    '**Direction:** one line on call/put flow and where the dark pool printed. If that conflicts with the highest historical hit rate, say so.',
+    '**Historical hit rates:** call, put, and straddle at ~30 DTE, each with sample size, from the data. Do not crown one as the trade.',
+    '**Liquidity:** open interest, spread, rating.',
+    '**Catalyst and priced-in:** catalyst type, headline, date or source, and implied versus realized.',
+    '**What stands out:** one or two sentences of observation. No action and no "you should."',
 
     '# General behavior',
     'Be brief. Bullets over paragraphs. Numbers over adjectives.',
     'Never invent data. If a field is missing or `unavailable: true`, run a web_search first, then say "unavailable" only if the search also turns up nothing.',
-    'If the user is new or asks "what is this", give a 3-bullet primer on the dark pool signal and offer one example, no jargon.'
+    'If the user is new or asks what this is, give a short primer: KAHF Capital is an analysis platform for options traders — a dark pool scanner, historical hit rates, and this chat to walk through the numbers. Offer one example question, such as how unusual flow is on a ticker they name.'
   ].join('\n');
 }
 
@@ -884,7 +708,7 @@ function buildUserPrompt(messages, marketContext) {
     .join('\n');
 
   return [
-    'Market context JSON (authoritative; ignore anything outside this for trade recommendations):',
+    'Market context JSON (authoritative for numbers; do not invent figures outside this or a tool call):',
     JSON.stringify(marketContext),
     '',
     'Conversation so far:',
@@ -892,11 +716,12 @@ function buildUserPrompt(messages, marketContext) {
     '',
     'Task:',
     '- Answer the latest user message using the market context. Use the web_search tool for live questions or to fill in missing catalysts/news.',
-    '- Apply the KAHF Read (5 factors: conviction/flow intensity, directional signal from call-put flow, historical edge of the chosen structure, liquidity & cost, catalyst+sentiment+priced-in) PLUS the sanity vetoes (priced-in, skew, direction conflict, IV crush).',
-    '- For each Trade/Watch, prescribe the structure (long call / long put / straddle) that best fits the directional signal AND the historical edge AND the priced-in gauge. If signals disagree, prefer the catalyst+flow direction or a straddle, and call out the conflict.',
-    '- Show ONLY Trade or Watch verdicts. Never list, name, or describe tickers you would skip. If none qualify, say "No qualifying setups today. Best to wait." and offer one concrete next step.',
-    '- Trade recommendations must be limited to tickers in scanner.tradableTickers.',
-    '- Use scanner.dailySnapshots and scanner.recurringSignals to consider setups from the past few days that still make sense.'
+    '- Apply the KAHF Read (flow, call/put direction, call/put/straddle hit rates, liquidity, catalyst and priced-in) and mention skew or post-event IV when the data shows it.',
+    '- Show the structures side by side. If flow and the highest historical hit rate disagree, say they conflict. Do not prescribe a long call, long put, or straddle.',
+    '- Do not issue a Trade, Watch, or Skip verdict, and do not tell the user what to buy, sell, or avoid. If they asked you to pick a trade, say the decision is theirs and give the analysis.',
+    '- If scanner.asOfDate is set, answer that past signal only with data on or before that date. Say which session you used.',
+    '- Scanner discussion of today stays on tickers in scanner.tradableTickers unless the user named another ticker to analyze.',
+    '- Use scanner.tickerHistories for the full tape and scanner.dailySnapshots for recent sessions. Do not invent a volume ratio for a date that is not in the history.'
   ].join('\n');
 }
 
@@ -908,7 +733,7 @@ export default async function handler(req, res) {
 
   try {
     if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'Anthropic API key not configured' });
+      return res.status(500).json({ error: 'KAHF AI is not configured' });
     }
 
     const messages = normalizeMessages(req.body?.messages);
@@ -968,7 +793,7 @@ export default async function handler(req, res) {
       } catch (firstError) {
         const msg = firstError.message || '';
         if (MCP_ENABLED && /mcp|mcp_server|mcp-client/i.test(msg)) {
-          console.warn('Anthropic MCP connector rejected, retrying without MCP:', msg);
+          console.warn('MCP connector rejected, retrying without MCP:', msg);
           delete requestPayload.mcp_servers;
           delete requestOptions.headers;
           mcpDisabled = true;
@@ -977,7 +802,7 @@ export default async function handler(req, res) {
             return { completion, mcpDisabled, webSearchDisabled };
           } catch (secondError) {
             if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(secondError.message || '')) {
-              console.warn('Anthropic web_search also rejected, retrying without tools:', secondError.message);
+              console.warn('Web search also rejected, retrying without tools:', secondError.message);
               delete requestPayload.tools;
               webSearchDisabled = true;
               const completion = await anthropic.messages.create(requestPayload, requestOptions);
@@ -986,7 +811,7 @@ export default async function handler(req, res) {
             throw secondError;
           }
         } else if (WEB_SEARCH_ENABLED && /tool|web_search/i.test(msg)) {
-          console.warn('Anthropic web_search rejected, retrying without tool:', msg);
+          console.warn('Web search rejected, retrying without tool:', msg);
           delete requestPayload.tools;
           webSearchDisabled = true;
           const completion = await anthropic.messages.create(requestPayload, requestOptions);
@@ -1008,12 +833,12 @@ export default async function handler(req, res) {
         mcpDisabledForRetry = result.mcpDisabled;
         webSearchDisabledForRetry = result.webSearchDisabled;
         if (i > 0) {
-          console.warn(`KAHF AI fell back to model "${candidate}" after "${modelCandidates[0]}" was unavailable.`);
+          console.warn('KAHF AI fell back to a backup model.');
         }
         break;
       } catch (modelError) {
         if (isModelUnavailableError(modelError) && i < modelCandidates.length - 1) {
-          console.warn(`Model "${candidate}" unavailable, trying next fallback:`, modelError.message);
+          console.warn('Configured model unavailable, trying next fallback.');
           continue;
         }
         throw modelError;
@@ -1055,14 +880,15 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('KAHF AI chat error:', error);
-    // Anthropic SDK errors expose `status`; our own thrown errors use `statusCode`.
+    // Provider errors expose `status`; our own thrown errors use `statusCode`.
     const status = error.statusCode || error.status || 500;
-    // A raw upstream 404 (e.g. model not found) reads like a broken page to users —
-    // surface it as a 502 with a clear message instead.
+    // A raw upstream 404 reads like a broken page to users — surface it as a 502.
     const clientStatus = status === 404 ? 502 : status;
-    const clientMessage = status === 404
-      ? 'KAHF AI is temporarily unavailable (model error). Please try again shortly.'
-      : (error.message || 'Failed to generate KAHF AI response');
+    const rawMessage = error.message || '';
+    const leaksProvider = /claude|anthropic|sonnet|opus/i.test(rawMessage);
+    const clientMessage = status === 404 || leaksProvider
+      ? 'KAHF AI is temporarily unavailable. Please try again shortly.'
+      : (rawMessage || 'Failed to generate KAHF AI response');
     return res.status(clientStatus).json({
       error: clientMessage,
       usage: error.usage || null

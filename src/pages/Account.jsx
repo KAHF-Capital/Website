@@ -240,7 +240,7 @@ export default function Account() {
             </div>
             <div className="flex gap-2 mt-3 text-sm">
               <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('I\'ve been running KAHF AI for my volatility setups — it scores every dark pool print against four institutional checks. Wild edge.')}&url=${encodeURIComponent(refLink)}`}
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('KAHF is how I read dark pool flow and historical options hit rates.')}&url=${encodeURIComponent(refLink)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => track('referral_share_clicked', { channel: 'twitter' })}
@@ -250,7 +250,7 @@ export default function Account() {
               </a>
               <span className="text-amber-300">·</span>
               <a
-                href={`mailto:?subject=${encodeURIComponent('Try KAHF AI')}&body=${encodeURIComponent(`KAHF AI is a volatility analyst trained on a decade of dark pool prints. ${refLink}`)}`}
+                href={`mailto:?subject=${encodeURIComponent('KAHF Capital')}&body=${encodeURIComponent(`KAHF Capital is a platform for options traders — dark pool flow and historical hit rates. ${refLink}`)}`}
                 onClick={() => track('referral_share_clicked', { channel: 'email' })}
                 className="text-amber-800 hover:underline font-semibold"
               >

@@ -1,24 +1,24 @@
 /**
  * KAHF Data MCP Server
  *
- * Implements the Model Context Protocol over HTTP (JSON-RPC) so Anthropic
- * Claude (or any MCP client) can call KAHF data tools on demand.
+ * Implements the Model Context Protocol over HTTP (JSON-RPC) so the chat
+ * backend can call KAHF data tools on demand.
  *
  * Transport: Streamable HTTP, JSON responses (no SSE required for stateless tools).
  * Auth: Bearer token via Authorization header. Set MCP_AUTH_TOKEN env var.
  *
- * Anthropic Messages API wires this in via:
+ * The chat backend wires this in via:
  *   mcp_servers: [{
  *     type: 'url',
  *     url: 'https://yourdomain/api/mcp',
  *     name: 'kahf-data',
  *     authorization_token: process.env.MCP_AUTH_TOKEN
  *   }]
- * with header: 'anthropic-beta: mcp-client-2025-04-04'
  */
 
-import { listDataFiles, getDataFile } from '../../lib/blob-data';
 import { getScannerSnapshot } from '../../lib/scanner-snapshot';
+import { getTickerHistory, getScannerDay, getRecentSignalBoards } from '../../lib/scanner-history';
+import { VOLUME_RATIO_METHOD } from '../../lib/scanner-math';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getStraddleSuccessRate } from '../../lib/straddle-analysis-service.js';
 import { getOptionsSuccessRate, getAllStrategyAnalyses, STRATEGIES } from '../../lib/options-analysis-service.js';
@@ -38,40 +38,48 @@ const SERVER_VERSION = '1.0.0';
 
 // -------------- Tool implementations --------------
 
-async function loadScannerWindow(days) {
-  const files = await listDataFiles();
-  if (files.length === 0) return { files: [], windowFiles: [], data: {} };
-  const windowFiles = files.slice(0, Math.max(1, Math.min(days, 30)));
-  const averageFiles = files.slice(0, 7);
-  const data = {};
-  for (const file of windowFiles) {
-    try {
-      data[file.filename] = await getDataFile(file.url);
-    } catch (error) {
-      console.warn(`MCP: skipping scanner file ${file.filename}:`, error.message);
-    }
-  }
-  return { files, windowFiles, averageFiles, data };
+function isPastAsOf(asOfDate) {
+  return typeof asOfDate === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(asOfDate)
+    && asOfDate < new Date().toISOString().slice(0, 10);
 }
 
-function compute7DayAvg(averageFiles, dataMap) {
-  const totals = {};
-  const counts = {};
-  for (const file of averageFiles) {
-    const day = dataMap[file.filename];
-    if (!day?.tickers) continue;
-    for (const ticker of day.tickers) {
-      totals[ticker.ticker] = (totals[ticker.ticker] || 0) + ticker.total_volume;
-      counts[ticker.ticker] = (counts[ticker.ticker] || 0) + 1;
-    }
-  }
-  return (sym) => {
-    const c = counts[sym] || 0;
-    return c > 0 ? Math.round((totals[sym] || 0) / c) : 0;
+function toHistoryDay(row) {
+  return {
+    date: row.date,
+    darkPoolVolume: row.total_volume,
+    darkPoolValue: row.total_value,
+    darkPoolAvgPrice: typeof row.avg_price === 'number' ? Number(row.avg_price.toFixed(2)) : null,
+    darkPoolTradeCount: row.trade_count,
+    avg7DayDarkPoolVolume: row.avg_7day_volume,
+    volumeRatio: row.volume_ratio,
+    windowDays: row.window_days,
+    windowStart: row.window_start
   };
 }
 
-async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 10, includeCurrentPrice = true } = {}) {
+async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 10, includeCurrentPrice = true, asOfDate } = {}) {
+  if (asOfDate) {
+    const day = await getScannerDay(asOfDate, {
+      minVolumeRatio,
+      limit,
+      universe: 'signals',
+      includeCurrentPrice: false
+    });
+    return {
+      ...day,
+      method: VOLUME_RATIO_METHOD,
+      signals: (day.rows || []).map((row) => ({
+        ticker: row.ticker,
+        darkPoolVolume: row.total_volume,
+        darkPoolValue: row.total_value,
+        darkPoolAvgPrice: typeof row.avg_price === 'number' ? Number(row.avg_price.toFixed(2)) : null,
+        darkPoolTradeCount: row.trade_count,
+        avg7DayDarkPoolVolume: row.avg_7day_volume,
+        volumeRatio: row.volume_ratio
+      }))
+    };
+  }
   const snapshot = await getScannerSnapshot();
   if (!snapshot) return { available: false, reason: 'No scanner files' };
   if (!snapshot.tickers?.length) return { available: false, reason: 'Latest scanner empty' };
@@ -107,55 +115,72 @@ async function tool_get_scanner_signals({ minVolumeRatio = SIGNAL_MIN_VOLUME_RAT
   };
 }
 
-async function tool_get_recurring_signals({ minDaysInTop = 2, lookbackDays = 5, minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO } = {}) {
-  const { windowFiles, averageFiles, data } = await loadScannerWindow(Math.max(lookbackDays, 5));
-  if (windowFiles.length === 0) return { available: false, reason: 'No scanner files' };
-  const avgFor = compute7DayAvg(averageFiles, data);
+async function tool_get_recurring_signals({ minDaysInTop = 2, lookbackDays = 10, minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, asOfDate } = {}) {
+  const boards = await getRecentSignalBoards({
+    asOf: asOfDate || null,
+    days: Math.max(1, Math.min(Number(lookbackDays) || 10, 40)),
+    minVolumeRatio,
+    limitPerDay: 5
+  });
+  if (!boards.available) return { available: false, reason: boards.reason || 'No scanner files', lookahead: false };
   const appearances = {};
-  for (let i = 0; i < Math.min(windowFiles.length, lookbackDays); i++) {
-    const file = windowFiles[i];
-    const day = data[file.filename];
-    if (!day?.tickers) continue;
-    const date = file.filename.replace('.json', '');
-    const top = day.tickers
-      .map((t) => summarizeTicker(t, avgFor(t.ticker)))
-      .filter(passesScannerFilters)
-      .filter((s) => s.volumeRatio !== null && s.volumeRatio >= minVolumeRatio)
-      .sort((a, b) => b.volumeRatio - a.volumeRatio)
-      .slice(0, 5);
-    for (const s of top) {
-      if (!appearances[s.ticker]) appearances[s.ticker] = { ticker: s.ticker, daysInTop: 0, dates: [], maxRatio: 0 };
-      appearances[s.ticker].daysInTop += 1;
-      appearances[s.ticker].dates.push(date);
-      appearances[s.ticker].maxRatio = Math.max(appearances[s.ticker].maxRatio, s.volumeRatio);
+  for (const session of boards.sessions) {
+    for (const row of session.top || []) {
+      if (!appearances[row.ticker]) {
+        appearances[row.ticker] = { ticker: row.ticker, daysInTop: 0, dates: [], maxRatio: 0 };
+      }
+      appearances[row.ticker].daysInTop += 1;
+      appearances[row.ticker].dates.push(session.date);
+      appearances[row.ticker].maxRatio = Math.max(appearances[row.ticker].maxRatio, row.volumeRatio || 0);
     }
   }
   const recurring = Object.values(appearances)
-    .filter((e) => e.daysInTop >= minDaysInTop)
+    .filter((entry) => entry.daysInTop >= minDaysInTop)
     .sort((a, b) => b.daysInTop - a.daysInTop || b.maxRatio - a.maxRatio);
-  return { available: true, lookbackDays, minDaysInTop, recurring };
+  return { available: true, lookahead: false, asOf: boards.asOf, method: VOLUME_RATIO_METHOD, lookbackDays, minDaysInTop, recurring };
 }
 
-async function tool_get_scanner_history({ ticker, days = 14 } = {}) {
+async function tool_get_scanner_history({ ticker, days, asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
-  const sym = ticker.toUpperCase();
-  const { windowFiles, data } = await loadScannerWindow(Math.max(days, 1));
-  const history = [];
-  for (const file of windowFiles) {
-    const day = data[file.filename];
-    if (!day?.tickers) continue;
-    const match = day.tickers.find((t) => t.ticker === sym);
-    if (match) {
-      history.push({
-        date: file.filename.replace('.json', ''),
-        darkPoolVolume: match.total_volume,
-        darkPoolValue: match.total_value,
-        darkPoolAvgPrice: typeof match.avg_price === 'number' ? Number(match.avg_price.toFixed(2)) : null,
-        darkPoolTradeCount: match.trade_count
-      });
-    }
-  }
-  return { ticker: sym, days, history };
+  const history = await getTickerHistory(ticker, { asOf: asOfDate || null });
+  let rows = history.days || [];
+  const capped = days != null && Number(days) > 0;
+  if (capped) rows = rows.slice(-Math.max(1, Number(days)));
+  return {
+    ticker: history.ticker,
+    available: history.available,
+    lookahead: false,
+    method: VOLUME_RATIO_METHOD,
+    asOf: history.asOf,
+    firstDate: history.firstDate,
+    lastDate: history.lastDate,
+    dayCount: rows.length,
+    archiveDayCount: history.dayCount,
+    daysWithheldAfterAsOf: history.daysWithheldAfterAsOf || 0,
+    complete: !capped,
+    reason: history.reason,
+    history: rows.map(toHistoryDay)
+  };
+}
+
+async function tool_get_scanner_day({ date, ticker, universe = 'signals', minVolumeRatio = SIGNAL_MIN_VOLUME_RATIO, limit = 25, offset = 0, includeHistory = false } = {}) {
+  if (!date) throw new Error('date is required (YYYY-MM-DD)');
+  const day = await getScannerDay(date, {
+    ticker,
+    universe: universe === 'all' ? 'all' : 'signals',
+    minVolumeRatio: universe === 'all' ? null : minVolumeRatio,
+    limit,
+    offset,
+    includeHistory
+  });
+  return {
+    ...day,
+    method: VOLUME_RATIO_METHOD,
+    rows: (day.rows || []).map((row) => ({
+      ticker: row.ticker,
+      ...toHistoryDay({ ...row, date: day.date })
+    }))
+  };
 }
 
 async function tool_get_prior_range({ ticker, asOfDate } = {}) {
@@ -183,14 +208,14 @@ async function tool_get_straddle_analysis({ ticker } = {}) {
   return { ticker: sym, ...result };
 }
 
-async function tool_get_options_analysis({ ticker, strategy = 'straddle' } = {}) {
+async function tool_get_options_analysis({ ticker, strategy = 'straddle', asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
   const strat = String(strategy).toLowerCase();
 
   // Special value "all" — return call + put + straddle in one shot.
   if (strat === 'all') {
-    const all = await getAllStrategyAnalyses(sym);
+    const all = await getAllStrategyAnalyses(sym, { asOfDate: asOfDate || null });
     if (!all.call && !all.put && !all.straddle) {
       return { ticker: sym, unavailable: true, reason: 'No options data' };
     }
@@ -208,15 +233,39 @@ async function tool_get_options_analysis({ ticker, strategy = 'straddle' } = {})
   if (!STRATEGIES.includes(strat)) {
     throw new Error(`strategy must be one of: ${STRATEGIES.join(', ')}, or "all"`);
   }
-  const result = await getOptionsSuccessRate(sym, { strategy: strat });
+  const result = await getOptionsSuccessRate(sym, { strategy: strat, asOfDate: asOfDate || null });
   if (!result) return { ticker: sym, strategy: strat, unavailable: true, reason: 'Options data unavailable' };
   return result;
 }
 
-async function tool_get_stock_price({ ticker } = {}) {
+async function tool_get_stock_price({ ticker, asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
   if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
+
+  if (isPastAsOf(asOfDate)) {
+    try {
+      const start = new Date(new Date(`${asOfDate}T12:00:00Z`).getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const history = await getHistoricalStockData(sym, start, asOfDate);
+      const bar = [...history].reverse().find((day) => day.date <= asOfDate);
+      if (!bar) return { ticker: sym, asOfDate, unavailable: true, lookahead: false, reason: 'No close on or before that date' };
+      return {
+        ticker: sym,
+        price: bar.close,
+        asOf: bar.date,
+        requestedAsOf: asOfDate,
+        lookahead: false,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+        source: 'historical daily close on or before asOfDate'
+      };
+    } catch (e) {
+      return { ticker: sym, asOfDate, unavailable: true, lookahead: false, reason: e.message };
+    }
+  }
 
   // Prefer the snapshot endpoint — gives last trade + today's OHLCV + prev day in one call
   // (15-min delayed on Stocks Developer plan, but freshest available).
@@ -330,7 +379,7 @@ async function tool_get_ticker_details({ ticker } = {}) {
   }
 }
 
-async function tool_get_intraday_chart({ ticker, timespan = 'minute', multiplier = 15, days = 1 } = {}) {
+async function tool_get_intraday_chart({ ticker, timespan = 'minute', multiplier = 15, days = 1, asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
   if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
@@ -340,11 +389,11 @@ async function tool_get_intraday_chart({ ticker, timespan = 'minute', multiplier
     throw new Error(`timespan must be one of: ${allowedTimespans.join(', ')}`);
   }
   const lookbackDays = Math.max(1, Math.min(days, 30));
-  const end = new Date();
+  const end = isPastAsOf(asOfDate) ? new Date(`${asOfDate}T12:00:00Z`) : new Date();
   const start = new Date(end);
   start.setUTCDate(end.getUTCDate() - lookbackDays);
   const fromStr = start.toISOString().slice(0, 10);
-  const toStr = end.toISOString().slice(0, 10);
+  const toStr = isPastAsOf(asOfDate) ? asOfDate : end.toISOString().slice(0, 10);
 
   try {
     const data = await polygonFetch(
@@ -353,23 +402,34 @@ async function tool_get_intraday_chart({ ticker, timespan = 'minute', multiplier
     const bars = (data.results || []).map((b) => ({
       t: new Date(b.t).toISOString(),
       o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, vw: b.vw
-    }));
+    })).filter((bar) => !isPastAsOf(asOfDate) || bar.t.slice(0, 10) <= asOfDate);
     return {
       ticker: sym,
       timespan, multiplier,
       from: fromStr, to: toStr,
+      asOfDate: asOfDate || null,
+      lookahead: false,
       count: bars.length,
-      bars: bars.slice(0, 100), // limit response size; bars come back desc so newest first
-      note: bars.length > 100 ? 'Truncated to 100 most recent bars.' : null
+      bars: bars.slice(0, 100),
+      note: bars.length > 100 ? 'Truncated to 100 most recent bars on or before the cutoff.' : null
     };
   } catch (e) {
     return { ticker: sym, unavailable: true, reason: e.message };
   }
 }
 
-async function tool_get_options_chain({ ticker, expirationDate, strikeWindowPct = 10, contractType } = {}) {
+async function tool_get_options_chain({ ticker, expirationDate, strikeWindowPct = 10, contractType, asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
+  if (isPastAsOf(asOfDate)) {
+    return {
+      ticker: sym,
+      asOfDate,
+      unavailable: true,
+      lookahead: false,
+      reason: 'The live options chain is today\'s market. It is withheld for a past signal so it is not mistaken for the chain on that date.'
+    };
+  }
   if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
 
   try {
@@ -427,7 +487,16 @@ async function tool_get_options_chain({ ticker, expirationDate, strikeWindowPct 
   }
 }
 
-async function tool_get_option_quote({ optionTicker, ticker } = {}) {
+async function tool_get_option_quote({ optionTicker, ticker, asOfDate } = {}) {
+  if (isPastAsOf(asOfDate)) {
+    return {
+      optionTicker,
+      asOfDate,
+      unavailable: true,
+      lookahead: false,
+      reason: 'A live option quote is today\'s market. It is withheld for a past signal.'
+    };
+  }
   if (!optionTicker) throw new Error('optionTicker is required (e.g. O:NVDA260619C00130000)');
   const underlying = (ticker || optionTicker.replace(/^O:/, '').match(/^[A-Z]+/)?.[0] || '').toUpperCase();
   if (!process.env.POLYGON_API_KEY) return { optionTicker, unavailable: true, reason: 'Polygon API key not configured' };
@@ -497,12 +566,13 @@ async function tool_get_dividends({ ticker, limit = 5 } = {}) {
   }
 }
 
-async function tool_get_news({ ticker, limit = 5 } = {}) {
+async function tool_get_news({ ticker, limit = 5, asOfDate } = {}) {
   if (!ticker) throw new Error('ticker is required');
   const sym = ticker.toUpperCase();
   if (!process.env.POLYGON_API_KEY) return { ticker: sym, unavailable: true, reason: 'Polygon API key not configured' };
   try {
-    const url = `${POLYGON_API_BASE}/v2/reference/news?ticker=${encodeURIComponent(sym)}&limit=${Math.min(limit, 10)}&order=desc&sort=published_utc&apiKey=${process.env.POLYGON_API_KEY}`;
+    const cutoff = asOfDate ? `&published_utc.lte=${encodeURIComponent(`${asOfDate}T23:59:59Z`)}` : '';
+    const url = `${POLYGON_API_BASE}/v2/reference/news?ticker=${encodeURIComponent(sym)}&limit=${Math.min(limit, 10)}&order=desc&sort=published_utc&apiKey=${process.env.POLYGON_API_KEY}${cutoff}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(`Polygon news ${res.status}`);
     const data = await res.json();
@@ -516,8 +586,8 @@ async function tool_get_news({ ticker, limit = 5 } = {}) {
         catalysts: detectCatalysts(text),
         keywords: Array.isArray(item.keywords) ? item.keywords.slice(0, 6) : []
       };
-    });
-    return { ticker: sym, news, catalysts: [...new Set(news.flatMap((n) => n.catalysts))] };
+    }).filter((item) => !asOfDate || !item.publishedAt || item.publishedAt.slice(0, 10) <= asOfDate);
+    return { ticker: sym, asOfDate: asOfDate || null, lookahead: false, news, catalysts: [...new Set(news.flatMap((n) => n.catalysts))] };
   } catch (e) {
     return { ticker: sym, unavailable: true, reason: e.message };
   }
@@ -533,9 +603,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        minVolumeRatio: { type: 'number', description: 'Minimum volume ratio (today vs 7-day avg). Default 2.0.', default: 2.0 },
+        minVolumeRatio: { type: 'number', description: 'Minimum volume ratio (that session vs its own trailing 7-day average). Default 2.0.', default: 2.0 },
         limit: { type: 'integer', description: 'Max signals to return (1-25).', default: 10 },
-        includeCurrentPrice: { type: 'boolean', description: 'Whether to fetch the live last-close stock price for each signal. Default true.', default: true }
+        includeCurrentPrice: { type: 'boolean', description: 'Fetch the live stock price. Ignored when asOfDate is a past session.', default: true },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. Omit for today. For a past signal this returns that session only, with no later data.' }
       }
     },
     handler: tool_get_scanner_signals
@@ -548,8 +619,9 @@ const TOOLS = [
       type: 'object',
       properties: {
         minDaysInTop: { type: 'integer', description: 'Min number of days a ticker must be in the top list. Default 2.', default: 2 },
-        lookbackDays: { type: 'integer', description: 'How many days back to look. Default 5.', default: 5 },
-        minVolumeRatio: { type: 'number', description: 'Minimum volume ratio per day. Default 2.0.', default: 2.0 }
+        lookbackDays: { type: 'integer', description: 'How many sessions back to look, ending at asOfDate or today. Default 10, max 40.', default: 10 },
+        minVolumeRatio: { type: 'number', description: 'Minimum point-in-time volume ratio per session. Default 2.0.', default: 2.0 },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. The lookback ends on this date and cannot see later sessions.' }
       }
     },
     handler: tool_get_recurring_signals
@@ -557,16 +629,36 @@ const TOOLS = [
   {
     name: 'get_scanner_history',
     description:
-      'Return the dark-pool scanner history (per day) for a single ticker over the requested window. Use this to inspect trend (volume building / fading) and average price drift.',
+      'Return the FULL dark-pool history for one ticker: share volume, average price, dollar value, trade count, and point-in-time volume ratio on every archived date. Ratios never use a later session. Pass asOfDate to withhold every date after a past signal. Omit days to return the entire tape.',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
       properties: {
         ticker: { type: 'string', description: 'Stock ticker symbol (e.g. AAPL).' },
-        days: { type: 'integer', description: 'Lookback days. Default 14, max 30.', default: 14 }
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. History stops on this date. Later sessions are withheld.' },
+        days: { type: 'integer', description: 'Optional cap on the most recent sessions returned. Omit for the full history.' }
       }
     },
     handler: tool_get_scanner_history
+  },
+  {
+    name: 'get_scanner_day',
+    description:
+      'Return one dark-pool session. Use this to see who printed on a date, with each ticker\'s volume, average price, and point-in-time volume ratio. universe "signals" applies the scanner filters. universe "all" pages every ticker that printed. Pass ticker to get one name, and includeHistory to attach that ticker\'s full tape through the session.',
+    inputSchema: {
+      type: 'object',
+      required: ['date'],
+      properties: {
+        date: { type: 'string', description: 'YYYY-MM-DD. If that calendar day had no session, the prior session is used and later days are not.' },
+        ticker: { type: 'string', description: 'Optional. Limit the board to one ticker.' },
+        universe: { type: 'string', enum: ['signals', 'all'], description: 'signals = scanner filters. all = every ticker that printed, paged.', default: 'signals' },
+        minVolumeRatio: { type: 'number', description: 'Used when universe is signals. Default 2.0.', default: 2.0 },
+        limit: { type: 'integer', description: 'Page size. Default 25.', default: 25 },
+        offset: { type: 'integer', description: 'Page offset. Default 0.', default: 0 },
+        includeHistory: { type: 'boolean', description: 'When ticker is set, also return the full history through this session.', default: false }
+      }
+    },
+    handler: tool_get_scanner_day
   },
   {
     name: 'get_prior_range',
@@ -596,7 +688,8 @@ const TOOLS = [
           enum: ['call', 'put', 'straddle', 'all'],
           default: 'straddle',
           description: 'Which leg to analyze. Pass "all" to get call + put + straddle in one response.'
-        }
+        },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. Hit rate uses stock history only through this date. Premium and IV remain today\'s live quote.' }
       }
     },
     handler: tool_get_options_analysis
@@ -615,11 +708,14 @@ const TOOLS = [
   {
     name: 'get_stock_price',
     description:
-      'Return a FRESH price snapshot for a ticker (last trade, today\'s OHLCV, prev day, and intraday change). Uses Polygon snapshot endpoint — 15-min delayed but the freshest data available without an exchange feed. Includes `asOf` timestamp. PREFER THIS over guessing or using stale numbers from chat history.',
+      'Return a price for a ticker. With no asOfDate, this is the live snapshot (15-min delayed) and an asOf timestamp. With asOfDate in the past, this is the daily close on or before that date — not today\'s price.',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
-      properties: { ticker: { type: 'string' } }
+      properties: {
+        ticker: { type: 'string' },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. Required when discussing a past signal.' }
+      }
     },
     handler: tool_get_stock_price
   },
@@ -633,7 +729,7 @@ const TOOLS = [
   {
     name: 'get_ticker_details',
     description:
-      'Return company-level reference data for a ticker: name, type (CS / ETF), market cap, sector (SIC description), exchange, shares outstanding, description, list date. Use this for context (sector classification, market cap tier) and to confirm a ticker is a tradeable common stock before recommending it.',
+      'Return company-level reference data for a ticker: name, type (CS / ETF), market cap, sector (SIC description), exchange, shares outstanding, description, list date. Use this for context (sector classification, market cap tier) and to see whether a name is a common stock or an ETF.',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
@@ -652,7 +748,8 @@ const TOOLS = [
         ticker: { type: 'string' },
         timespan: { type: 'string', enum: ['minute', 'hour', 'day'], default: 'minute' },
         multiplier: { type: 'integer', description: 'Bar size multiplier (e.g. timespan=minute, multiplier=15 → 15-min bars).', default: 15 },
-        days: { type: 'integer', description: 'Lookback days (1-30). Default 1.', default: 1 }
+        days: { type: 'integer', description: 'Lookback days (1-30). Default 1.', default: 1 },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. Bars after this date are dropped.' }
       }
     },
     handler: tool_get_intraday_chart
@@ -660,7 +757,7 @@ const TOOLS = [
   {
     name: 'get_options_chain',
     description:
-      'Return a snapshot of the options chain for a ticker — strikes near ATM, with per-contract bid/ask, last trade, day OHLCV, open interest, IV, and Greeks (delta/gamma/theta/vega). Use this to PICK the right strike/expiration for a recommendation. Specify `expirationDate` (YYYY-MM-DD) to focus on one expiry; otherwise returns all expiries within the strike window. `strikeWindowPct` (default 10) limits to ±N% of the spot price.',
+      'Return a snapshot of the options chain for a ticker — strikes near ATM, with per-contract bid/ask, last trade, day OHLCV, open interest, IV, and Greeks (delta/gamma/theta/vega). Use this to quote a real strike, premium, IV, and Greeks. Do not use it to tell the user which contract to trade. Specify `expirationDate` (YYYY-MM-DD) to focus on one expiry; otherwise returns all expiries within the strike window. `strikeWindowPct` (default 10) limits to ±N% of the spot price.',
     inputSchema: {
       type: 'object',
       required: ['ticker'],
@@ -668,7 +765,8 @@ const TOOLS = [
         ticker: { type: 'string' },
         expirationDate: { type: 'string', description: 'YYYY-MM-DD (optional). If omitted, returns all expirations within the strike window.' },
         strikeWindowPct: { type: 'number', description: 'Half-width of the strike window as a percent of spot (default 10).', default: 10 },
-        contractType: { type: 'string', enum: ['call', 'put'], description: 'Filter to one leg.' }
+        contractType: { type: 'string', enum: ['call', 'put'], description: 'Filter to one leg.' },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. A past date withholds the live chain so it is not treated as that day\'s market.' }
       }
     },
     handler: tool_get_options_chain
@@ -682,7 +780,8 @@ const TOOLS = [
       required: ['optionTicker'],
       properties: {
         optionTicker: { type: 'string', description: 'Full options ticker, e.g. "O:NVDA260619C00130000".' },
-        ticker: { type: 'string', description: 'Underlying ticker (optional; will be parsed from optionTicker).' }
+        ticker: { type: 'string', description: 'Underlying ticker (optional; will be parsed from optionTicker).' },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. A past date withholds the live quote.' }
       }
     },
     handler: tool_get_option_quote
@@ -723,7 +822,8 @@ const TOOLS = [
       required: ['ticker'],
       properties: {
         ticker: { type: 'string' },
-        limit: { type: 'integer', description: 'Max headlines (1-10). Default 5.', default: 5 }
+        limit: { type: 'integer', description: 'Max headlines (1-10). Default 5.', default: 5 },
+        asOfDate: { type: 'string', description: 'YYYY-MM-DD. Headlines published after this date are dropped.' }
       }
     },
     handler: tool_get_news

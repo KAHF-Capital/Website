@@ -62,15 +62,22 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const [year, month, day] = String(dateString).split('-').map(Number);
+    if (!year || !month || !day) return dateString;
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
   };
 
+  const formatRatio = (ratio) => {
+    if (ratio == null || Number.isNaN(Number(ratio))) return 'N/A';
+    return `${Number(ratio).toFixed(2)}x`;
+  };
+
   const formatPrice = (price) => {
-    return price ? `$${price.toFixed(2)}` : 'N/A';
+    return price ? `$${Number(price).toFixed(2)}` : 'N/A';
   };
 
   const formatChange = (change) => {
@@ -297,7 +304,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                                       touchAction: 'manipulation'
                                     }}
                                   >
-                                    <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>
+                                  <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume, ${formatRatio(day.volume_ratio)}`}</title>
                                   </circle>
                                 )}
                                 {/* Visible data point */}
@@ -315,7 +322,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                                     pointerEvents: isMobile ? 'none' : 'auto' // Let parent handle touch on mobile
                                   }}
                                 >
-                                  {!isMobile && <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume`}</title>}
+                                  {!isMobile && <title>{`${formatDate(day.date)}: ${formatNumber(day.total_volume)} volume, ${formatRatio(day.volume_ratio)}`}</title>}
                                 </circle>
                               </g>
                             );
@@ -344,10 +351,14 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                                   maxWidth: isMobile ? '60px' : 'auto'
                                 }}
                               >
-                                {new Date(day.date).toLocaleDateString('en-US', { 
-                                  month: isMobile ? 'numeric' : 'short', 
-                                  day: 'numeric' 
-                                })}
+                                {(() => {
+                                  const [year, month, dayNum] = String(day.date).split('-').map(Number);
+                                  const local = year && month && dayNum ? new Date(year, month - 1, dayNum) : new Date(day.date);
+                                  return local.toLocaleDateString('en-US', {
+                                    month: isMobile ? 'numeric' : 'short',
+                                    day: 'numeric'
+                                  });
+                                })()}
                             </div>
                           );
                         })}
@@ -373,6 +384,7 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                         <thead className="bg-gray-50">
                           <tr>
                             <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Date</th>
+                            <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Vol Ratio</th>
                             <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Volume</th>
                             <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Trades</th>
                             <th className={`${isMobile ? 'px-3 py-2' : 'px-6 py-3'} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}>Avg Price</th>
@@ -380,10 +392,13 @@ const DarkPoolAnalysis = ({ isOpen, onClose, ticker }) => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {historicalData.reverse().map((day) => (
+                          {[...historicalData].reverse().map((day) => (
                             <tr key={day.date} className="hover:bg-gray-50">
                               <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm font-medium text-gray-900`}>
                                 {formatDate(day.date)}
+                              </td>
+                              <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm font-semibold text-gray-900`}>
+                                {formatRatio(day.volume_ratio)}
                               </td>
                               <td className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} whitespace-nowrap text-sm text-gray-900`}>
                                 {formatNumber(day.total_volume)}

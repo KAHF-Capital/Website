@@ -10,7 +10,7 @@ export default function EmailCaptureModal({
   source = 'modal',
   ticker = null,
   title = 'Unlock the full scanner',
-  subtitle = 'Free forever. No credit card. Get instant access to historical dark pool data and daily AI-graded setups.',
+  subtitle = 'Free forever. No credit card. Get instant access to historical dark pool data and the daily flow digest.',
   cta = 'Get free access'
 }) {
   const [email, setEmail] = useState('');

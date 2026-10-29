@@ -15,7 +15,7 @@ function formatNotional(n) {
 export default function TickerPage({ symbol, summary, error }) {
   const title = `$${symbol} Dark Pool Activity & Volatility Read | KAHF AI`;
   const desc = summary?.has_data
-    ? `${symbol} dark pool prints over the last ${summary.lookback_days} trading days: ${formatNotional(summary.total_notional_30d)} in notional, peak volume ratio ${summary.peak?.volume_ratio?.toFixed?.(1) || '—'}×. Get an AI volatility read in seconds.`
+    ? `${symbol} dark pool prints across ${summary.session_count || summary.lookback_days} sessions${summary.first_date ? ` (${summary.first_date} to ${summary.last_date})` : ''}: ${formatNotional(summary.total_notional_30d)} in notional, peak volume ratio ${summary.peak?.volume_ratio?.toFixed?.(2) || '—'}×. Get an AI volatility read in seconds.`
     : `Dark pool activity, historical hit rates, and AI volatility read for ${symbol}.`;
 
   const canonical = `${siteConfig.url}/ticker/${symbol}`;
@@ -51,7 +51,7 @@ export default function TickerPage({ symbol, summary, error }) {
         <div className="max-w-5xl mx-auto">
           <div className="mb-6">
             <Link href="/scanner" className="text-sm text-gray-500 hover:text-green-700 inline-flex items-center gap-1">
-              ← Back to scanner
+              ← Dark Pool Scanner
             </Link>
           </div>
 
@@ -67,7 +67,7 @@ export default function TickerPage({ symbol, summary, error }) {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <AskAIButton
-                prompt={`Run the KAHF Read on ${symbol} right now. What's the best structure at ~30 DTE, and is the move already priced in? Trade / watch / pass?`}
+                prompt={`Walk through ${symbol}: dark pool flow, call/put/straddle hit rates at ~30 DTE, and whether the move is already priced into IV. Do not pick a trade.`}
                 ticker={symbol}
                 source={`ticker_page_${symbol}`}
                 size="lg"
@@ -99,17 +99,17 @@ export default function TickerPage({ symbol, summary, error }) {
                   icon={Calendar}
                   label="Most recent print"
                   value={summary.latest?.date || '—'}
-                  sub={summary.latest ? `${summary.latest.volume_ratio.toFixed(1)}× ratio` : ''}
+                  sub={summary.latest?.volume_ratio != null ? `${summary.latest.volume_ratio.toFixed(2)}× ratio` : ''}
                 />
                 <Stat
                   icon={BarChart3}
                   label="Peak volume ratio"
-                  value={summary.peak ? `${summary.peak.volume_ratio.toFixed(1)}×` : '—'}
+                  value={summary.peak?.volume_ratio != null ? `${summary.peak.volume_ratio.toFixed(2)}×` : '—'}
                   sub={summary.peak?.date}
                 />
                 <Stat
                   icon={TrendingUp}
-                  label={`${summary.lookback_days}-day notional`}
+                  label="Notional on record"
                   value={formatNotional(summary.total_notional_30d)}
                 />
                 <Stat
@@ -121,7 +121,7 @@ export default function TickerPage({ symbol, summary, error }) {
 
               <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-10">
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                  <h2 className="font-bold text-gray-900">Dark pool history (last {summary.history.length} sessions)</h2>
+                  <h2 className="font-bold text-gray-900">Dark pool history (all {summary.history.length} sessions)</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -139,7 +139,7 @@ export default function TickerPage({ symbol, summary, error }) {
                         <tr key={`${h.date}-${i}`} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-600">{h.date}</td>
                           <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
-                            {h.volume_ratio.toFixed(1)}×
+                            {h.volume_ratio != null ? `${h.volume_ratio.toFixed(2)}×` : '—'}
                           </td>
                           <td className="px-4 py-3 text-right text-gray-700">{formatNotional(h.total_value)}</td>
                           <td className="px-4 py-3 text-right text-gray-600 hidden sm:table-cell">${h.avg_price.toFixed(2)}</td>
@@ -160,11 +160,11 @@ export default function TickerPage({ symbol, summary, error }) {
               Dark pools are private trading venues where institutions execute large block orders away from public exchanges. When {symbol} prints unusually high off-exchange volume — measured as a multiple of its trailing 7-day average — it often signals that a large player is accumulating or distributing the name without moving the public bid/ask.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              On its own, a dark pool spike isn't a trade signal. KAHF AI runs the <strong>KAHF Read</strong> on {symbol} before flagging anything: <strong>conviction</strong> (volume ratio 3×+), <strong>direction</strong> (call/put flow), <strong>historical edge</strong> of the chosen structure at ~30 DTE, <strong>options liquidity</strong>, and <strong>catalyst + priced-in</strong> (is the move already in the IV?). Strong setups surface in Pro&apos;s daily email digest of unusual activity.
+              A dark pool spike is one input. The <strong>KAHF Read</strong> on {symbol} lines up <strong>flow</strong> (volume versus the 7-day average), <strong>direction</strong> (call/put flow), <strong>historical hit rates</strong> for call, put, and straddle at ~30 DTE, <strong>options liquidity</strong>, and <strong>catalyst + priced-in</strong> (is the move already in the IV?). Unusual activity also shows up in Pro&apos;s daily email.
             </p>
             <h3 className="text-xl font-bold text-gray-900 mt-6">Want a volatility read on {symbol}?</h3>
             <p className="text-gray-700 leading-relaxed">
-              Ask KAHF AI in plain English. <em>"What's the best structure on {symbol} into earnings?"</em> takes 6 seconds and returns the same structured answer the desks would.
+              Ask KAHF AI in plain English. <em>"How does IV on {symbol} compare with the historical move?"</em> pulls flow, hit rates, and whether the move is already priced in.
             </p>
           </div>
 

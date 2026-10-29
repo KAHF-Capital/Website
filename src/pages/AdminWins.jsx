@@ -275,7 +275,7 @@ export default function AdminWins() {
             maxLength={280}
             value={form.note}
             onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="3.2× volume + tradeable straddle into earnings"
+            placeholder="3.2× volume, straddle marked into earnings"
             className={inputCls}
           />
         </Field>
