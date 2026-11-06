@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
 const navigationItems = [
-  { href: '/kahf-ai', label: 'KAHF AI', primary: true },
+  { href: '/kimi', label: 'Kimi', primary: true },
+  { href: '/kahf-ai', label: 'KAHF AI' },
   { href: '/scanner', label: 'Dark Pool Scanner' },
   { href: '/news-scanner', label: 'News Scanner' },
   { href: '/calculator', label: 'Calculator' },
@@ -22,6 +23,9 @@ export default function Header() {
   const { user, loading, signOut, hasActiveSubscription } = useAuth();
 
   const isActiveRoute = (href) => router.pathname === href;
+  const isHome = router.pathname === '/';
+  const ctaHref = isHome ? '/pricing' : '/kahf-ai';
+  const ctaLabel = isHome ? 'Get her texts' : 'Text KAHF now';
   const closeMenu = () => setIsMobileMenuOpen(false);
 
   const handleSignOut = async () => {
@@ -135,11 +139,11 @@ export default function Header() {
           Sign In
         </Link>
         <Link
-          href="/pricing"
-          onClick={() => track('header_cta_clicked', { source: 'desktop' })}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+          href={ctaHref}
+          onClick={() => track('header_cta_clicked', { source: 'desktop', product: isHome ? 'kimi' : 'kahf' })}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm whitespace-nowrap"
         >
-          Start Free Trial
+          {ctaLabel}
         </Link>
       </div>
     );
@@ -152,12 +156,16 @@ export default function Header() {
           <Link href="/" className="flex items-center space-x-2.5">
             <img
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png"
-              alt="KAHF Capital Logo"
+              alt={isHome ? 'Kimi by KAHF Capital' : 'KAHF Capital Logo'}
               className="h-9 w-auto"
             />
             <div>
-              <h1 className="text-lg font-bold text-gray-900 leading-none">KAHF</h1>
-              <p className="text-[10px] text-gray-500 hidden sm:block uppercase tracking-wider mt-0.5">Options analysis</p>
+              <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-none whitespace-nowrap">
+                {isHome ? 'Kimi' : 'KAHF Capital'}
+              </h1>
+              <p className={`text-[10px] text-gray-500 uppercase tracking-wider mt-0.5 ${isHome ? 'block' : 'hidden sm:block'}`}>
+                {isHome ? 'by KAHF Capital' : 'Dark Pool Insights'}
+              </p>
             </div>
           </Link>
 
@@ -179,10 +187,10 @@ export default function Header() {
               </button>
             ) : !loading ? (
               <Link
-                href="/pricing"
-                className="text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-md"
+                href={ctaHref}
+                className="text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-md whitespace-nowrap"
               >
-                Try Free
+                {ctaLabel}
               </Link>
             ) : null}
             <button
@@ -260,11 +268,11 @@ export default function Header() {
               })}
               {!user && !loading && (
                 <Link
-                  href="/pricing"
+                  href={ctaHref}
                   className="w-full text-center py-3 bg-green-600 text-white rounded-md font-semibold mt-2"
                   onClick={closeMenu}
                 >
-                  Start Free Trial
+                  {ctaLabel}
                 </Link>
               )}
             </nav>

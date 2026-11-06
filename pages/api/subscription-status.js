@@ -4,6 +4,7 @@
 // after a successful payment.
 
 import { isProStatus } from '../../lib/subscription-access';
+import { FREE_ACCOUNT_LIMIT, peekUsage } from '../../lib/ai-usage';
 
 let firebaseAdmin = null;
 try {
@@ -38,15 +39,22 @@ export default async function handler(req, res) {
     const status = result.status || 'free';
     const isPro = result.isPro || isProStatus(status);
 
+    const usage = isPro
+      ? { tier: 'pro', limit: null, used: 0, remaining: null, isUnlimited: true }
+      : await peekUsage({
+        tier: 'free',
+        limit: FREE_ACCOUNT_LIMIT,
+        uid: verified.uid,
+        isUnlimited: false
+      });
+
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({
       ok: true,
       isPro,
       status,
       healed: !!result.healed,
-      usage: isPro
-        ? { tier: 'pro', limit: null, remaining: null, isUnlimited: true }
-        : { tier: 'free', limit: 5, remaining: null, isUnlimited: false }
+      usage
     });
   } catch (err) {
     console.error('[subscription-status]', err);

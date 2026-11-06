@@ -199,7 +199,8 @@ export default function KahfAi() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending]);
 
-  const isPro = !!(usage?.isUnlimited || (user && hasActiveSubscription()));
+  const isPro = usage ? !!usage.isUnlimited : !!(user && hasActiveSubscription());
+  const outOfMessages = !!(usage && !usage.isUnlimited && usage.remaining === 0);
 
   const tier = useMemo(() => {
     if (authLoading || (user && !statusChecked && !usage)) {
@@ -216,7 +217,7 @@ export default function KahfAi() {
 
   const sendMessage = async (prompt = input) => {
     const content = prompt.trim();
-    if (!content || isSending) return;
+    if (!content || isSending || outOfMessages) return;
 
     const nextMessages = [...messages, { role: 'user', content }];
     setMessages(nextMessages);
@@ -352,39 +353,6 @@ export default function KahfAi() {
                 </button>
               )}
             </div>
-
-            <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">The KAHF Read — 5 factors</h3>
-              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li><span className="font-semibold text-gray-900">Flow:</span> how unusual the dark pool volume is versus the 7-day average.</li>
-                <li><span className="font-semibold text-gray-900">Direction:</span> call/put flow and where it printed versus the prior range.</li>
-                <li><span className="font-semibold text-gray-900">Hit rates:</span> call, put, and straddle history at ~30 DTE, side by side.</li>
-                <li><span className="font-semibold text-gray-900">Liquidity &amp; cost:</span> open interest, spreads, premium.</li>
-                <li><span className="font-semibold text-gray-900">Catalyst &amp; priced-in:</span> whether there is a catalyst, and whether the move is already in the IV.</li>
-              </ul>
-              <p className="text-xs text-gray-500 mt-3">The factors describe the setup. The trading decision stays with you.</p>
-            </div>
-
-            <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">What the read calls out</h3>
-              <p className="text-xs text-gray-500 mb-2">Context that sits next to the five factors:</p>
-              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li><span className="font-semibold text-gray-900">IV looks rich</span> vs the stock's historical realized move.</li>
-                <li><span className="font-semibold text-gray-900">Skew is loud</span> — the market is already paying for one side.</li>
-                <li><span className="font-semibold text-gray-900">Direction conflict</span> — the highest historical hit rate disagrees with the catalyst.</li>
-                <li><span className="font-semibold text-gray-900">IV crush risk</span> — long premium past an earnings print.</li>
-              </ul>
-            </div>
-
-            <div className="border border-gray-200 bg-white rounded-lg p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">Data sources</h3>
-              <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
-                <li>Dark pool prints (Polygon) with 7-day volume baseline.</li>
-                <li>Options analyzer: historical hit rate, premium, liquidity, IV across every strategy.</li>
-                <li>Polygon news (catalyst-tagged) + live web search.</li>
-                <li>5-day scanner lookback for recurring signals.</li>
-              </ul>
-            </div>
           </aside>
 
           <section className="border border-gray-200 bg-white rounded-lg overflow-hidden">
@@ -453,7 +421,7 @@ export default function KahfAi() {
                 <button
                   key={prompt}
                   onClick={() => { track('sonnet_starter_clicked', { prompt }); sendMessage(prompt); }}
-                  disabled={isSending}
+                  disabled={isSending || outOfMessages}
                   className="px-3 py-1.5 rounded-full border border-green-200 text-green-700 bg-green-50 hover:bg-green-100 text-sm disabled:opacity-50"
                 >
                   {prompt}
@@ -468,11 +436,11 @@ export default function KahfAi() {
                   onChange={(event) => setInput(event.target.value)}
                   placeholder="Ask about a ticker, the scanner, or how IV compares to the historical move..."
                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  disabled={isSending}
+                  disabled={isSending || outOfMessages}
                 />
                 <button
                   type="submit"
-                  disabled={isSending || !input.trim()}
+                  disabled={isSending || outOfMessages || !input.trim()}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-5 py-3 rounded-lg font-medium transition-colors flex items-center"
                 >
                   <Send className="h-4 w-4 sm:mr-2" />

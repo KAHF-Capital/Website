@@ -2,13 +2,8 @@
 // (scripts/build-top-reads.js --out track-record-reads) and marked to the LIVE
 // options market via the shared engine in lib/reads-live.js — the same engine
 // that powers the homepage scoreboard, so the two never disagree.
-import { markReads, READS_DISCLAIMER } from '../../lib/reads-live.js';
-import { isExcluded } from '../../lib/read-filters.js';
-import { getReadsJson } from '../../lib/blob-data';
-// Bundled fallback so the page works on a cold deploy. At runtime we prefer the
-// Blob copy (refreshed daily by scripts/refresh-track-record.js) so new reads
-// appear without a redeploy.
-import bundled from '../../track-record-reads.json';
+import { READS_DISCLAIMER } from '../../lib/reads-live.js';
+import { getPublicTrackRecord } from '../../lib/track-record-public.js';
 
 // Short in-memory TTL so new reads appear quickly; the CDN header below
 // absorbs traffic so Polygon isn't hammered on cache misses.
@@ -52,12 +47,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const fromBlob = await getReadsJson('track-record-reads.json').catch(() => null);
-    const file = fromBlob && Array.isArray(fromBlob.reads) ? fromBlob : bundled;
-    // Drop manually-excluded tickers at serve time so a stale Blob copy can't
-    // surface a known-bad read before the next daily refresh rewrites it.
-    const reads = (Array.isArray(file.reads) ? file.reads : []).filter((r) => !isExcluded(r.ticker));
-    const { marked, summary } = await markReads(reads);
+    const { marked, summary } = await getPublicTrackRecord();
     const alerts = marked.map(toAlert);
 
     const payload = {

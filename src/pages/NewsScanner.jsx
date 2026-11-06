@@ -152,15 +152,15 @@ export default function NewsScanner() {
             </button>
           </div>
           <p className="text-lg text-gray-600">
-            Dated catalysts from the Benzinga calendar
+            Dated catalysts
             {meta?.from && meta?.to ? ` · ${formatEventDate(meta.from)} – ${formatEventDate(meta.to)}` : ''}
           </p>
 
           {showInfo && (
             <div className="mt-4 max-w-3xl bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 space-y-2">
               <p>Earnings and dividends use the report date or the ex-dividend date. Macro is the major US releases: CPI, payrolls, FOMC, and the like.</p>
-              <p>On this Benzinga key, FDA and M&amp;A rows are dated on the announcement. A future PDUFA day or an exact deal-close day is shown when Benzinga has one. Quarter-only close dates stay in the detail.</p>
-              <p>Splits and IPOs appear when Benzinga returns an upcoming date. Index additions are not on this calendar.</p>
+              <p>FDA and M&amp;A rows are dated on the announcement. A future PDUFA day or an exact deal-close day is shown when the calendar has one. Quarter-only close dates stay in the detail.</p>
+              <p>Splits and IPOs appear when an upcoming date is available. Index additions are not on this calendar.</p>
             </div>
           )}
         </div>

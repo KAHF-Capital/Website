@@ -9,8 +9,9 @@
  *   1. Loads the existing full track record (from Blob, falling back to the
  *      bundled track-record-reads.json).
  *   2. Builds reads only from the latest processed trading day (if fresh) —
- *      older days never become reads after the fact. Existing reads are stable
- *      history — never re-priced, so the record can't churn or revise.
+ *      older days never become reads after the fact. A saved list of earlier
+ *      3x names is never re-scored when the hit rate later clears. A read
+ *      stays only when it was published on that signal's own session.
  *   3. Merges + writes track-record-reads.json locally AND uploads it to Blob.
  *   4. Derives the homepage "top reads" (latest ingested day only, best by
  *      edge), writes top-reads.json locally AND uploads it to Blob.
@@ -25,7 +26,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildReads, minusDays, DEFAULT_OPTS } from './build-top-reads.js';
-import { EXCLUDED_TICKERS } from '../lib/read-filters.js';
+import { EXCLUDED_TICKERS, isPublishedOnSignalSession } from '../lib/read-filters.js';
 import blob from '../lib/blob-data.js';
 
 const { getReadsJson, uploadReadsJson } = blob;
@@ -99,12 +100,18 @@ async function main() {
   // historical read whose hit rate is outside the believable band. The floor
   // must mirror the build gate exactly (puts qualify at PUT_FLOOR) — using the
   // generic floor here dropped valid puts from the known set every morning, so
-  // the refresh re-added them with a fresh found_at and the 10am digest
+  // the refresh re-added them with a fresh found_at
   // re-alerted months-old signals as "new".
   const floorFor = (r) => (r.structure === 'put' ? PUT_FLOOR : MIN_HIT_RATE);
-  const existingReads = (Array.isArray(existing.reads) ? existing.reads : [])
+  const loaded = Array.isArray(existing.reads) ? existing.reads : [];
+  const late = loaded.filter((r) => !isPublishedOnSignalSession(r.date, r.found_at) && !EXCLUDED_TICKERS.has(r.ticker));
+  if (late.length > 0) {
+    console.error(`Dropping ${late.length} read(s) that were not scored on the signal day: ${late.map((r) => `${r.ticker} ${r.date}`).join(', ')}`);
+  }
+  const existingReads = loaded
     .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
-    .filter((r) => (r.asof_hit_rate ?? 0) >= floorFor(r) && (r.asof_hit_rate ?? 0) <= MAX_HIT_RATE);
+    .filter((r) => (r.asof_hit_rate ?? 0) >= floorFor(r) && (r.asof_hit_rate ?? 0) <= MAX_HIT_RATE)
+    .filter((r) => isPublishedOnSignalSession(r.date, r.found_at));
   // Skip (ticker, day) pairs we've already priced — every distinct day is its own
   // signal, so a ticker can appear on multiple dates.
   const knownKeys = new Set(existingReads.map(readKey));
@@ -125,9 +132,10 @@ async function main() {
   if (opts.rebuild) {
     // --rebuild re-prices reads that were already published on their day; it
     // never adds new (ticker, day) pairs. Carry over found_at stamps so
-    // re-priced history doesn't flood the next digest.
+    // re-priced history is not treated as a new read.
     const prior = await loadExisting(TRACK_FILE);
-    const priorReads = Array.isArray(prior.reads) ? prior.reads : [];
+    const priorReads = (Array.isArray(prior.reads) ? prior.reads : [])
+      .filter((r) => isPublishedOnSignalSession(r.date, r.found_at));
     const priorStamps = new Map(priorReads.map((r) => [readKey(r), r.found_at ?? null]));
     newReads = await buildReads({ ...buildOpts, since: opts.since }, { onlyKeys: new Set(priorStamps.keys()) });
     for (const r of newReads) r.found_at = priorStamps.get(readKey(r)) ?? null;
@@ -144,6 +152,11 @@ async function main() {
     // the 10am cron which reads to headline.
     const foundAt = new Date().toISOString();
     for (const r of newReads) r.found_at = foundAt;
+    const stale = newReads.filter((r) => !isPublishedOnSignalSession(r.date, r.found_at));
+    if (stale.length > 0) {
+      console.error(`Not publishing ${stale.length} read(s) scored after the signal session: ${stale.map((r) => `${r.ticker} ${r.date}`).join(', ')}`);
+      newReads = newReads.filter((r) => isPublishedOnSignalSession(r.date, r.found_at));
+    }
   }
   console.error(`\nAdded ${newReads.length} new read(s).`);
 
@@ -153,28 +166,15 @@ async function main() {
     if (!byKey.has(readKey(r))) byKey.set(readKey(r), r);
   }
 
-  // ONE tradeable read per ticker. A ticker can fire a 3x+ dark-pool signal on
-  // several different days, but we only publish its single strongest setup —
-  // the best leg (call/put/straddle) on the best day — so the record isn't
-  // dominated by any one name (e.g. a ticker showing up over and over). Pick the
-  // highest as-of hit rate; tie-break on more samples, then the more recent date.
-  //
-  // Exception: a read from the live (latest ingested) day is always published
-  // alongside the ticker's historical best — today's signal must never be
-  // swallowed by an older, stronger read of the same name.
-  const betterRead = (a, b) => {
-    if ((a.asof_hit_rate || 0) !== (b.asof_hit_rate || 0)) return (a.asof_hit_rate || 0) > (b.asof_hit_rate || 0);
-    if ((a.asof_samples || 0) !== (b.asof_samples || 0)) return (a.asof_samples || 0) > (b.asof_samples || 0);
-    return a.date > b.date;
-  };
-  const bestByTicker = new Map();
+  // Every qualifying (ticker, day) stays. A later day does not replace an
+  // earlier one, and a higher hit rate does not erase a different session.
   const liveReads = [];
-  for (const r of byKey.values()) {
-    if (liveDay && r.date === liveDay) { liveReads.push(r); continue; }
-    const cur = bestByTicker.get(r.ticker);
-    if (!cur || betterRead(r, cur)) bestByTicker.set(r.ticker, r);
+  const merged = [...byKey.values()]
+    .filter((r) => isPublishedOnSignalSession(r.date, r.found_at))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  for (const r of merged) {
+    if (liveDay && r.date === liveDay) liveReads.push(r);
   }
-  const merged = [...bestByTicker.values(), ...liveReads].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   await writeBoth(TRACK_FILE, {
     generated_at: new Date().toISOString(),
@@ -186,7 +186,7 @@ async function main() {
   // 3x+ names from earlier days are not carried forward — a signal is live on
   // its day or not at all. Empty when there's no fresh day (or nothing fired).
   const topReads = liveReads
-    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
+    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker) && isPublishedOnSignalSession(r.date, r.found_at))
     .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0))
     .slice(0, opts.top);
 
@@ -198,12 +198,9 @@ async function main() {
 
   console.error(`\n✅ Track record: ${merged.length} reads · Homepage: ${topReads.length} reads (signal day ${liveDay ?? 'none'}).`);
 
-  // Subscriber notifications now happen in the 10am ET cron
-  // (/api/automated-scanner), which leads the daily digest with any read whose
-  // found_at stamp is <24h old. Run this script before 10am ET on trading days.
   const publishedNew = merged.filter((r) => !knownKeys.has(readKey(r)));
   if (publishedNew.length > 0 && !opts.rebuild) {
-    console.error(`📣 ${publishedNew.length} new read(s) will lead the next 10am ET digest: ${publishedNew.map((r) => r.ticker).join(', ')}`);
+    console.error(`📣 ${publishedNew.length} new read(s): ${publishedNew.map((r) => r.ticker).join(', ')}`);
   }
 }
 

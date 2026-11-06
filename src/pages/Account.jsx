@@ -2,29 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
-  User, Mail, Bell, Shield, CreditCard,
-  Settings, Save, AlertCircle, CheckCircle, Zap,
+  User, Mail, CreditCard, Zap,
   ArrowLeft, Gift, Copy, Check
 } from 'lucide-react';
 import { siteConfig } from '../../lib/site-config';
 import { track } from '../../lib/analytics';
 import { useAuth } from '../context/AuthContext';
-import { updateUserPreferences } from '../../lib/firebase';
 import Header from '../components/Header';
 import Footer from './Footer';
 
 export default function Account() {
   const router = useRouter();
-  const { user, userData, loading, refreshUserData, hasActiveSubscription } = useAuth();
-
-  const [preferences, setPreferences] = useState({
-    minVolumeRatio: 3,
-    maxAlertsPerDay: 25,
-    watchlist: []
-  });
-  const [watchlistInput, setWatchlistInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const { user, userData, loading, hasActiveSubscription } = useAuth();
   const [refCopied, setRefCopied] = useState(false);
 
   const refCode = user?.uid ? `kahf_${user.uid.slice(0, 8)}` : '';
@@ -46,46 +35,6 @@ export default function Account() {
       router.push('/login?redirect=/account');
     }
   }, [user, loading, router]);
-
-  // Load user data
-  useEffect(() => {
-    if (userData) {
-      setPreferences({
-        minVolumeRatio: userData.preferences?.minVolumeRatio || 3,
-        maxAlertsPerDay: userData.preferences?.maxAlertsPerDay || 25,
-        watchlist: userData.preferences?.watchlist || []
-      });
-      setWatchlistInput((userData.preferences?.watchlist || []).join(', '));
-    }
-  }, [userData]);
-
-  const handleSavePreferences = async () => {
-    setSaving(true);
-    setMessage({ type: '', text: '' });
-
-    // Parse watchlist
-    const watchlist = watchlistInput
-      .split(',')
-      .map(t => t.trim().toUpperCase())
-      .filter(t => /^[A-Z]{1,5}$/.test(t))
-      .slice(0, 20);
-
-    const newPreferences = {
-      ...preferences,
-      watchlist
-    };
-
-    const result = await updateUserPreferences(user.uid, newPreferences);
-    
-    if (result.success) {
-      setMessage({ type: 'success', text: 'Preferences saved successfully!' });
-      await refreshUserData();
-    } else {
-      setMessage({ type: 'error', text: result.error || 'Failed to save preferences' });
-    }
-
-    setSaving(false);
-  };
 
   if (loading) {
     return (
@@ -111,24 +60,6 @@ export default function Account() {
         </Link>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h1>
-
-        {/* Message */}
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-lg flex items-start ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200' 
-              : 'bg-red-50 border border-red-200'
-          }`}>
-            {message.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
-            )}
-            <p className={message.type === 'success' ? 'text-green-700' : 'text-red-700'}>
-              {message.text}
-            </p>
-          </div>
-        )}
 
         <div className="space-y-6">
           {/* Profile Section */}
@@ -183,8 +114,8 @@ export default function Account() {
                     </p>
                     <p className="text-sm text-green-700">
                       {userData?.subscription?.status === 'trialing'
-                        ? 'Your free trial includes unlimited KAHF AI and the daily digest.'
-                        : 'Unlimited KAHF AI · Daily email digest · Full history'}
+                        ? 'Your free trial includes unlimited chat with KAHF.'
+                        : 'Unlimited KAHF chat · Full history'}
                     </p>
                   </div>
                 </div>
@@ -201,7 +132,7 @@ export default function Account() {
             ) : (
               <div className="space-y-4">
                 <p className="text-gray-600">
-                  You're on the free plan. Upgrade to Pro for unlimited KAHF AI, full scanner history, and the daily unusual dark pool email digest.
+                  You're on the free plan. Upgrade to Pro for unlimited chat with KAHF and full scanner history.
                 </p>
                 <Link
                   href="/pricing"
@@ -248,90 +179,6 @@ export default function Account() {
               >
                 Share on X →
               </a>
-              <span className="text-amber-300">·</span>
-              <a
-                href={`mailto:?subject=${encodeURIComponent('KAHF Capital')}&body=${encodeURIComponent(`KAHF Capital is a platform for options traders — dark pool flow and historical hit rates. ${refLink}`)}`}
-                onClick={() => track('referral_share_clicked', { channel: 'email' })}
-                className="text-amber-800 hover:underline font-semibold"
-              >
-                Email a friend →
-              </a>
-            </div>
-          </div>
-
-          {/* Digest preferences — apply to daily email roundup */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <Bell className="h-5 w-5 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">Daily digest preferences</h2>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-4">
-              Tune what shows up in your Pro daily unusual dark pool email (sent to your account email).
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Minimum Volume Ratio
-                </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  Only include tickers when dark pool volume is at least X times higher than the 7-day average
-                </p>
-                <select
-                  value={preferences.minVolumeRatio}
-                  onChange={(e) => setPreferences(p => ({ ...p, minVolumeRatio: parseFloat(e.target.value) }))}
-                  disabled={!hasActiveSubscription()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                >
-                  <option value={1.0}>1.0x (All activity)</option>
-                  <option value={1.5}>1.5x (Moderate spike)</option>
-                  <option value={2.0}>2.0x (High activity)</option>
-                  <option value={3.0}>3.0x (Very high activity)</option>
-                  <option value={5.0}>5.0x (Extreme activity only)</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Max tickers per digest
-                </label>
-                <select
-                  value={preferences.maxAlertsPerDay}
-                  onChange={(e) => setPreferences(p => ({ ...p, maxAlertsPerDay: parseInt(e.target.value) }))}
-                  disabled={!hasActiveSubscription()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                >
-                  <option value={3}>3 alerts</option>
-                  <option value={5}>5 alerts</option>
-                  <option value={10}>10 alerts</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Watchlist (optional)
-                </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  Comma-separated tickers to prioritize (e.g., AAPL, TSLA, SPY)
-                </p>
-                <input
-                  type="text"
-                  value={watchlistInput}
-                  onChange={(e) => setWatchlistInput(e.target.value)}
-                  placeholder="AAPL, TSLA, SPY, NVDA"
-                  disabled={!hasActiveSubscription()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                />
-              </div>
-              
-              <button
-                onClick={handleSavePreferences}
-                disabled={saving || !hasActiveSubscription()}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Preferences'}
-              </button>
             </div>
           </div>
         </div>

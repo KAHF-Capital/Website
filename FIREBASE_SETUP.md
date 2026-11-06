@@ -28,13 +28,6 @@ STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 ```
 
-### Resend (Email Alerts)
-```bash
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM="KAHF Capital <alerts@kahfcapital.com>"
-UNSUBSCRIBE_SECRET=your_random_unsubscribe_secret
-```
-
 ### Security
 ```bash
 CRON_SECRET=your_random_cron_secret_here
@@ -125,52 +118,12 @@ stripe listen --forward-to localhost:3000/api/stripe-webhook
 
 ---
 
-## Automated Alerts (Cron Job)
-
-The `/api/automated-scanner` endpoint sends the daily email digest. Call it daily via:
-
-### Option 1: Vercel Cron (Recommended)
-Add to `vercel.json`:
-```json
-{
-  "crons": [
-    {
-      "path": "/api/automated-scanner",
-      "schedule": "0 14 * * 1-5"  // 2 PM UTC, Mon-Fri (market hours)
-    }
-  ]
-}
-```
-
-### Option 2: GitHub Actions
-Create `.github/workflows/alerts.yml`:
-```yaml
-name: Send Daily Alerts
-on:
-  schedule:
-    - cron: '0 14 * * 1-5'  # 2 PM UTC, Mon-Fri
-jobs:
-  send-alerts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger alerts
-        run: |
-          curl -X POST https://your-domain.com/api/automated-scanner \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
-```
-
-### Option 3: External Cron Service
-Use [cron-job.org](https://cron-job.org/) or similar to call the endpoint daily.
-
----
-
 ## Testing Checklist
 
 - [ ] Firebase Authentication works (signup/login)
 - [ ] Firestore saves user data on signup
 - [ ] Stripe checkout redirects correctly
 - [ ] Stripe webhook updates subscription status
-- [ ] Automated scanner emails the digest to subscribers
 - [ ] Account page shows subscription status
 
 ---
@@ -184,9 +137,6 @@ Use [cron-job.org](https://cron-job.org/) or similar to call the endpoint daily.
 ### "Webhook signature verification failed"
 - Make sure `STRIPE_WEBHOOK_SECRET` matches your webhook endpoint
 - For local testing, use Stripe CLI's webhook secret
-
-### Digest emails not arriving
-- Verify `RESEND_API_KEY` is set and the sender domain is verified in Resend
 
 ### "Permission denied" on Firestore
 - Check security rules allow authenticated users

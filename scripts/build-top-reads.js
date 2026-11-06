@@ -37,7 +37,7 @@ const ROOT = path.resolve(__dirname, '..');
   }
 })();
 
-const { calculateOverlappingMovements, analyzeOptionsProfitability } = await import(
+const { analyzeOptionsProfitability } = await import(
   '../lib/options-analysis-service.js'
 );
 const { getHistoricalStockData, calculatePriceMovements } = await import('../lib/polygon-data-service.js');
@@ -64,12 +64,16 @@ export const DEFAULT_OPTS = {
   // A straddle breakeven under ±4% means near-zero premium = stale/no-bid
   // pricing, not cheap vol. (GSAT/APGE/CRNX all slipped in at ±2%.)
   straddleImpliedFloor: 0.04,
-  minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7
+  minSamples: 25, minVolRatio: 3.0, minValue: 250_000_000, minPrice: 50, maxPrice: 5000, minHistoryDays: 400, targetDte: 30, averageDays: 7,
+  // 3x versus the previous 7 calendar days, not including the signal day.
+  // The scanner page still uses its own inclusive window.
+  volumeBaseline: 'prior'
 };
 
-// Minimum post-outlier samples for a strategy's hit rate to count, matching the
-// website calculator's 'low' data-quality threshold (lib/options-analysis-service.js).
-const MIN_LEG_SAMPLES = 10;
+// One iteration is one month of trading sessions. The hit rate is that test
+// repeated on the 25 most recent iterations that end on or before the signal day.
+const HIT_RATE_ITERATIONS = 25;
+const MONTH_TRADING_DAYS = 21;
 
 // EXCLUDED_TICKERS (manual override) + the automated deal/dead-vol veto both
 // live in lib/read-filters.js so the serving layer can share them. Re-exported
@@ -161,52 +165,86 @@ async function getOptionAggWithFallback(optionsTicker, date, maxLookback = 5) {
 }
 
 // --- Load recent signals from local processed files ------------------------
-function loadLocalSignals(opts) {
+// Each file is parsed once and reduced to per-ticker volume. The full JSON is
+// not kept (a year of tape is hundreds of MB).
+function loadCompactDays(fromDate) {
   const dir = path.join(ROOT, 'data', 'processed');
-  const files = fs.readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
-  if (files.length === 0) return [];
-  const latest = files[files.length - 1].replace('.json', '');
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f) && f.slice(0, 10) >= fromDate).sort();
+  const days = [];
+  for (const file of files) {
+    let data;
+    try { data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')); } catch { continue; }
+    const tickers = new Map();
+    for (const t of data.tickers || []) {
+      tickers.set(t.ticker, {
+        v: Number(t.total_volume) || 0,
+        val: Number(t.total_value) || 0,
+        px: Number(t.avg_price) || 0,
+        n: Number(t.trade_count) || 0
+      });
+    }
+    days.push({ date: file.slice(0, 10), tickers });
+  }
+  return days;
+}
+
+function listProcessedDates() {
+  const dir = path.join(ROOT, 'data', 'processed');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .map((f) => f.slice(0, 10))
+    .sort();
+}
+
+function loadLocalSignals(opts) {
+  const allDates = listProcessedDates();
+  if (allDates.length === 0) return [];
+  const latest = allDates[allDates.length - 1];
   const since = opts.since || minusDays(latest, opts.days);
+  const prior = opts.volumeBaseline !== 'inclusive';
+  const lookback = opts.averageDays || 7;
+  const neededFrom = minusDays(since, lookback + 1);
+  const days = loadCompactDays(neededFrom);
+  if (days.length === 0) return [];
+  const usable = days;
+  const byDate = new Map(usable.map((d) => [d.date, d]));
+  const dates = usable.map((d) => d.date);
 
-  const read = (fn) => {
-    try { return JSON.parse(fs.readFileSync(path.join(dir, fn), 'utf8')); } catch { return null; }
-  };
-
-  const inRange = files.filter((f) => f.replace('.json', '') >= since);
   const rows = [];
-  for (const file of inRange) {
-    const fnDate = file.replace('.json', '');
-    const earliest = minusDays(fnDate, opts.averageDays - 1);
-    const window = files.filter((f) => { const s = f.replace('.json', ''); return s >= earliest && s <= fnDate; });
-    const sums = {}; const counts = {};
-    for (const w of window) {
-      const data = read(w);
-      if (!data?.tickers) continue;
-      for (const t of data.tickers) {
-        sums[t.ticker] = (sums[t.ticker] || 0) + (Number(t.total_volume) || 0);
-        counts[t.ticker] = (counts[t.ticker] || 0) + 1;
+  for (const day of dates) {
+    if (day < since) continue;
+    const start = minusDays(day, prior ? lookback : lookback - 1);
+    const sums = new Map();
+    const counts = new Map();
+    for (const d of dates) {
+      if (d < start) continue;
+      if (prior ? d >= day : d > day) break;
+      const bucket = byDate.get(d);
+      for (const [ticker, t] of bucket.tickers) {
+        sums.set(ticker, (sums.get(ticker) || 0) + t.v);
+        counts.set(ticker, (counts.get(ticker) || 0) + 1);
       }
     }
-    const cur = read(file);
-    if (!cur?.tickers) continue;
-    for (const t of cur.tickers) {
-      const avg = counts[t.ticker] > 0 ? sums[t.ticker] / counts[t.ticker] : 0;
+    const cur = byDate.get(day);
+    for (const [ticker, t] of cur.tickers) {
+      const count = counts.get(ticker) || 0;
+      const avg = count > 0 ? sums.get(ticker) / count : 0;
       if (avg <= 0) continue;
-      const ratio = t.total_volume / avg;
+      const ratio = t.v / avg;
       if (ratio < opts.minVolRatio) continue;
-      if ((t.total_value || 0) < opts.minValue) continue;
-      if ((t.avg_price || 0) < opts.minPrice || (t.avg_price || 0) > opts.maxPrice) continue;
+      if ((t.val || 0) < opts.minValue) continue;
+      if ((t.px || 0) < opts.minPrice || (t.px || 0) > opts.maxPrice) continue;
       rows.push({
-        date: fnDate, ticker: t.ticker, avg_price: t.avg_price,
-        total_value: t.total_value, total_volume: t.total_volume,
-        trade_count: t.trade_count, volume_ratio: Number(ratio.toFixed(2))
+        date: day, ticker, avg_price: t.px,
+        total_value: t.val, total_volume: t.v,
+        trade_count: t.n, volume_ratio: Number(ratio.toFixed(2))
       });
     }
   }
   // One candidate per (ticker, day): every day a ticker clears the volume-ratio
-  // gate is its own signal. We intentionally do NOT collapse to one row per
-  // ticker — doing so silently ignored qualifying signals on a ticker's other
-  // 3x+ days. Newest first, strongest-ratio first within a day.
+  // gate is its own signal. Newest first, strongest-ratio first within a day.
   return rows.sort((a, b) =>
     a.date === b.date ? b.volume_ratio - a.volume_ratio : a.date < b.date ? 1 : -1
   );
@@ -259,25 +297,41 @@ async function priceEntry(ticker, signalDate, targetDte) {
   };
 }
 
+// One Polygon pull per ticker, then sliced to the signal date. Later bars are
+// never scored. Adjusted closes make a past return the same either way.
+const _histCache = new Map();
+async function historyAsOf(ticker, signalDate, need) {
+  // Look back from the signal date, not from today. A window anchored on today
+  // is too short once it is cut off at January, so early-2026 signals never
+  // had 25 one-month iterations.
+  const from = minusDays(signalDate, need + 30);
+  let series = _histCache.get(ticker);
+  if (!series || series.from > from) {
+    const end = new Date().toISOString().slice(0, 10);
+    const start = series && series.from < from ? series.from : from;
+    const bars = await getHistoricalStockData(ticker, start, end);
+    series = { from: start, bars };
+    _histCache.set(ticker, series);
+  }
+  return series.bars.filter((h) => h.date <= signalDate);
+}
+
 // --- Best leg: hit-rate calculator + direction gate --------------------------
-// The hit-rate math MUST mirror the website options calculator
-// (lib/options-analysis-service.js → runHistoricalAnalysis):
-//   • ~3 years of daily history CAPPED AT THE SIGNAL DATE — the published
-//     "as-of" edge must never see post-signal data (this was a lookahead bug:
-//     it previously fetched through today),
-//   • NON-overlapping N-day intervals (overlapping only as a fallback),
-//   • scored against the same breakevens (premium / strike),
-//   • real ENTRY premium from the signal date, not the live mid.
+// Walk-forward hit rate, knowable on the signal day:
+//   • daily history CAPPED AT THE SIGNAL DATE,
+//   • the last 25 non-overlapping 1-month (21 trading day) iterations only,
+//   • scored against the signal-day entry premium (premium / strike),
+//   • no overlapping fallback and no bars after the signal day.
 //
-// Structure selection (backtested on YTD 2026, best mix):
-//   1. Direction from the dark pool signal (close vs avg print price, weighted
-//      by volume-ratio conviction, price-action sanity veto) — read-filters.js.
+// Structure selection:
+//   1. Direction from the dark pool signal (close vs avg print price).
 //   2. bullish → long call, bearish → long put, when that leg's hit rate
-//      qualifies; ATM straddle (always non-directional) is the fallback.
-//   3. neutral → best qualifying leg by hit rate (legacy contest).
-async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal = {}) {
-  const need = Math.max(750, Math.ceil((opts.minSamples * dte) / 0.7) + 60);
-  const hist = await getHistoricalStockData(ticker, minusDays(signalDate, need), signalDate);
+//      qualifies; ATM straddle is the fallback.
+//   3. neutral → best qualifying leg by hit rate.
+async function bestLegAsOf(ticker, signalDate, strike, entry, _dte, opts, signal = {}) {
+  const iterations = opts.minSamples || HIT_RATE_ITERATIONS;
+  const need = Math.ceil((iterations * MONTH_TRADING_DAYS) / 0.65) + 120;
+  const hist = await historyAsOf(ticker, signalDate, need);
   const spanDays = hist.length ? (new Date(hist[hist.length - 1].date) - new Date(hist[0].date)) / 86400000 : 0;
   if (spanDays < opts.minHistoryDays) {
     return null; // thin history
@@ -289,10 +343,10 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal 
   if (regime.collapsed) {
     return { vetoed: true, reason: regime.reason };
   }
-  // Match the calculator: prefer non-overlapping intervals, fall back to
-  // overlapping only when there aren't enough non-overlapping windows.
-  let moves = calculatePriceMovements(hist, dte);
-  if (moves.length < opts.minSamples) moves = calculateOverlappingMovements(hist, dte);
+  let moves = calculatePriceMovements(hist, MONTH_TRADING_DAYS)
+    .filter((m) => m.startDate <= signalDate && m.endDate <= signalDate);
+  if (moves.length < iterations) return null;
+  moves = moves.slice(0, iterations);
   const run = (strategy, premium) => analyzeOptionsProfitability(moves, {
     strategy,
     upperBreakevenPct: premium / strike,
@@ -319,7 +373,9 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal 
   // post-outlier samples) so a read isn't built off a handful of points.
   const qualifies = (s) => {
     const { a } = analyses[s];
-    if (a.totalSamples < MIN_LEG_SAMPLES) return false;
+    // The rate is the last 25 iterations. One or two outlier windows can be
+    // dropped by the shared profitability filter; fewer than that is not the test.
+    if (a.totalSamples < iterations - 2) return false;
     const floor = s === 'put' && direction === 'bearish' ? opts.putHitRateFloor : opts.minHitRate;
     if (a.profitableRate < floor || a.profitableRate > opts.maxHitRate) return false;
     if (s === 'straddle' && straddleImplied < opts.straddleImpliedFloor) return false;
@@ -338,7 +394,18 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal 
       .filter(qualifies)
       .sort((x, y) => analyses[y].a.profitableRate - analyses[x].a.profitableRate)[0] || null;
   }
-  if (!chosen) return null;
+  if (!chosen) {
+    return {
+      noQualify: true,
+      rates: {
+        call: Number(analyses.call.a.profitableRate.toFixed(1)),
+        put: Number(analyses.put.a.profitableRate.toFixed(1)),
+        straddle: Number(analyses.straddle.a.profitableRate.toFixed(1)),
+        samples: analyses.call.a.totalSamples,
+        direction
+      }
+    };
+  }
 
   const best = analyses[chosen];
   return {
@@ -347,6 +414,44 @@ async function bestLegAsOf(ticker, signalDate, strike, entry, dte, opts, signal 
     hitRate: Number(best.a.profitableRate.toFixed(1)),
     samples: best.a.totalSamples,
     direction
+  };
+}
+
+// Score one (ticker, day). Returns a track-record read, or { skip, reason }.
+// Hit rate uses only prices on or before `signal.date`.
+export async function scoreSignal(signal, userOpts = {}) {
+  const opts = { ...DEFAULT_OPTS, ...userOpts };
+  const s = signal;
+  if (EXCLUDED_TICKERS.has(s.ticker)) return { skip: true, reason: 'manual exclude' };
+  if (!(await isStock(s.ticker))) return { skip: true, reason: 'ETF/fund' };
+  const entry = await priceEntry(s.ticker, s.date, opts.targetDte);
+  const straddleImplied = (entry.callPrice + entry.putPrice) / entry.strike;
+  if (straddleImplied < 0.02) return { skip: true, reason: `implied move ${(straddleImplied * 100).toFixed(2)}% too small` };
+  const best = await bestLegAsOf(s.ticker, s.date, entry.strike, entry, entry.dte, opts, {
+    volumeRatio: s.volume_ratio,
+    dpAvgPrice: s.avg_price
+  });
+  if (best?.vetoed) return { skip: true, reason: best.reason };
+  if (best?.noQualify) return { skip: true, reason: 'no qualifying structure', rates: best.rates };
+  if (!best) return { skip: true, reason: 'no qualifying structure' };
+  const contracts = best.strategy === 'call' ? [entry.callTicker]
+    : best.strategy === 'put' ? [entry.putTicker]
+    : [entry.callTicker, entry.putTicker];
+  return {
+    date: s.date,
+    ticker: s.ticker,
+    volume_ratio: s.volume_ratio,
+    dark_pool_value: s.total_value,
+    dark_pool_avg_price: s.avg_price,
+    structure: best.strategy,
+    direction: best.direction,
+    strike: entry.strike,
+    expiration: entry.expiration,
+    dte: entry.dte,
+    entry_premium: Number(best.premium.toFixed(2)),
+    asof_hit_rate: best.hitRate,
+    asof_samples: best.samples,
+    contracts
   };
 }
 
@@ -364,50 +469,14 @@ export async function buildReads(userOpts = {}, { skipTickers = null, skipKeys =
     if (skipKeys && skipKeys.has(key)) continue;
     if (onlyKeys && !onlyKeys.has(key)) continue;
     if (skipTickers && skipTickers.has(s.ticker)) continue;
-    if (EXCLUDED_TICKERS.has(s.ticker)) {
-      console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (manual exclude)`);
-      continue;
-    }
     try {
-      if (!(await isStock(s.ticker))) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} skipped (ETF/fund)`); continue; }
-      const entry = await priceEntry(s.ticker, s.date, opts.targetDte);
-
-      // Sanity floor: an ATM straddle should imply at least ~2% of move, a
-      // single leg ~1%. Tiny premiums = stale/illiquid prints (bad data) — skip.
-      const straddleImplied = (entry.callPrice + entry.putPrice) / entry.strike;
-      if (straddleImplied < 0.02) {
-        console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} implied move ${(straddleImplied * 100).toFixed(2)}% too small (illiquid/bad data)`);
+      const scored = await scoreSignal(s, opts);
+      if (scored.skip) {
+        console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} ${scored.reason}`);
         continue;
       }
-
-      const best = await bestLegAsOf(s.ticker, s.date, entry.strike, entry, entry.dte, opts, {
-        volumeRatio: s.volume_ratio,
-        dpAvgPrice: s.avg_price
-      });
-      if (best?.vetoed) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} vetoed — ${best.reason}`); continue; }
-      if (!best) { console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} no qualifying structure`); continue; }
-
-      const contracts = best.strategy === 'call' ? [entry.callTicker]
-        : best.strategy === 'put' ? [entry.putTicker]
-        : [entry.callTicker, entry.putTicker];
-
-      reads.push({
-        date: s.date,
-        ticker: s.ticker,
-        volume_ratio: s.volume_ratio,
-        dark_pool_value: s.total_value,
-        dark_pool_avg_price: s.avg_price,
-        structure: best.strategy,
-        direction: best.direction,
-        strike: entry.strike,
-        expiration: entry.expiration,
-        dte: entry.dte,
-        entry_premium: Number(best.premium.toFixed(2)),
-        asof_hit_rate: best.hitRate,
-        asof_samples: best.samples,
-        contracts
-      });
-      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${best.strategy.padEnd(8)} [${best.direction}] edge ${best.hitRate}%  entry $${best.premium.toFixed(2)}  exp ${entry.expiration}`);
+      reads.push(scored);
+      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${scored.structure.padEnd(8)} [${scored.direction}] edge ${scored.asof_hit_rate}%  entry $${scored.entry_premium.toFixed(2)}  exp ${scored.expiration}`);
     } catch (e) {
       console.error(`  ✗  ${s.date} ${s.ticker.padEnd(6)} ${e.message}`);
     }

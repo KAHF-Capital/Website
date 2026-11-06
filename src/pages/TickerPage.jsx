@@ -160,7 +160,7 @@ export default function TickerPage({ symbol, summary, error }) {
               Dark pools are private trading venues where institutions execute large block orders away from public exchanges. When {symbol} prints unusually high off-exchange volume — measured as a multiple of its trailing 7-day average — it often signals that a large player is accumulating or distributing the name without moving the public bid/ask.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              A dark pool spike is one input. The <strong>KAHF Read</strong> on {symbol} lines up <strong>flow</strong> (volume versus the 7-day average), <strong>direction</strong> (call/put flow), <strong>historical hit rates</strong> for call, put, and straddle at ~30 DTE, <strong>options liquidity</strong>, and <strong>catalyst + priced-in</strong> (is the move already in the IV?). Unusual activity also shows up in Pro&apos;s daily email.
+              A dark pool spike is one input. The <strong>KAHF Read</strong> on {symbol} lines up <strong>flow</strong> (volume versus the 7-day average), <strong>direction</strong> (call/put flow), <strong>historical hit rates</strong> for call, put, and straddle at ~30 DTE, <strong>options liquidity</strong>, and <strong>catalyst + priced-in</strong> (is the move already in the IV?).
             </p>
             <h3 className="text-xl font-bold text-gray-900 mt-6">Want a volatility read on {symbol}?</h3>
             <p className="text-gray-700 leading-relaxed">
@@ -175,7 +175,7 @@ export default function TickerPage({ symbol, summary, error }) {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href={`/kahf-ai?q=${encodeURIComponent(`Volatility read on ${symbol}`)}&t=${symbol}`}>
                 <button className="bg-white text-green-700 hover:bg-green-50 font-bold px-7 py-3.5 rounded-xl inline-flex items-center gap-2 shadow-lg mx-auto sm:mx-0">
-                  <Bot className="h-4 w-4" /> Ask KAHF AI now
+                  <Bot className="h-4 w-4" /> Text KAHF now
                 </button>
               </Link>
               <Link href="/pricing">

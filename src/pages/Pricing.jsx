@@ -12,8 +12,7 @@ const FEATURE_MATRIX = [
   { label: 'Today\'s dark pool scanner', free: true, pro: true },
   { label: 'KAHF AI (5 messages / month)', free: true, pro: true },
   { label: 'Unlimited KAHF AI chat', free: false, pro: true },
-  { label: 'Full scanner history', free: false, pro: true },
-  { label: 'Daily email alerts (unusual dark pool activity)', free: false, pro: true }
+  { label: 'Full scanner history', free: false, pro: true }
 ];
 
 export default function Pricing() {
@@ -42,7 +41,7 @@ export default function Pricing() {
     <div className="min-h-screen bg-white">
       <Head>
         <title>Pricing — KAHF AI | KAHF Capital</title>
-        <meta name="description" content="Start a 7-day free trial of KAHF AI. Cancel anytime, 14-day money-back guarantee. From $27/mo." />
+        <meta name="description" content="Start a 7-day free trial of KAHF AI. Cancel anytime. From $27/mo." />
       </Head>
       <Header />
 
@@ -50,13 +49,13 @@ export default function Pricing() {
         <div className="max-w-6xl mx-auto text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold mb-5">
             <ShieldCheck className="h-3.5 w-3.5" />
-            7-day free trial · {siteConfig.guarantee.label} · Cancel anytime
+            7-day free trial · Cancel anytime
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight">
             Simple pricing. Real edge.
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            One subscription. Unlimited KAHF AI, full scanner history, and daily email digests when dark pool activity is unusual.
+            One subscription. Unlimited chat with KAHF, your volatility analyst, and full scanner history.
           </p>
 
           {/* Billing toggle */}
@@ -94,7 +93,6 @@ export default function Pricing() {
               <Feature ok>5 KAHF AI messages / month</Feature>
               <Feature>Scanner history</Feature>
               <Feature>Unlimited AI chat</Feature>
-              <Feature>Daily email alerts (unusual activity)</Feature>
             </ul>
             <Link href="/signup" className="mt-auto">
               <button className="w-full border border-gray-300 hover:border-gray-400 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-colors">
@@ -127,7 +125,6 @@ export default function Pricing() {
             <ul className="space-y-2.5 text-sm mb-6">
               <Feature ok dark>Unlimited KAHF AI chat</Feature>
               <Feature ok dark>Full scanner history</Feature>
-              <Feature ok dark>Daily email alerts on unusual dark pool activity</Feature>
             </ul>
             <a
               href={checkoutUrl}
@@ -149,7 +146,7 @@ export default function Pricing() {
                     <Link href="/login?redirect=/pricing" className="text-green-300 hover:text-green-200 underline underline-offset-2">
                       Sign in first
                     </Link>
-                    {' '}for the smoothest unlock · {siteConfig.guarantee.label}
+                    {' '}for the smoothest unlock
                   </>
                 )}
             </p>
@@ -178,8 +175,7 @@ export default function Pricing() {
 
       {/* Guarantee strip */}
       <section className="py-12 px-4 bg-gray-50">
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-          <Guarantee icon={ShieldCheck} title="14-day refund" body="Don't love it? Email us within 14 days for a full refund. No questions." />
+        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
           <Guarantee icon={Zap} title="Cancel any time" body="One click in the billing portal. No retention dance, no calls." />
           <Guarantee icon={Bot} title="Built for traders" body="No fluff features. Every line ships because traders asked for it." />
         </div>

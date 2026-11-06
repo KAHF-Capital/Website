@@ -60,8 +60,8 @@ export default function SubscribeSuccess() {
         setStatus('success');
         setMessage(
           data.emailMismatch
-            ? `Pro is unlocked on this account. Checkout email was ${data.sessionEmail} — digests go to your account email.`
-            : 'You\'re all set. Pro is unlocked — including unlimited KAHF AI and the daily digest.'
+            ? `Pro is unlocked on this account. Checkout used ${data.sessionEmail}.`
+            : 'You\'re all set. Pro is unlocked — unlimited chat with KAHF and full scanner history.'
         );
         track('subscribe_claimed', { source: data.source, status: data.status });
       } catch (err) {

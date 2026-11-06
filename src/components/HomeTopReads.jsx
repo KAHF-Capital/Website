@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { TrendingUp, ArrowRight, Trophy } from 'lucide-react';
 
@@ -41,55 +41,31 @@ function WinnerCard({ w, rank }) {
         <span className="text-3xl font-extrabold text-green-600">{fmtPct(w.estimated_return_pct)}</span>
       </div>
 
-      <p className="text-xs text-gray-500 mt-auto">Scored {fmtDate(w.date)}</p>
+      <p className="text-xs text-gray-500 mt-auto">Kimi scored {fmtDate(w.date)}</p>
     </div>
   );
 }
 
-export default function HomeTopReads() {
-  const [winners, setWinners] = useState(null);
-  const [error, setError] = useState(false);
-  const [disclaimer, setDisclaimer] = useState('');
+export default function HomeTopReads({ alerts = null, disclaimer = '', loading = false }) {
+  const winners = (alerts || [])
+    .filter((a) => a.result === 'win' && a.estimated_return_pct > 0)
+    .sort((a, b) => b.estimated_return_pct - a.estimated_return_pct)
+    .slice(0, MAX_WINNERS);
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/wins')
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => {
-        if (!mounted) return;
-        const yearStart = `${new Date().getFullYear()}-01-01`;
-        const top = (d.alerts || [])
-          .filter((a) => a.result === 'win' && a.date >= yearStart && a.estimated_return_pct > 0)
-          .sort((a, b) => b.estimated_return_pct - a.estimated_return_pct)
-          .slice(0, MAX_WINNERS);
-        setWinners(top);
-        setDisclaimer(d.disclaimer || '');
-      })
-      .catch(() => mounted && setError(true));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (error || (winners && winners.length === 0)) return null;
+  if (!loading && winners.length === 0) return null;
 
   return (
-    <section className="py-16 px-4 bg-white">
+    <section id="top-trades" className="scroll-mt-24 pt-4 pb-16 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <p className="text-sm font-semibold text-green-700 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
-            <Trophy className="h-4 w-4" /> Largest marked moves · {new Date().getFullYear()}
-          </p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-            How scored setups marked this year.
-          </h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-green-700 mb-2">Right now</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Kimi’s top trades</h2>
           <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
-            The largest marked moves on setups scored from unusual dark pool flow.
-            Wins and losses both live on the track record page.
+            The largest marked moves she has scored. Wins and losses both live on her track record.
           </p>
         </div>
 
-        {!winners ? (
+        {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-36 bg-white border border-gray-200 rounded-2xl animate-pulse" />
@@ -108,7 +84,7 @@ export default function HomeTopReads() {
             href="/wins"
             className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            See the full track record <ArrowRight className="h-4 w-4" />
+            See Kimi’s full track record <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="text-xs text-gray-500 mt-3">
             Win rate, average return, and open positions are all on the track record page.

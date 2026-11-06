@@ -9,7 +9,10 @@
     "lint": "next lint",
     "process-csv": "node process-csv.js",
     "refresh-track-record": "node scripts/refresh-track-record.js",
-    "build-history-index": "node --max-old-space-size=8192 scripts/build-scanner-history-index.js"
+    "build-history-index": "node --max-old-space-size=8192 scripts/build-scanner-history-index.js",
+    "test:kimi": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/kimi/*.test.mjs\"",
+    "kimi:seed": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/kimi-seed.js --fresh",
+    "kimi:replay": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/kimi-replay.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -21,11 +24,11 @@
     "lucide-react": "^0.400.0",
     "next": "^14.0.0",
     "posthog-js": "^1.372.8",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "resend": "^6.10.0",
     "stripe": "^14.25.0"
   },
   "devDependencies": {

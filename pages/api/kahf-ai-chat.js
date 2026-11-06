@@ -1,10 +1,13 @@
 import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildAlignedScannerContext, extractSignalDate } from '../../lib/kahf-scanner-context';
+import { getPublicTrackRecord } from '../../lib/track-record-public.js';
+import { getCatalystCalendar } from '../../lib/benzinga-calendar.js';
 import { verifyIdToken, isFirebaseAdminConfigured, getFirestoreAdmin, ensureProAccess } from '../../lib/firebase-admin';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
 import { getAllStrategyAnalyses } from '../../lib/options-analysis-service.js';
 import { isProStatus } from '../../lib/subscription-access';
+import { ANON_LIMIT, FREE_ACCOUNT_LIMIT, reserveUsage } from '../../lib/ai-usage';
 import {
   POLYGON_API_BASE,
   SCANNER_MIN_VOLUME,
@@ -13,9 +16,6 @@ import {
   detectCatalysts
 } from '../../lib/scanner-signals';
 
-const ANON_LIMIT = parseInt(process.env.KAHF_AI_ANON_MESSAGE_LIMIT || '1', 10);
-// Signed-in but not subscribed: small monthly quota (encourages signup, gates Pro).
-const FREE_ACCOUNT_LIMIT = parseInt(process.env.KAHF_AI_FREE_ACCOUNT_LIMIT || '5', 10);
 const MAX_CONTEXT_TICKERS = 12;
 const MAX_STRADDLE_TICKERS = 5;
 const MAX_RESEARCH_TICKERS = 5;
@@ -24,38 +24,16 @@ const TOP_PER_DAY = 5;
 const MAX_HISTORY_TICKERS_IN_PROMPT = 4;
 
 const WEB_SEARCH_ENABLED = (process.env.KAHF_AI_WEB_SEARCH || 'true').toLowerCase() !== 'false';
-const WEB_SEARCH_MAX_USES = parseInt(process.env.KAHF_AI_WEB_SEARCH_USES || '3', 10);
-
-// Primary model + automatic fallbacks. If the configured model is unavailable
-// (retired, typo'd env var, or no access) the provider returns a 404. Rather
-// than surface that to the user we fall through this list so the chat keeps working.
-const PRIMARY_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-const MODEL_FALLBACKS = ['claude-sonnet-4-6', 'claude-opus-4-8', 'claude-opus-4-7'];
-
-// Some current models reject the `temperature` sampling parameter with a 400.
-// Only set it for models that still accept it.
-function modelSupportsTemperature(model) {
-  return !/opus-4-[789]|opus-[5-9]|sonnet-4-[6-9]|sonnet-[5-9]|fable|mythos/i.test(model || '');
-}
-
-function isModelUnavailableError(error) {
-  const status = error?.status || error?.statusCode;
-  return status === 404 || /not_found_error|model:/i.test(error?.message || '');
-}
+const MODEL = 'claude-sonnet-5-5';
+// The Messages API still requires a ceiling. This is Sonnet 5.5's output maximum.
+const MAX_OUTPUT_TOKENS = 128000;
 
 const MCP_PUBLIC_URL = process.env.MCP_PUBLIC_URL || (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, '')}/api/mcp` : '');
 const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || '';
 const MCP_ENABLED = (process.env.KAHF_AI_MCP_ENABLED || 'true').toLowerCase() !== 'false' && Boolean(MCP_PUBLIC_URL);
 
-const anonymousUsage = new Map();
-
 function hashValue(value) {
   return crypto.createHash('sha256').update(value).digest('hex').slice(0, 48);
-}
-
-function getPeriodKey() {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function normalizeMessages(messages) {
@@ -184,94 +162,6 @@ async function getIdentity(req) {
     limit: FREE_ACCOUNT_LIMIT,
     isUnlimited: false,
     userData
-  };
-}
-
-// Persistent monthly usage counter for signed-in free users (survives Vercel cold starts).
-async function incrementFirestoreUsage(uid, period, limit) {
-  const firestore = getFirestoreAdmin();
-  const ref = firestore.collection('users').doc(uid).collection('usage').doc(period);
-  return firestore.runTransaction(async (txn) => {
-    const snap = await txn.get(ref);
-    const current = snap.exists ? Number(snap.data().count || 0) : 0;
-    if (current >= limit) {
-      const error = new Error('You\'ve used your free KAHF AI messages this month. Start a 7-day Pro free trial for unlimited access.');
-      error.statusCode = 429;
-      error.usage = { tier: 'free', limit, used: current, remaining: 0, isUnlimited: false, period };
-      throw error;
-    }
-    const next = current + 1;
-    txn.set(ref, { count: next, updatedAt: new Date().toISOString() }, { merge: true });
-    return next;
-  });
-}
-
-async function reserveUsage(identity) {
-  const period = getPeriodKey();
-
-  if (identity.isUnlimited) {
-    return {
-      tier: identity.tier,
-      limit: null,
-      used: 0,
-      remaining: null,
-      isUnlimited: true,
-      period
-    };
-  }
-
-  const limit = identity.limit;
-
-  // Signed-in free users: persist count in Firestore so the limit holds across cold starts.
-  if (identity.tier === 'free' && identity.uid) {
-    try {
-      const used = await incrementFirestoreUsage(identity.uid, period, limit);
-      return {
-        tier: identity.tier,
-        limit,
-        used,
-        remaining: Math.max(limit - used, 0),
-        isUnlimited: false,
-        period
-      };
-    } catch (err) {
-      if (err.statusCode === 429) throw err;
-      console.error('[kahf-ai-chat] Firestore usage failed, falling back to in-memory:', err.message);
-      // fall through to in-memory below
-    }
-  }
-
-  // Anonymous (or Firestore fallback): in-memory counter.
-  const fallbackKey = `${period}:${identity.key}`;
-  const currentCount = anonymousUsage.get(fallbackKey) || 0;
-  if (currentCount >= limit) {
-    const error = new Error(
-      identity.tier === 'free'
-        ? 'You\'ve used your free KAHF AI messages this month. Start a 7-day Pro free trial for unlimited access.'
-        : 'You used your free KAHF AI message. Sign in or upgrade to Pro for more.'
-    );
-    error.statusCode = 429;
-    error.usage = {
-      tier: identity.tier,
-      limit,
-      used: currentCount,
-      remaining: 0,
-      isUnlimited: false,
-      period
-    };
-    throw error;
-  }
-
-  const nextCount = currentCount + 1;
-  anonymousUsage.set(fallbackKey, nextCount);
-
-  return {
-    tier: identity.tier,
-    limit,
-    used: nextCount,
-    remaining: Math.max(limit - nextCount, 0),
-    isUnlimited: false,
-    period
   };
 }
 
@@ -519,10 +409,61 @@ async function buildResearchContext(tickers, asOfDate) {
   };
 }
 
+const NEWS_SCANNER_DAYS = 30;
+
+function slimNewsEvent(event) {
+  return {
+    ticker: event.ticker,
+    name: event.name || null,
+    eventType: event.eventType,
+    eventLabel: event.eventLabel,
+    eventDate: event.eventDate,
+    session: event.session || null,
+    dateStatus: event.dateStatus || null,
+    detail: event.detail || null,
+    importance: event.importance ?? null
+  };
+}
+
+async function loadNewsScannerContext() {
+  try {
+    const calendar = await getCatalystCalendar({ days: NEWS_SCANNER_DAYS });
+    return {
+      source: 'news-scanner',
+      from: calendar.from,
+      to: calendar.to,
+      days: calendar.days,
+      count: calendar.count,
+      note: 'Same upcoming board as the News Scanner page: earnings, FDA, M&A, dividends, macro, splits, and IPOs that already have a calendar day. This is the live board, not a reconstruction of a past date.',
+      events: (calendar.events || []).map(slimNewsEvent)
+    };
+  } catch (error) {
+    console.warn('News scanner unavailable for KAHF AI:', error.message);
+    return { unavailable: true, reason: error.message, events: [] };
+  }
+}
+
+async function loadTrackRecordContext() {
+  try {
+    const record = await getPublicTrackRecord();
+    return {
+      summary: record.summary,
+      holdingPeriodMeaning: 'Calendar days from the signal date to the exit. Calls and puts are held to expiration. Straddles exit at the first daily close beyond +40% or -30%. Open rows are still marked to market, so holdingDays runs through today.',
+      rows: record.rows
+    };
+  } catch (error) {
+    console.warn('Track record unavailable for KAHF AI:', error.message);
+    return { unavailable: true, reason: error.message, rows: [] };
+  }
+}
+
 async function buildMarketContext(messages) {
   const requestedTickers = extractTickers(messages);
   const namedDate = extractSignalDate(messages);
+  const trackPromise = loadTrackRecordContext();
+  const newsPromise = loadNewsScannerContext();
   const scanner = await buildScannerContext(requestedTickers, namedDate);
+  const [trackRecord, newsScanner] = await Promise.all([trackPromise, newsPromise]);
   const asOfDate = scanner.asOfDate || null;
   const tradableSet = new Set(scanner.tradableTickers || []);
 
@@ -531,6 +472,8 @@ async function buildMarketContext(messages) {
       requestedTickers,
       asOfDate,
       scanner,
+      trackRecord,
+      newsScanner,
       options: {
         available: false,
         asOfDate,
@@ -572,6 +515,8 @@ async function buildMarketContext(messages) {
     requestedTickers,
     asOfDate,
     scanner,
+    trackRecord,
+    newsScanner,
     options,
     straddle: options,
     research
@@ -579,126 +524,9 @@ async function buildMarketContext(messages) {
 }
 
 function buildSystemPrompt() {
-  const mcpBlock = MCP_ENABLED
-    ? [
-        '# Tools (kahf-data MCP server) - PREFER these over relying on context alone',
-        'You have direct access to KAHF\'s data via these MCP tools. Call them as needed.',
-        '',
-        '**Dark pool / scanner (KAHF proprietary):**',
-        '- `get_scanner_signals(minVolumeRatio?, limit?, asOfDate?)` — scanner board. Omit asOfDate for today (same numbers as the Scanner page). Pass asOfDate for a past session; the volume ratio then uses only data through that date.',
-        '- `get_recurring_signals(minDaysInTop?, lookbackDays?, minVolumeRatio?, asOfDate?)` — names in the daily top list on more than one session. Pass asOfDate so the lookback cannot see later days.',
-        '- `get_scanner_history(ticker, asOfDate?, days?)` — FULL dark-pool history for one ticker: share volume, average price, dollar value, trade count, and point-in-time volume ratio on every archived date. Omit days to get the entire tape. Pass asOfDate to withhold every session after that date.',
-        '- `get_scanner_day(date, ticker?, universe?)` — one session for every ticker, or one ticker. universe "signals" is the scanner filter; universe "all" pages the whole tape.',
-        '',
-        '**Live market data (Polygon — Stocks Developer plan, 15-min delayed):**',
-        '- `get_stock_price(ticker, asOfDate?)` — live snapshot when asOfDate is omitted. For a past signal, pass asOfDate and you get the daily close on or before that date, not today\'s price.',
-        '- `get_market_status()` — open/closed/pre-market/after-hours. Call once at the start of a session so you can frame "current" prices correctly.',
-        '- `get_intraday_chart(ticker, timespan?, multiplier?, days?, asOfDate?)` — bars. Pass asOfDate for a past signal so bars after that date are dropped.',
-        '- `get_prior_range(ticker, asOfDate?)` — prior trading day high/low/close.',
-        '- `get_ticker_details(ticker)` — name, type (CS / ETF), sector, market cap, exchange. Use for context and to see whether a name is a common stock or an ETF.',
-        '- `get_top_movers(direction?, limit?)` — today\'s biggest gainers / losers. Use for market color.',
-        '- `get_dividends(ticker, limit?)` — upcoming/historical dividends. Large ex-divs distort calls/puts on the date — flag them.',
-        '',
-        '**Options data (Polygon — Options Basic plan):**',
-        '- `get_options_analysis(ticker, strategy?, asOfDate?)` — 30-day ATM hit rate + premium + breakevens + liquidity + IV. Pass asOfDate for a past signal so the hit rate stops on that date. The premium on that response is today\'s live premium, not the premium that was listed on the past date — say so.',
-        '- `get_options_chain(ticker, expirationDate?, strikeWindowPct?, contractType?)` — chain snapshot near ATM with IV + Greeks (delta/gamma/theta/vega) + OI per strike. Use this to quote a real contract. Do not use it to tell the user which strike to trade.',
-        '- `get_option_quote(optionTicker, ticker?)` — live snapshot for a SINGLE contract (bid/ask, OI, IV, Greeks). Use after the chain narrows it down.',
-        '- `get_straddle_analysis(ticker)` — LEGACY alias. Prefer `get_options_analysis`.',
-        '',
-        '**Catalysts & news:**',
-        '- `get_news(ticker, limit?, asOfDate?)` — headlines. Pass asOfDate to drop anything published after that date.',
-        '- `web_search(query)` — for live questions, earnings calendar lookups, and anything not in Polygon.',
-        '',
-        'Tool-use rules:',
-        '- For ANY price you mention (stock or option), CALL THE APPROPRIATE TOOL. Never invent a number, never paraphrase old context.',
-        '- Before you quote a specific option contract, call `get_options_chain` so the strike and premium are real.',
-        '- Call `get_market_status` early so you can say "market is open, last trade 11:34am ET" vs "market closed at $X Friday".',
-        '- Chain calls when a question needs multiple data points. Keep responses concise — the user does not need to see the tool calls themselves.',
-        '- If the user asks about a past signal or names a date, every tool call for that question must include asOfDate. Do not describe today\'s price, today\'s volume ratio, or a later headline as if it was known on that date.',
-        '- If a tool returns `unavailable: true`, do a `web_search` fallback before saying "data unavailable". For a past signal, ignore search results published after asOfDate.'
-      ].join('\n')
-    : '';
-
   return [
-    '# Role',
-    'You are KAHF AI on the KAHF Capital platform. You help options traders analyze a setup: dark pool flow, call/put/straddle historical hit rates, IV versus the historical realized move, liquidity, and catalysts. Speak in plain English. No jargon dumps, no hype.',
-    'You do not recommend trades. You do not rank a "best play," tell the user what to buy, sell, hold, or avoid, size a position, or issue a Trade, Watch, or Skip verdict. KAHF helps with the analysis. The trading decision stays with the user.',
-    'You are not a fundamentals analyst and you are not an adviser. Describe the volatility picture: is the implied move rich or cheap versus historical realized moves, is there a catalyst, what does call versus put flow say, and is the listed market liquid enough to read.',
-    '',
-    '# How to compare structures (show the comparison — do not pick a winner for the user)',
-    'When structure is relevant, put the numbers side by side:',
-    '  - LONG CALL: call hit rate, call flow, dark pool VWAP versus the prior range, IV.',
-    '  - LONG PUT: put hit rate, put flow, dark pool VWAP versus the prior range, IV.',
-    '  - LONG STRADDLE: straddle hit rate, and whether the catalyst is two-sided.',
-    '  - DEBIT SPREAD / CALENDAR: only as context when IV is rich versus realized. Describe the math. Do not tell the user to switch into one.',
-    'Reconcile the backward-looking hit rate with the forward-looking catalyst. If they disagree, say they disagree and show both numbers. Do not resolve it by telling the user which trade to take.',
-    'You may state which structure has the highest historical hit rate as a fact from the data. Do not turn that fact into an instruction to trade it.',
-    'Show the comparison. Do not hide the other structures to manufacture a single answer.',
-
-    mcpBlock,
-
-    '# Data you have in the prompt',
-    'Today\'s scanner board, when `scanner.asOfDate` is null, is the same snapshot the Scanner page shows. Use it for today\'s volume and price.',
-    '`scanner.tickerHistories` is the full dark-pool archive for tickers the user named: share volume, average price, dollar value, and volume ratio on every date. Each volume ratio is point-in-time. It does not use later sessions.',
-    '`scanner.dailySnapshots` and `scanner.recurringSignals` are recent sessions ending at `scanner.asOfDate` or today. They use the same ratio math as the Scanner.',
-    'If `scanner.asOfDate` is set, later sessions were withheld on purpose. Do not fill them in from memory or from today\'s board.',
-    'Key fields (see `scanner.fieldGlossary`): `volumeRatio`, `darkPoolAvgPrice` (Scanner Price column), `darkPoolVolume`, `darkPoolValue`.',
-    MCP_ENABLED
-      ? 'If a ticker or date is not already in tickerHistories, call `get_scanner_history` or `get_scanner_day`. Those tools see the whole blob, not a 30-day sample. For options, news, and stock price on a past date, pass asOfDate.'
-      : 'Options analyses and news are pre-fetched. When asOfDate is set, hit rates and headlines stop on that date. Live option premiums are still today\'s premiums — do not describe them as the premium on the past date.',
-    'Web search: you have a `web_search` tool. USE IT for live questions, current events, or to confirm upcoming earnings/FDA dates. Search with concise queries like "AAPL earnings date next".',
-
-    '# Numbers rule (CRITICAL — your trust depends on this)',
-    'Every numeric value you mention (price, volume ratio, premium, IV, success rate, etc.) MUST come from a tool call or the attached scanner context. NEVER invent, round, paraphrase, or recycle a number from earlier in the chat. Stale numbers are the #1 way to lose user trust.',
-    'For STOCK PRICES: call `get_stock_price(ticker)` before quoting a live price. For a past signal, call `get_stock_price(ticker, asOfDate)` and quote that close. Do not substitute today\'s price.',
-    'For OPTIONS PRICES: never invent a strike + premium. Call `get_options_chain` for a live chain. On a past signal, say the live chain is today\'s market, not the chain from that date.',
-    'For DARK POOL levels: use `darkPoolAvgPrice` and `volumeRatio` from tickerHistories or the scanner snapshot for that exact date. A ratio from a later date is look-ahead. Do not use it.',
-    'For VOLUME RATIO: format as "Nx" matching the data\'s precision (e.g. "5.27x", not "5x" or "5.3x").',
-    'If a number you need is not in any tool response and a `web_search` also turns up nothing, say "unavailable" in one short clause. Never make one up.',
-
-    '# Universe',
-    'When discussing today\'s scanner, stick to tickers in `scanner.tradableTickers` (filters: min $250M dark pool dollar value, min $50 price). If the user names a ticker outside that list, you may still analyze it with tools (price, chain, news). Do not volunteer a shortlist of trades.',
-
-    '# If they ask you to pick a trade',
-    'If the user asks you to find a trade, name a high-conviction play, say what to buy, or asks for the best play: do not pick one. One short line — KAHF helps with the analysis, and the decision is theirs — then answer with the data (scanner flow, hit rates, IV versus realized, liquidity, catalyst). Do not add a disclaimer paragraph.',
-
-    '# The KAHF Read (5 factors — organize the analysis, do not turn it into a trade)',
-    'Report what the data says. Do not convert a score into a trade instruction.',
-    '1. **Flow:** Dark pool `volumeRatio` (today vs 7-day avg). 3x+ is unusual versus that average; 5x+ is more unusual. Say what the ratio is.',
-    '2. **Direction:** Use `options.analyses[i].flow` (cpVolumeRatio = call vol / put vol, cpOIRatio, and `lean`) PLUS where the dark pool printed vs the prior range (`darkPoolAvgPrice` near the highs vs near the lows). Describe the lean. Do not map it to "buy the call" or "buy the put."',
-    '3. **Historical hit rates:** Quote call, put, and straddle success rates at ~30 DTE (see `strategies.{call,put,straddle}.successRate`, or call `get_options_analysis`), with sample size. Note when a sample is under 25. Do not tell the user to trade the highest one.',
-    '4. **Liquidity & cost:** `liquidity.rating`, open interest, day volume, bid-ask spread versus premium. If it is thin, say the market is thin and the numbers are harder to read.',
-    '5. **Catalyst and priced-in:** Is there a catalyst (earnings, FDA, M&A, analyst, product, macro) in ~30 days or just hit? Use `get_news`, then `web_search` if the picture is unclear. State the sentiment and `options.analyses[i].valuation`: if `verdict` is "rich", the implied move is rich versus the historical realized move; if "cheap", implied is below that history. If sentiment and the highest hit rate point different ways, say they conflict.',
-    'Describe where a factor is strong or weak. Do not label the setup Trade, Watch, or Pass, and do not tell the user to enter, pass, size down, or wait.',
-
-    '# Context to mention (describe it — do not instruct a trade)',
-    '- **Priced-in:** `valuation.verdict` = "rich" means the implied move is rich versus the historical realized move. Say that. Do not tell them to buy a spread, cut size, or skip a long option.',
-    '- **Skew:** If put IV is well above call IV, say downside is already bid. If call IV is well above put IV, say upside is already bid.',
-    '- **Direction conflict:** If the highest historical hit rate disagrees with the catalyst or the flow, show both and say they conflict.',
-    '- **IV after an event:** If earnings sits inside the window and expiration runs well past the print, say IV often compresses after the event.',
-
-    '# Multi-day perspective',
-    'Use `scanner.tickerHistories` for a named ticker and `scanner.dailySnapshots` for the recent board. A 3x print that repeats is a more persistent print than a one-day spike. Say that. Each day\'s ratio already excludes later days. Do not call an old print a live trade.',
-
-    '# What to show the user',
-    'Answer the question they asked. If they ask about the scanner, show a comparison (volume ratio, flow, hit rates) for the names in the data. Do not hide names to manufacture a winner, and do not return a shortlist of trades.',
-    'If they ask for a trade and nothing in the data is unusual, say the board is quiet and offer to look at a specific ticker or the last few days. Do not say "best to wait" as a trading instruction.',
-    'Do not use Trade, Watch, or Skip as verdicts.',
-
-    '# Output format',
-    'For a ticker, use this markdown:',
-    '**Ticker:** symbol, stock price with as-of time, and what they asked.',
-    '**Flow:** 1-3 bullets. Quote `volumeRatio` (e.g. "5.27x") and `darkPoolAvgPrice` versus the prior range from the data.',
-    '**Direction:** one line on call/put flow and where the dark pool printed. If that conflicts with the highest historical hit rate, say so.',
-    '**Historical hit rates:** call, put, and straddle at ~30 DTE, each with sample size, from the data. Do not crown one as the trade.',
-    '**Liquidity:** open interest, spread, rating.',
-    '**Catalyst and priced-in:** catalyst type, headline, date or source, and implied versus realized.',
-    '**What stands out:** one or two sentences of observation. No action and no "you should."',
-
-    '# General behavior',
-    'Be brief. Bullets over paragraphs. Numbers over adjectives.',
-    'Never invent data. If a field is missing or `unavailable: true`, run a web_search first, then say "unavailable" only if the search also turns up nothing.',
-    'If the user is new or asks what this is, give a short primer: KAHF Capital is an analysis platform for options traders — a dark pool scanner, historical hit rates, and this chat to walk through the numbers. Offer one example question, such as how unusual flow is on a ticker they name.'
+    'You are KAHF AI. You may recommend trades. A recommendation has to match a KAHF signal in the data: the same ticker, the same structure, and the same signal date. Do not recommend a name or a structure that is not a signal.',
+    'Short replies. Bullets. Do not invent data. Every number comes from the market context or a tool result.'
   ].join('\n');
 }
 
@@ -715,13 +543,7 @@ function buildUserPrompt(messages, marketContext) {
     conversation,
     '',
     'Task:',
-    '- Answer the latest user message using the market context. Use the web_search tool for live questions or to fill in missing catalysts/news.',
-    '- Apply the KAHF Read (flow, call/put direction, call/put/straddle hit rates, liquidity, catalyst and priced-in) and mention skew or post-event IV when the data shows it.',
-    '- Show the structures side by side. If flow and the highest historical hit rate disagree, say they conflict. Do not prescribe a long call, long put, or straddle.',
-    '- Do not issue a Trade, Watch, or Skip verdict, and do not tell the user what to buy, sell, or avoid. If they asked you to pick a trade, say the decision is theirs and give the analysis.',
-    '- If scanner.asOfDate is set, answer that past signal only with data on or before that date. Say which session you used.',
-    '- Scanner discussion of today stays on tickers in scanner.tradableTickers unless the user named another ticker to analyze.',
-    '- Use scanner.tickerHistories for the full tape and scanner.dailySnapshots for recent sessions. Do not invent a volume ratio for a date that is not in the history.'
+    'Answer the latest message. You may recommend a trade only when it matches a KAHF signal in this data. Short replies. Bullets. Do not invent data.'
   ].join('\n');
 }
 
@@ -750,19 +572,16 @@ export default async function handler(req, res) {
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(messages, marketContext);
 
-    const buildPayload = (model) => {
+    const buildPayload = () => {
       const payload = {
-        model,
-        max_tokens: parseInt(process.env.KAHF_AI_MAX_TOKENS || '1500', 10),
-        ...(modelSupportsTemperature(model)
-          ? { temperature: parseFloat(process.env.KAHF_AI_TEMPERATURE || '0.15') }
-          : {}),
+        model: MODEL,
+        max_tokens: MAX_OUTPUT_TOKENS,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       };
       if (WEB_SEARCH_ENABLED) {
         payload.tools = [
-          { type: 'web_search_20250305', name: 'web_search', max_uses: WEB_SEARCH_MAX_USES }
+          { type: 'web_search_20250305', name: 'web_search' }
         ];
       }
       if (MCP_ENABLED) {
@@ -780,8 +599,8 @@ export default async function handler(req, res) {
 
     // Run a single model, degrading gracefully if the MCP connector or web_search
     // tool is rejected by the API.
-    const completeWithModel = async (model) => {
-      const requestPayload = buildPayload(model);
+    const completeWithModel = async () => {
+      const requestPayload = buildPayload();
       const requestOptions = MCP_ENABLED
         ? { headers: { 'anthropic-beta': 'mcp-client-2025-04-04' } }
         : {};
@@ -821,29 +640,10 @@ export default async function handler(req, res) {
       }
     };
 
-    const modelCandidates = [...new Set([PRIMARY_MODEL, ...MODEL_FALLBACKS])];
-    let completion;
-    let mcpDisabledForRetry = false;
-    let webSearchDisabledForRetry = false;
-    for (let i = 0; i < modelCandidates.length; i++) {
-      const candidate = modelCandidates[i];
-      try {
-        const result = await completeWithModel(candidate);
-        completion = result.completion;
-        mcpDisabledForRetry = result.mcpDisabled;
-        webSearchDisabledForRetry = result.webSearchDisabled;
-        if (i > 0) {
-          console.warn('KAHF AI fell back to a backup model.');
-        }
-        break;
-      } catch (modelError) {
-        if (isModelUnavailableError(modelError) && i < modelCandidates.length - 1) {
-          console.warn('Configured model unavailable, trying next fallback.');
-          continue;
-        }
-        throw modelError;
-      }
-    }
+    const result = await completeWithModel();
+    const completion = result.completion;
+    const mcpDisabledForRetry = result.mcpDisabled;
+    const webSearchDisabledForRetry = result.webSearchDisabled;
 
     const reply = completion.content
       ?.filter((part) => part.type === 'text')

@@ -1,15 +1,13 @@
 // Stripe Webhook Handler for KAHF Pro subscriptions.
-// Durable access lives in Firestore. File store is a best-effort local mirror
-// for ops/CLI only — digests read Firestore (with file fallback for manual entries).
+// Durable access lives in Firestore.
 import { verifyWebhookSignature, getCheckoutSessionCustomer } from '../../lib/stripe-service';
-import { addSubscriber, updateSubscriberStatus, removeSubscriber } from '../../lib/subscribers-store';
 import { statusFromStripe } from '../../lib/subscription-access';
 
 let firebaseAdmin = null;
 try {
   firebaseAdmin = require('../../lib/firebase-admin');
 } catch (e) {
-  console.log('Firebase Admin not available, using local subscriber store only');
+  console.log('Firebase Admin not available');
 }
 
 export const config = {
@@ -134,18 +132,6 @@ export default async function handler(req, res) {
         const resolvedStatus = statusFromStripe(customerInfo.subscriptionStatus) || 'active';
         const checkoutUid = parseCheckoutUid(session.client_reference_id);
 
-        // Best-effort local mirror (ephemeral on Vercel — Firestore is durable)
-        try {
-          addSubscriber({
-            stripeCustomerId: customerInfo.customerId,
-            stripeSubscriptionId: customerInfo.subscriptionId,
-            email: customerInfo.customerEmail,
-            minVolumeRatio: 3
-          });
-        } catch (e) {
-          console.warn('Local subscriber mirror failed (non-fatal):', e.message);
-        }
-
         await grantFirestoreAccess({
           uid: checkoutUid,
           email: customerInfo.customerEmail,
@@ -160,14 +146,6 @@ export default async function handler(req, res) {
         const subscription = event.data.object;
         const customerId = subscription.customer;
         const newStatus = statusFromStripe(subscription.status);
-
-        try {
-          if (['active', 'trialing', 'past_due', 'unpaid'].includes(newStatus)) {
-            updateSubscriberStatus(customerId, newStatus === 'trialing' ? 'active' : newStatus);
-          }
-        } catch (e) {
-          console.warn('Local status mirror failed:', e.message);
-        }
 
         await updateFirestoreByCustomerId(customerId, {
           status: newStatus,
@@ -202,12 +180,6 @@ export default async function handler(req, res) {
         const subscription = event.data.object;
         const customerId = subscription.customer;
 
-        try {
-          removeSubscriber(customerId);
-        } catch (e) {
-          console.warn('Local remove mirror failed:', e.message);
-        }
-
         await updateFirestoreByCustomerId(customerId, {
           status: 'cancelled',
           stripeSubscriptionId: null
@@ -219,9 +191,6 @@ export default async function handler(req, res) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
         const customerId = invoice.customer;
-        try {
-          updateSubscriberStatus(customerId, 'payment_failed');
-        } catch (e) { /* ignore */ }
         await updateFirestoreByCustomerId(customerId, { status: 'past_due' });
         console.log(`Payment failed for customer: ${customerId}`);
         break;
@@ -230,9 +199,6 @@ export default async function handler(req, res) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
         const customerId = invoice.customer;
-        try {
-          updateSubscriberStatus(customerId, 'active');
-        } catch (e) { /* ignore */ }
         await updateFirestoreByCustomerId(customerId, { status: 'active' });
         console.log(`Payment succeeded for customer: ${customerId}`);
         break;

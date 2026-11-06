@@ -2392,5 +2392,89 @@
     "status": "completed",
     "trades_found": 60047653,
     "dates_processed": 1
+  },
+  "2026-10-12.csv": {
+    "hash": "11448078504_1792623856000",
+    "processed_at": "2026-10-29T04:32:34.518Z",
+    "status": "completed",
+    "trades_found": 52102058,
+    "dates_processed": 1
+  },
+  "2026-10-09.csv": {
+    "hash": "11692677168_1792623864000",
+    "processed_at": "2026-10-29T04:55:07.994Z",
+    "status": "completed",
+    "trades_found": 52209280,
+    "dates_processed": 1
+  },
+  "2026-10-19.csv": {
+    "hash": "12152183848_1792646022000",
+    "processed_at": "2026-10-29T05:12:59.535Z",
+    "status": "completed",
+    "trades_found": 54564719,
+    "dates_processed": 1
+  },
+  "2026-10-23.csv": {
+    "hash": "12284445856_1793055002000",
+    "processed_at": "2026-10-29T05:30:15.427Z",
+    "status": "completed",
+    "trades_found": 53768824,
+    "dates_processed": 1
+  },
+  "2026-10-13.csv": {
+    "hash": "12358178803_1792623878000",
+    "processed_at": "2026-10-29T05:49:49.183Z",
+    "status": "completed",
+    "trades_found": 54293646,
+    "dates_processed": 1
+  },
+  "2026-10-20.csv": {
+    "hash": "12376153269_1792646028000",
+    "processed_at": "2026-10-29T06:09:17.327Z",
+    "status": "completed",
+    "trades_found": 53344873,
+    "dates_processed": 1
+  },
+  "2026-10-21.csv": {
+    "hash": "12568929696_1793054998000",
+    "processed_at": "2026-10-29T06:28:58.341Z",
+    "status": "completed",
+    "trades_found": 54162787,
+    "dates_processed": 1
+  },
+  "2026-10-07.csv": {
+    "hash": "12822503824_1792537716000",
+    "processed_at": "2026-10-29T06:50:45.916Z",
+    "status": "completed",
+    "trades_found": 56202492,
+    "dates_processed": 1
+  },
+  "2026-10-06.csv": {
+    "hash": "13009167925_1792537710000",
+    "processed_at": "2026-10-29T07:09:45.913Z",
+    "status": "completed",
+    "trades_found": 58783243,
+    "dates_processed": 1
+  },
+  "2026-10-08.csv": {
+    "hash": "14064123172_1792537754000",
+    "processed_at": "2026-10-29T07:30:10.286Z",
+    "status": "completed",
+    "trades_found": 60644643,
+    "dates_processed": 1
+  },
+  "2026-10-16.csv": {
+    "hash": "14067881956_1792637952000",
+    "processed_at": "2026-10-29T07:51:12.784Z",
+    "status": "completed",
+    "trades_found": 60133589,
+    "dates_processed": 1
+  },
+  "2026-10-22.csv": {
+    "hash": "15317067046_1793055052000",
+    "processed_at": "2026-10-29T08:14:04.499Z",
+    "status": "completed",
+    "trades_found": 64302729,
+    "dates_processed": 1
   }
 }

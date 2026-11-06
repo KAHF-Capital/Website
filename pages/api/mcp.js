@@ -17,6 +17,8 @@
  */
 
 import { getScannerSnapshot } from '../../lib/scanner-snapshot';
+import { getPublicTrackRecord } from '../../lib/track-record-public.js';
+import { getCatalystCalendar } from '../../lib/benzinga-calendar.js';
 import { getTickerHistory, getScannerDay, getRecentSignalBoards } from '../../lib/scanner-history';
 import { VOLUME_RATIO_METHOD } from '../../lib/scanner-math';
 import { getCurrentStockPrice, getHistoricalStockData } from '../../lib/polygon-data-service.js';
@@ -593,6 +595,50 @@ async function tool_get_news({ ticker, limit = 5, asOfDate } = {}) {
   }
 }
 
+async function tool_get_news_scanner({ days = 30, ticker, eventType } = {}) {
+  const requested = Number(days);
+  const windowDays = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), 90) : 30;
+  const calendar = await getCatalystCalendar({ days: windowDays });
+  const sym = ticker ? String(ticker).toUpperCase().trim() : '';
+  const kind = eventType ? String(eventType).toLowerCase().trim() : '';
+  const events = (calendar.events || []).filter((event) => {
+    if (sym && event.ticker !== sym) return false;
+    if (kind && kind !== 'all' && event.eventType !== kind) return false;
+    return true;
+  }).map((event) => ({
+    ticker: event.ticker,
+    name: event.name || null,
+    eventType: event.eventType,
+    eventLabel: event.eventLabel,
+    eventDate: event.eventDate,
+    session: event.session || null,
+    dateStatus: event.dateStatus || null,
+    detail: event.detail || null,
+    importance: event.importance ?? null
+  }));
+  return {
+    source: 'news-scanner',
+    from: calendar.from,
+    to: calendar.to,
+    days: windowDays,
+    count: events.length,
+    events,
+    note: 'Same upcoming board as the News Scanner page. eventType is earnings, fda, ma, dividend, macro, split, or ipo. dateStatus is confirmed, announced, or estimated.'
+  };
+}
+
+async function tool_get_track_record({ ticker } = {}) {
+  const record = await getPublicTrackRecord();
+  const sym = ticker ? String(ticker).toUpperCase().trim() : '';
+  const rows = sym ? record.rows.filter((r) => r.ticker === sym) : record.rows;
+  return {
+    summary: record.summary,
+    count: rows.length,
+    rows,
+    note: 'Same reads as the public track record. returnPct is the marked options return. holdingDays is calendar days from the signal date through the exit, or through today if the read is still open. Calls and puts are held to expiry. Straddles exit at +40% or -30%.'
+  };
+}
+
 // -------------- Tool registry --------------
 
 const TOOLS = [
@@ -659,6 +705,32 @@ const TOOLS = [
       }
     },
     handler: tool_get_scanner_day
+  },
+  {
+    name: 'get_track_record',
+    description:
+      'Return the public track record: every scored read with ticker, structure (Long Call, Long Put, or ATM Straddle), holding period, and marked return. This is the same record as /wins. Pass ticker to limit the rows to one symbol. Quote returnPct and holdingPeriod verbatim. A ticker with count 0 was not a scored read.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ticker: { type: 'string', description: 'Optional. Limit rows to this symbol, e.g. AAPL.' }
+      }
+    },
+    handler: tool_get_track_record
+  },
+  {
+    name: 'get_news_scanner',
+    description:
+      'Return the News Scanner calendar: upcoming earnings, FDA, M&A, dividends, macro, splits, and IPOs that already have a date. Same events as the News Scanner page. Pass ticker and/or eventType to narrow it. Quote eventDate, dateStatus, and detail verbatim. Do not invent a catalyst date that is not in the result.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: { type: 'integer', description: 'How many calendar days ahead, including today. Default 30. Max 90.', default: 30 },
+        ticker: { type: 'string', description: 'Optional. Limit events to this symbol.' },
+        eventType: { type: 'string', enum: ['all', 'earnings', 'fda', 'ma', 'dividend', 'macro', 'split', 'ipo'], description: 'Optional event filter. Default all.' }
+      }
+    },
+    handler: tool_get_news_scanner
   },
   {
     name: 'get_prior_range',
