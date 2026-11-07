@@ -25,7 +25,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildReads, minusDays, DEFAULT_OPTS } from './build-top-reads.js';
+import { buildReads, scoreSession, minusDays, DEFAULT_OPTS } from './build-top-reads.js';
 import { EXCLUDED_TICKERS, isPublishedOnSignalSession } from '../lib/read-filters.js';
 import blob from '../lib/blob-data.js';
 
@@ -146,8 +146,7 @@ async function main() {
   } else if (opts.signalDay && opts.signalDay !== liveDay) {
     console.error(`This run ingested through ${opts.signalDay}, but the latest day is ${liveDay} — older data never generates signals, skipping.`);
   } else {
-    console.error(`Scoring signals from ${liveDay} only.\n`);
-    newReads = await buildReads({ ...buildOpts, since: liveDay }, { skipKeys: knownKeys });
+    newReads = await scoreSession(liveDay, { skipKeys: knownKeys });
     // Provenance stamp: publish time. Powers the "New" badge on /wins and tells
     // the 10am cron which reads to headline.
     const foundAt = new Date().toISOString();

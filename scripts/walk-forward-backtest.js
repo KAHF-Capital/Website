@@ -19,7 +19,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { loadLocalSignals, scoreSignal, DEFAULT_OPTS } from './build-top-reads.js';
+import { loadLocalSignals, scoreSignal, DEFAULT_OPTS, SIGNAL_RULES } from './build-top-reads.js';
 import blob from '../lib/blob-data.js';
 
 const { listDataFiles, getDataFile, uploadReadsJson } = blob;
@@ -154,7 +154,7 @@ async function main() {
   const payload = {
     generated_at: new Date().toISOString(),
     since: SINCE,
-    method: 'walk-forward: 3x vs previous 7 calendar days, last 25 one-month iterations, prices on or before the signal day',
+    method: SIGNAL_RULES,
     reads
   };
   fs.writeFileSync(OUT, JSON.stringify(payload, null, 2) + '\n');

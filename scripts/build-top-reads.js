@@ -70,6 +70,10 @@ export const DEFAULT_OPTS = {
   volumeBaseline: 'prior'
 };
 
+// The morning flat-file job (process-csv.js → refresh-track-record.js) and the
+// walk-forward backtest both score with these options. Do not fork them.
+export const SIGNAL_RULES = 'Walk-forward: that flat-file session is at least 3x the previous 7 calendar days (the session itself is not in the average), notional at least $250M, price $50 to $5,000, and the last 25 non-overlapping 21-trading-day iterations of the ~30 DTE structure clear the hit-rate gate using prices on or before that session.';
+
 // One iteration is one month of trading sessions. The hit rate is that test
 // repeated on the 25 most recent iterations that end on or before the signal day.
 const HIT_RATE_ITERATIONS = 25;
@@ -453,6 +457,32 @@ export async function scoreSignal(signal, userOpts = {}) {
     asof_samples: best.samples,
     contracts
   };
+}
+
+// Score one processed flat-file session. `day` is the YYYY-MM-DD file name
+// written by process-csv.js, which is the Massive session date.
+export async function scoreSession(day, { skipKeys = null } = {}) {
+  const opts = { ...DEFAULT_OPTS, since: day, days: 9999, max: 100000, volumeBaseline: 'prior' };
+  const signals = loadLocalSignals(opts).filter((s) => s.date === day);
+  console.error(`Scoring flat-file session ${day}. ${signals.length} names are 3x the previous 7 days.`);
+  console.error(SIGNAL_RULES + '\n');
+  const reads = [];
+  for (const s of signals) {
+    const key = `${s.ticker}__${s.date}`;
+    if (skipKeys && skipKeys.has(key)) continue;
+    try {
+      const scored = await scoreSignal(s, opts);
+      if (scored.skip) {
+        console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} ${scored.reason}`);
+        continue;
+      }
+      reads.push(scored);
+      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${scored.structure.padEnd(8)} [${scored.direction}] edge ${scored.asof_hit_rate}%  entry $${scored.entry_premium.toFixed(2)}  exp ${scored.expiration}`);
+    } catch (e) {
+      console.error(`  ✗  ${s.date} ${s.ticker.padEnd(6)} ${e.message}`);
+    }
+  }
+  return reads;
 }
 
 // Build reads from local processed dark-pool data. `skipTickers` lets the daily

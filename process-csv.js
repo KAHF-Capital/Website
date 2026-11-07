@@ -198,9 +198,12 @@ async function saveProcessedData(dateMap, sourceFile) {
     allTickers.push(...dateMap[d]);
   });
   
+  const csvDate = path.basename(sourceFile, '.csv');
   const dateData = {
-    date: Object.keys(dateMap)[0] || path.basename(sourceFile, '.csv'), // Use first trade date or CSV date
-    csv_date: path.basename(sourceFile, '.csv'), // Add the CSV file date
+    // The flat-file name is the Massive session. Signal scoring uses that
+    // name, not a timestamp inside the file.
+    date: /^\d{4}-\d{2}-\d{2}$/.test(csvDate) ? csvDate : (Object.keys(dateMap)[0] || csvDate),
+    csv_date: csvDate,
     source_file: path.basename(sourceFile),
     processed_at: new Date().toISOString(),
     total_tickers: allTickers.length,
@@ -227,9 +230,10 @@ async function saveProcessedData(dateMap, sourceFile) {
 // processed data and push them to Blob. Incremental + non-fatal — a failure here
 // never blocks the dark-pool upload above.
 //
-// `ingestedDay` is the newest trading day this run brought in. The refresh only
-// generates signals when it is also the latest day on disk, so re-processing an
-// old/modified CSV or catching up a backlog never produces signals for past days.
+// `ingestedDay` is the newest flat-file session this run wrote. The refresh
+// scores that session with the same walk-forward rules as the backtest, and
+// only when it is also the latest day on disk. A backlog of older files does
+// not create signals.
 function refreshTrackRecord(ingestedDay) {
   console.log(`\n🔁 Refreshing track record + homepage reads (ingested through ${ingestedDay})...`);
   const script = path.join(__dirname, 'scripts', 'refresh-track-record.js');
