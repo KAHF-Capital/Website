@@ -4,15 +4,8 @@ import { listDataFiles, getDataFile } from '../lib/blob-data';
 
 const STATIC_PAGES = [
   { loc: '', priority: '1.0', changefreq: 'daily' },
-  { loc: 'kahf-ai', priority: '0.95', changefreq: 'daily' },
-  { loc: 'scanner', priority: '0.95', changefreq: 'daily' },
-  { loc: 'news-scanner', priority: '0.9', changefreq: 'daily' },
   { loc: 'wins', priority: '0.9', changefreq: 'daily' },
-  { loc: 'pricing', priority: '0.9', changefreq: 'weekly' },
-  { loc: 'calculator', priority: '0.9', changefreq: 'weekly' },
-  { loc: 'straddle-calculator', priority: '0.5', changefreq: 'weekly' },
-  { loc: 'signup', priority: '0.7', changefreq: 'monthly' },
-  { loc: 'login', priority: '0.5', changefreq: 'monthly' }
+  { loc: 'pricing', priority: '0.9', changefreq: 'weekly' }
 ];
 
 const TICKER_RE = /^[A-Z]{1,6}$/;

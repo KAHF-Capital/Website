@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { Instagram, Mail, Twitter, MessageCircle } from 'lucide-react';
 import { siteConfig } from '../../lib/site-config';
 
@@ -13,16 +12,12 @@ function TikTokIcon({ className = 'h-5 w-5' }) {
 }
 
 export default function Footer() {
-  const isHome = useRouter().pathname === '/';
   const products = [
-    { href: '/kahf-ai', label: 'KAHF AI' },
-    { href: '/scanner', label: 'Dark Pool Scanner' },
-    { href: '/news-scanner', label: 'News Scanner' },
-    { href: '/calculator', label: 'Volatility Calculator' },
-    { href: '/wins', label: 'Track Record' }
+    { href: '/', label: 'Kimi' },
+    { href: '/wins', label: 'Track Record' },
+    { href: '/pricing', label: 'Pricing' }
   ];
   const company = [
-    { href: '/pricing', label: 'Pricing' },
     { href: '/account', label: 'Account' },
     { href: `mailto:${siteConfig.supportEmail}`, label: 'Contact' }
   ];
@@ -40,14 +35,12 @@ export default function Footer() {
                 className="h-9 w-auto"
               />
               <div>
-                <div className="text-white font-bold">KAHF Capital</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">{isHome ? 'Kimi · AI trading' : 'AI · Volatility'}</div>
+                <div className="text-white font-bold">Kimi</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">by KAHF Capital</div>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5 max-w-md">
-              {isHome
-                ? 'Kimi is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.'
-                : 'A platform for options traders. Dark pool prints, historical options moves, and an AI that walks through the setup.'}
+              Kimi is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.
             </p>
             <div className="flex items-center gap-3">
               {siteConfig.social.twitter && (

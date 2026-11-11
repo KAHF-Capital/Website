@@ -69,6 +69,30 @@ test('a verified user gets a numbers-grounded reply within ~5s (no backtest need
   assert.ok(reply.latency_ms >= 0);
 });
 
+test('a headline question uses web search and answers from the result', async () => {
+  const llm = new ScriptedLlm((req) => {
+    if (isClassifyCall(req)) return classifyResponse('market_question');
+    if (isSummaryCall(req)) return textResponse('Asked what the news is on $NVDA.');
+    const last = req.messages[req.messages.length - 1];
+    const searched = last?.role === 'assistant' && last.content?.some?.((b) => b.type === 'web_search_tool_result');
+    if (searched) return textResponse('NVDA: Reuters reports new export licenses. That is a headline, not a signal.');
+    return {
+      content: [
+        { type: 'server_tool_use', id: 'ws_1', name: 'web_search', input: { query: 'NVDA news today' } },
+        { type: 'web_search_tool_result', tool_use_id: 'ws_1', content: [{ type: 'web_search_result', title: 'NVDA export licenses', url: 'https://www.reuters.com/nvda' }] }
+      ],
+      usage: { input_tokens: 400, output_tokens: 30 },
+      stopReason: 'pause_turn'
+    };
+  });
+  const { provider } = setup({ clock: new TestClock('2026-11-05T15:00:00Z'), llm });
+  await createUser();
+  await processInbound({ adapter: provider, inbound: inbound('any news on $NVDA?') });
+  assert.match(provider.sent[0].text, /Reuters/);
+  assert.equal(llm.replyCalls[0].tools.some((t) => t.type === 'web_search_20250305' && t.name === 'web_search'), true);
+  assert.equal(llm.replyCalls[1].messages.at(-1).content[1].type, 'web_search_tool_result');
+});
+
 test('LLM failures fall back to a plain reply and are logged', async () => {
   const llm = new ScriptedLlm((req) => {
     if (isClassifyCall(req)) return classifyResponse('other');

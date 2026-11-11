@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { TrendingUp, ArrowRight, Trophy } from 'lucide-react';
+import { track } from '../../lib/analytics';
 
 const MAX_WINNERS = 6;
 
@@ -81,13 +82,17 @@ export default function HomeTopReads({ alerts = null, disclaimer = '', loading =
 
         <div className="text-center mt-8">
           <Link
-            href="/wins"
-            className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            href="/pricing"
+            onClick={() => track('home_cta_clicked', { source: 'top_trades', product: 'kimi' })}
+            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            See Kimi’s full track record <ArrowRight className="h-4 w-4" />
+            Get these as texts <ArrowRight className="h-4 w-4" />
           </Link>
-          <p className="text-xs text-gray-500 mt-3">
-            Win rate, average return, and open positions are all on the track record page.
+          <p className="text-sm text-gray-600 mt-3">
+            <Link href="/wins" className="font-semibold text-green-700 hover:text-green-800">
+              See the full track record
+            </Link>
+            , including the losses.
           </p>
           {disclaimer && (
             <p className="text-[11px] text-gray-500 mt-5 max-w-3xl mx-auto leading-relaxed">

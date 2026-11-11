@@ -54,7 +54,7 @@ flowchart LR
 
 **Inbound path.** Provider webhooks verify the signature, store the job and return `200` immediately. The message is then processed in the background, with retries from the tick. Processing is idempotent on the provider message id. The pipeline handles reserved keywords before anything else (`STOP` always works), then the unknown-sender reply, rate limits and spend caps, then the agent.
 
-**Agent.** The fast model (`KIMI_FAST_MODEL`) classifies intent in parallel with the main turn. The main model (`KIMI_MODEL`) runs a bounded tool loop: at most 6 iterations, a 25-second turn timeout and per-user daily token/cost caps. Every tool receives `user_id` from the server, never from the model. A rolling summary every 10 messages keeps long threads cheap. Texts get at most 2 messages per reply. Web chat gets longer answers.
+**Agent.** The fast model (`KIMI_FAST_MODEL`) classifies intent in parallel with the main turn. The main model (`KIMI_MODEL`) runs a bounded tool loop: at most 6 iterations, a 25-second turn timeout and per-user daily token/cost caps. Every KAHF tool receives `user_id` from the server, never from the model. With `KIMI_WEB_SEARCH=true` (the default), Claude can also search the public web for headlines. Dark pool numbers, prices, and backtests still come only from KAHF's tools. A rolling summary every 10 messages keeps long threads cheap. Texts get at most 2 messages per reply. Web chat gets longer answers.
 
 **Backtests.** `BT` or "backtest X" sends an acknowledgement within a few seconds with a time estimate. The job then runs in the background against the existing backtest service and texts the top 3 structures with a link to `/kimi/backtests/:id`.
 

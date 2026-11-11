@@ -60,8 +60,8 @@ export default function SubscribeSuccess() {
         setStatus('success');
         setMessage(
           data.emailMismatch
-            ? `Pro is unlocked on this account. Checkout used ${data.sessionEmail}.`
-            : 'You\'re all set. Pro is unlocked — unlimited chat with KAHF and full scanner history.'
+            ? `Pro is unlocked on this account. Checkout used ${data.sessionEmail}. Connect your phone and Kimi can text you.`
+            : 'Pro is unlocked. Connect your phone and Kimi will text you when a read clears.'
         );
         track('subscribe_claimed', { source: data.source, status: data.status });
       } catch (err) {
@@ -76,6 +76,12 @@ export default function SubscribeSuccess() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, loading, user?.uid, sessionId]);
+
+  useEffect(() => {
+    if (status !== 'success') return undefined;
+    const timer = setTimeout(() => router.push('/kimi'), 1600);
+    return () => clearTimeout(timer);
+  }, [status, router]);
 
   const loginHref = `/login?redirect=${encodeURIComponent(
     `/subscribe/success${sessionId ? `?session_id=${sessionId}` : ''}`
@@ -111,11 +117,11 @@ export default function SubscribeSuccess() {
               <p className="text-gray-600 text-sm mb-8">{message}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link
-                  href="/kahf-ai"
+                  href="/kimi"
                   className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-lg"
                 >
                   <Sparkles className="h-4 w-4" />
-                  Open KAHF AI
+                  Connect your phone
                 </Link>
                 <Link
                   href="/account"
@@ -135,7 +141,7 @@ export default function SubscribeSuccess() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">One quick step</h1>
               <p className="text-gray-600 text-sm mb-8">
-                Payment received. Sign in or create a free account with the <strong>same email</strong> you used at checkout — Pro unlocks automatically.
+                Payment received. Sign in or create an account with the <strong>same email</strong> you used at checkout. Then connect your phone so Kimi can text you.
               </p>
               <div className="flex flex-col gap-3">
                 <Link

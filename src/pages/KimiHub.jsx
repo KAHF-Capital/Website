@@ -21,6 +21,7 @@ import Header from '../components/Header';
 import Footer from './Footer';
 import QrCode from '../components/kimi/QrCode';
 import { fmt, useKimiApi } from '../components/kimi/useKimiApi';
+import { useAuth } from '../context/AuthContext';
 
 const TABS = [
   { id: 'setup', label: 'Setup', icon: Phone },
@@ -699,7 +700,9 @@ function PreferencesPanel({ api, profile, config, onProfile }) {
 
 export default function KimiHub() {
   const router = useRouter();
-  const { api, ready, signedIn, devBypass } = useKimiApi();
+  const { api, ready, signedIn, devBypass, user } = useKimiApi();
+  const { hasActiveSubscription } = useAuth();
+  const subscribed = Boolean(user) && hasActiveSubscription();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const tab = TABS.some((t) => t.id === router.query.tab) ? router.query.tab : null;
@@ -753,13 +756,20 @@ export default function KimiHub() {
         {!ready ? (
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
         ) : !signedIn ? (
-          <Card className="mx-auto max-w-md text-center">
-            <h2 className="text-lg font-bold text-gray-900">Sign in to set up Kimi</h2>
-            <p className="mt-1 text-sm text-gray-600">Connect your phone, choose your alerts and chat with Kimi.</p>
-            <div className="mt-4 flex justify-center gap-2">
-              <Link href="/login?redirect=/kimi" className={btnPrimary}>Sign in</Link>
-              <Link href="/signup?redirect=/kimi" className={btnSecondary}>Create account</Link>
+          <Card className="mx-auto max-w-lg text-center">
+            <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Kimi</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-gray-900">She texts you when a read clears.</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Start a 7-day free trial. After checkout, sign in with that email and connect your phone. That’s the whole setup.
+            </p>
+            <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+              <Link href="/pricing" className={btnPrimary}>Start free trial</Link>
+              <Link href="/login?redirect=/kimi" className={btnSecondary}>Already subscribed? Sign in</Link>
             </div>
+            <p className="mt-4 text-xs text-gray-500">
+              <Link href="/wins" className="font-semibold text-green-700 hover:text-green-800">See her track record</Link>
+              {' '}before you start.
+            </p>
           </Card>
         ) : error ? (
           <Notice>{error}</Notice>
@@ -767,6 +777,15 @@ export default function KimiHub() {
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
         ) : (
           <>
+            {user && !subscribed && (
+              <div className="mb-5 flex flex-col items-start justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 sm:flex-row sm:items-center">
+                <p className="text-sm text-gray-800">
+                  <span className="font-semibold text-gray-900">Her texts come with the trial.</span>{' '}
+                  Connect a phone after checkout and she writes when a read clears.
+                </p>
+                <Link href="/pricing" className={`${btnPrimary} shrink-0`}>Start free trial</Link>
+              </div>
+            )}
             <nav className="mb-5 flex flex-wrap gap-2">
               {TABS.map((t) => {
                 const Icon = t.icon;

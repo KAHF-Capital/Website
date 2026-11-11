@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ShieldCheck, Loader2, Calendar, ArrowRight } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 import GrowthChart from '../components/GrowthChart';
@@ -42,8 +42,8 @@ export default function Wins() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>Track Record — KAHF AI alerts | KAHF Capital</title>
-        <meta name="description" content="Public track record of setups scored from unusual dark pool flow and marked to the live options market." />
+        <title>Kimi’s Track Record — KAHF Capital</title>
+        <meta name="description" content="Public track record of the reads Kimi texts. Each one is marked to the live options market, wins and losses included." />
       </Head>
       <Header />
 
@@ -55,10 +55,10 @@ export default function Wins() {
               Public · Marked to the live market
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-              Receipts &gt; promises.
+              Kimi’s track record
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Setups scored from unusual dark pool flow this year, each marked to the live options market. Open marks to market, settled calls and puts to expiry.
+              Every read she would text, marked to the live options market. Wins, losses, and open marks stay on the page.
             </p>
           </div>
 
@@ -95,6 +95,20 @@ export default function Wins() {
                 />
               </div>
 
+              <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 sm:flex-row sm:items-center">
+                <p className="text-sm text-gray-800">
+                  <span className="font-semibold text-gray-900">Subscribers get these as texts.</span>{' '}
+                  7-day free trial, then you connect your phone.
+                </p>
+                <Link
+                  href="/pricing"
+                  onClick={() => track('wins_cta_clicked', { source: 'summary' })}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700"
+                >
+                  Start free trial <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
               {/* Growth of $100k equity curve */}
               <GrowthChart alerts={data.alerts} />
 
@@ -127,12 +141,7 @@ export default function Wins() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="inline-flex items-center gap-2">
-                              <Link
-                                href={`/ticker/${a.ticker}`}
-                                className="font-bold text-gray-900 hover:text-green-700"
-                              >
-                                ${a.ticker}
-                              </Link>
+                              <span className="font-bold text-gray-900">${a.ticker}</span>
                               {isNewRead(a) && (
                                 <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-green-100 text-green-700">
                                   New
@@ -165,6 +174,21 @@ export default function Wins() {
               {data.disclaimer && (
                 <p className="text-[11px] text-gray-400 mt-5 max-w-3xl mx-auto leading-relaxed">{data.disclaimer}</p>
               )}
+
+              <div className="mt-10 rounded-3xl bg-gray-900 px-6 py-10 text-center">
+                <p className="text-sm font-semibold uppercase tracking-wider text-green-300">Kimi by KAHF Capital</p>
+                <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">These are the texts.</h2>
+                <p className="mx-auto mt-3 max-w-lg text-sm text-gray-300">
+                  Start a 7-day free trial. After checkout, connect your phone and she texts you when a read clears the same gates.
+                </p>
+                <Link
+                  href="/pricing"
+                  onClick={() => track('wins_cta_clicked', { source: 'closing' })}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-500"
+                >
+                  Start free trial <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </>
           )}
         </div>

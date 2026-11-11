@@ -94,8 +94,12 @@ export default function Signup() {
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Your Account</h1>
-            <p className="text-gray-600">Join KAHF Capital and start trading smarter</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h1>
+            <p className="text-gray-600">
+              Use this after checkout, with the same email, so you can connect your phone.{' '}
+              <Link href="/pricing" className="font-semibold text-green-700 hover:text-green-800">Start the free trial</Link>
+              {' '}if you haven’t yet.
+            </p>
           </div>
 
           {/* Error Message */}

@@ -1,23 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { Check, X, Bot, Zap, Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Check, ShieldCheck, ArrowRight, Phone, MessageCircle } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from './Footer';
 import { siteConfig, buildCheckoutUrl } from '../../lib/site-config';
 import { track, readReferralCookie } from '../../lib/analytics';
 import { useAuth } from '../context/AuthContext';
 
-const FEATURE_MATRIX = [
-  { label: 'Today\'s dark pool scanner', free: true, pro: true },
-  { label: 'KAHF AI (5 messages / month)', free: true, pro: true },
-  { label: 'Unlimited KAHF AI chat', free: false, pro: true },
-  { label: 'Full scanner history', free: false, pro: true }
+const INCLUDED = [
+  'A text when a name clears every gate',
+  'The ticker, the size, and the read in plain language',
+  'You decide whether to trade',
+  'Her public track record, wins and losses included'
+];
+
+const STEPS = [
+  { n: '1', title: 'Start the trial', body: 'Checkout takes about a minute. A card starts the 7 days.' },
+  { n: '2', title: 'Connect your phone', body: 'Sign in with the same email, then verify your number.' },
+  { n: '3', title: 'She texts you', body: 'Kimi writes when a tradeable read clears. Quiet days stay quiet.' }
 ];
 
 export default function Pricing() {
   const { user } = useAuth();
-  const [period, setPeriod] = useState('annual'); // 'monthly' | 'annual'
+  const [period, setPeriod] = useState('annual');
   const [refCode, setRefCode] = useState(null);
 
   useEffect(() => {
@@ -40,154 +46,133 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>Pricing — KAHF AI | KAHF Capital</title>
-        <meta name="description" content="Start a 7-day free trial of KAHF AI. Cancel anytime. From $27/mo." />
+        <title>Pricing — Kimi by KAHF Capital</title>
+        <meta
+          name="description"
+          content="Start a 7-day free trial of Kimi. She texts you when a tradeable read clears. Cancel anytime. From $27/mo."
+        />
       </Head>
       <Header />
 
-      <section className="py-12 px-4 bg-gradient-to-b from-green-50/40 via-white to-white">
-        <div className="max-w-6xl mx-auto text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold mb-5">
+      <section className="px-4 py-12 bg-gradient-to-b from-green-50/70 via-white to-white sm:py-16">
+        <div className="mx-auto max-w-xl text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
             <ShieldCheck className="h-3.5 w-3.5" />
             7-day free trial · Cancel anytime
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            Simple pricing. Real edge.
+          <h1 className="text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
+            Get Kimi’s texts
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            One subscription. Unlimited chat with KAHF, your volatility analyst, and full scanner history.
+          <p className="mt-4 text-lg leading-relaxed text-gray-600">
+            One subscription. She texts you when a tradeable read clears, and the record stays public.
           </p>
 
-          {/* Billing toggle */}
-          <div className="inline-flex items-center bg-gray-100 rounded-full p-1 mt-7 text-sm">
+          <div className="mt-7 inline-flex items-center rounded-full bg-gray-100 p-1 text-sm">
             <button
               onClick={() => { setPeriod('monthly'); track('pricing_toggle', { period: 'monthly' }); }}
-              className={`px-5 py-2 rounded-full font-semibold transition-colors ${period === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`rounded-full px-5 py-2 font-semibold transition-colors ${period === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
             >
               Monthly
             </button>
             <button
               onClick={() => { setPeriod('annual'); track('pricing_toggle', { period: 'annual' }); }}
-              className={`px-5 py-2 rounded-full font-semibold transition-colors flex items-center gap-2 ${period === 'annual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`flex items-center gap-2 rounded-full px-5 py-2 font-semibold transition-colors ${period === 'annual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
             >
               Annual
-              <span className="text-[10px] uppercase font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Save 30%</span>
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold uppercase text-green-700">Save {annual.savingsPct}%</span>
             </button>
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
-          {/* Free */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-7 flex flex-col">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Free</h3>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-4xl font-black text-gray-900">$0</span>
-                <span className="text-gray-500">/forever</span>
-              </div>
-              <p className="text-sm text-gray-600 mb-6">For curious traders. No credit card.</p>
-            </div>
-            <ul className="space-y-2.5 text-sm mb-6">
-              <Feature ok>Today's dark pool scanner</Feature>
-              <Feature ok>Volatility calculator</Feature>
-              <Feature ok>5 KAHF AI messages / month</Feature>
-              <Feature>Scanner history</Feature>
-              <Feature>Unlimited AI chat</Feature>
-            </ul>
-            <Link href="/signup" className="mt-auto">
-              <button className="w-full border border-gray-300 hover:border-gray-400 text-gray-900 font-semibold px-6 py-3 rounded-lg transition-colors">
-                Create free account
-              </button>
-            </Link>
+        <div className="relative mx-auto mt-8 max-w-md rounded-2xl bg-gray-900 p-7 text-white shadow-2xl shadow-green-600/10 ring-2 ring-green-500">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+            Kimi
           </div>
-
-          {/* Pro - the recommended plan */}
-          <div className="relative bg-gray-900 text-white rounded-2xl p-7 flex flex-col shadow-2xl shadow-green-600/10 ring-2 ring-green-500">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full">
-              Most popular
-            </div>
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-green-300 mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> Pro
-              </h3>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-5xl font-black">${activePlan.price}</span>
-                <span className="text-gray-300">/{activePlan.period}</span>
-              </div>
-              {period === 'annual' ? (
-                <p className="text-sm text-gray-300 mb-6">
-                  ${annual.annualTotal}/yr billed annually. Save ${(monthly.price * 12) - annual.annualTotal}/yr.
-                </p>
-              ) : (
-                <p className="text-sm text-gray-300 mb-6">Billed monthly. Cancel anytime.</p>
-              )}
-            </div>
-            <ul className="space-y-2.5 text-sm mb-6">
-              <Feature ok dark>Unlimited KAHF AI chat</Feature>
-              <Feature ok dark>Full scanner history</Feature>
-            </ul>
-            <a
-              href={checkoutUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => track('pricing_cta_clicked', { plan: 'pro', period, signedIn: !!user })}
-              className="mt-auto"
-            >
-              <button className="w-full bg-green-500 hover:bg-green-400 text-white font-bold px-6 py-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                Start 7-day free trial
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </a>
-            <p className="text-center text-xs text-gray-400 mt-3">
-              {user
-                ? `Signed in as ${user.email} · Pro unlocks automatically after checkout`
-                : (
-                  <>
-                    <Link href="/login?redirect=/pricing" className="text-green-300 hover:text-green-200 underline underline-offset-2">
-                      Sign in first
-                    </Link>
-                    {' '}for the smoothest unlock
-                  </>
-                )}
-            </p>
+          <div className="mt-2 flex items-baseline justify-center gap-1">
+            <span className="text-5xl font-black">${activePlan.price}</span>
+            <span className="text-gray-300">/{activePlan.period}</span>
           </div>
-        </div>
+          <p className="mt-2 text-center text-sm text-gray-300">
+            {period === 'annual'
+              ? `$${annual.annualTotal}/yr billed annually after the trial. Save $${(monthly.price * 12) - annual.annualTotal}/yr.`
+              : 'Billed monthly after the trial. Switch to annual anytime.'}
+          </p>
 
-        {/* Comparison table */}
-        <div className="max-w-4xl mx-auto mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">Compare side by side</h2>
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="grid grid-cols-3 px-6 py-4 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-600">
-              <div>Feature</div>
-              <div className="text-center">Free</div>
-              <div className="text-center text-green-700">Pro</div>
-            </div>
-            {FEATURE_MATRIX.map((row, i) => (
-              <div key={i} className={`grid grid-cols-3 px-6 py-3.5 text-sm ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                <div className="text-gray-900">{row.label}</div>
-                <div className="text-center">{row.free ? <Check className="h-5 w-5 text-green-600 mx-auto" /> : <X className="h-4 w-4 text-gray-300 mx-auto" />}</div>
-                <div className="text-center">{row.pro ? <Check className="h-5 w-5 text-green-600 mx-auto" /> : <X className="h-4 w-4 text-gray-300 mx-auto" />}</div>
-              </div>
+          <ul className="mt-6 space-y-2.5 text-sm">
+            {INCLUDED.map((item) => (
+              <li key={item} className="flex items-start gap-2 text-gray-100">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
+                <span>{item}</span>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+          </ul>
 
-      {/* Guarantee strip */}
-      <section className="py-12 px-4 bg-gray-50">
-        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-          <Guarantee icon={Zap} title="Cancel any time" body="One click in the billing portal. No retention dance, no calls." />
-          <Guarantee icon={Bot} title="Built for traders" body="No fluff features. Every line ships because traders asked for it." />
-        </div>
-      </section>
-
-      <section className="py-16 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Have a question?</h2>
-          <p className="text-gray-600 mb-6">Email us — a real human writes back, usually within an hour.</p>
-          <a href={`mailto:${siteConfig.supportEmail}`} className="inline-flex items-center gap-2 text-green-700 hover:text-green-800 font-semibold">
-            {siteConfig.supportEmail} <ArrowRight className="h-4 w-4" />
+          <a
+            href={checkoutUrl}
+            onClick={() => track('pricing_cta_clicked', { plan: 'pro', period, signedIn: !!user })}
+            className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-6 py-4 text-base font-bold text-white transition-colors hover:bg-green-400"
+          >
+            Start 7-day free trial
+            <ArrowRight className="h-4 w-4" />
           </a>
+          <p className="mt-3 text-center text-xs leading-relaxed text-gray-400">
+            {user
+              ? `Checkout is tied to ${user.email}. After payment you’ll connect your phone.`
+              : 'No account needed to start. Use the same email afterward so Pro unlocks on your phone.'}
+          </p>
+        </div>
+
+        <ol className="mx-auto mt-12 grid max-w-3xl gap-4 sm:grid-cols-3">
+          {STEPS.map((step) => (
+            <li key={step.n} className="rounded-2xl border border-gray-200 bg-white p-5 text-left">
+              <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-700">
+                {step.n}
+              </div>
+              <p className="font-semibold text-gray-900">{step.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-gray-600">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="px-4 py-14">
+        <div className="mx-auto grid max-w-3xl gap-8 text-center sm:grid-cols-3">
+          <Aside icon={ShieldCheck} title="Cancel anytime" body="Stop in the billing portal before the trial ends and the paid plan never starts." />
+          <Aside icon={Phone} title="One number" body="Kimi texts the phone you verify. Reply STOP and the texts end." />
+          <Aside icon={MessageCircle} title="Plain language" body="Each text is a read, not a recommendation. The trade stays yours." />
+        </div>
+        <p className="mx-auto mt-10 max-w-xl text-center text-sm text-gray-600">
+          Want the receipts first?{' '}
+          <Link href="/wins" className="font-semibold text-green-700 hover:text-green-800">
+            Read Kimi’s track record
+          </Link>
+          , including the losses.
+        </p>
+      </section>
+
+      <section className="bg-gray-50 px-4 py-14">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="mb-6 text-center text-2xl font-bold text-gray-900">Before you start</h2>
+          <div className="space-y-3">
+            <Faq q="When does the first text arrive?">
+              After you connect your phone. Kimi writes when a name clears every gate that day. If nothing clears, she stays quiet.
+            </Faq>
+            <Faq q="Do I need an account before checkout?">
+              No. Pay first, then sign in with that email. Pro attaches to the account and you connect your phone from there.
+            </Faq>
+            <Faq q="What happens when the trial ends?">
+              {period === 'annual'
+                ? `The annual plan continues at $${annual.annualTotal}/year unless you cancel.`
+                : `The monthly plan continues at $${monthly.price}/month unless you cancel.`}
+              {' '}You can switch plans in the billing portal.
+            </Faq>
+          </div>
+          <p className="mt-8 text-center text-sm text-gray-600">
+            Questions?{' '}
+            <a href={`mailto:${siteConfig.supportEmail}`} className="font-semibold text-green-700 hover:text-green-800">
+              {siteConfig.supportEmail}
+            </a>
+          </p>
         </div>
       </section>
 
@@ -196,26 +181,26 @@ export default function Pricing() {
   );
 }
 
-function Feature({ children, ok = false, dark = false }) {
-  const okColor = dark ? 'text-green-400' : 'text-green-600';
-  const noColor = dark ? 'text-gray-600' : 'text-gray-300';
-  const txtColor = dark ? (ok ? 'text-gray-100' : 'text-gray-500') : (ok ? 'text-gray-900' : 'text-gray-400 line-through');
+function Aside({ icon: Icon, title, body }) {
   return (
-    <li className={`flex items-start gap-2 ${txtColor}`}>
-      {ok ? <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${okColor}`} /> : <X className={`h-4 w-4 mt-0.5 flex-shrink-0 ${noColor}`} />}
-      <span>{children}</span>
-    </li>
+    <div>
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white">
+        <Icon className="h-5 w-5 text-green-600" />
+      </div>
+      <h3 className="font-bold text-gray-900">{title}</h3>
+      <p className="mt-1 text-sm leading-relaxed text-gray-600">{body}</p>
+    </div>
   );
 }
 
-function Guarantee({ icon: Icon, title, body }) {
+function Faq({ q, children }) {
   return (
-    <div>
-      <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center mx-auto mb-3">
-        <Icon className="h-6 w-6 text-green-600" />
-      </div>
-      <h3 className="font-bold text-gray-900 mb-1">{title}</h3>
-      <p className="text-sm text-gray-600">{body}</p>
-    </div>
+    <details className="group rounded-2xl border border-gray-200 bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-semibold text-gray-900">
+        {q}
+        <ArrowRight className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="px-5 pb-5 text-sm leading-relaxed text-gray-600">{children}</div>
+    </details>
   );
 }

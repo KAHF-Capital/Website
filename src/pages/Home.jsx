@@ -65,7 +65,7 @@ const FAQ = [
   },
   {
     q: 'How does the free trial work?',
-    a: 'Start a 7-day free trial of Pro. Cancel anytime.'
+    a: 'Start a 7-day free trial. Checkout does not need an account. Afterward, sign in with that email, connect your phone, and Kimi texts you when a read clears. Cancel anytime.'
   },
   {
     q: 'Is this financial advice?',
@@ -258,7 +258,9 @@ export default function Home() {
                 See her track record
               </a>
             </div>
-            <p className="mt-4 text-sm text-gray-500">7-day free trial. Cancel anytime.</p>
+            <p className="mt-4 text-sm text-gray-500">
+              7-day free trial, then ${siteConfig.pricing.proAnnual.price}/mo billed annually. Cancel anytime.
+            </p>
           </div>
           <KimiText alert={featured} loading={loading} />
         </div>
@@ -400,7 +402,7 @@ export default function Home() {
               She’ll text you when a tradeable read clears.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-300">
-              Start a 7-day free trial. Kimi watches the tape. You get the text, and the record stays public.
+              7-day free trial, then ${siteConfig.pricing.proAnnual.price}/mo. Connect your phone after checkout and she texts you when a read clears.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link

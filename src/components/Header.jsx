@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Menu, X, User, LogOut, Settings, ChevronDown, Bot, Sparkles } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
 const navigationItems = [
-  { href: '/kimi', label: 'Kimi', primary: true },
-  { href: '/kahf-ai', label: 'KAHF AI' },
-  { href: '/scanner', label: 'Dark Pool Scanner' },
-  { href: '/news-scanner', label: 'News Scanner' },
-  { href: '/calculator', label: 'Calculator' },
-  { href: '/wins', label: 'Track Record' },
-  { href: '/pricing', label: 'Pricing' }
+  { href: '/', label: 'Kimi', primary: true, active: (path) => path === '/' || path.startsWith('/kimi') },
+  { href: '/wins', label: 'Track Record', active: (path) => path === '/wins' },
+  { href: '/pricing', label: 'Pricing', active: (path) => path.startsWith('/pricing') }
 ];
 
 export default function Header() {
@@ -22,10 +18,14 @@ export default function Header() {
   const router = useRouter();
   const { user, loading, signOut, hasActiveSubscription } = useAuth();
 
-  const isActiveRoute = (href) => router.pathname === href;
-  const isHome = router.pathname === '/';
-  const ctaHref = isHome ? '/pricing' : '/kahf-ai';
-  const ctaLabel = isHome ? 'Get her texts' : 'Text KAHF now';
+  const subscribed = !loading && hasActiveSubscription();
+  const onKimiApp = router.pathname.startsWith('/kimi');
+  const onPricing = router.pathname.startsWith('/pricing');
+  // Prospects get one action: the trial. Customers already on Kimi, or anyone
+  // already on the pricing page, don't need a second copy of that button.
+  const ctaHref = subscribed ? '/kimi' : '/pricing';
+  const ctaLabel = subscribed ? 'Open Kimi' : 'Get her texts';
+  const showCta = subscribed ? !onKimiApp : !onPricing;
   const closeMenu = () => setIsMobileMenuOpen(false);
 
   const handleSignOut = async () => {
@@ -35,7 +35,7 @@ export default function Header() {
   };
 
   const renderNavItem = (item) => {
-    const isActive = isActiveRoute(item.href);
+    const isActive = item.active(router.pathname);
     let cls = 'transition-colors font-medium text-sm whitespace-nowrap';
     if (item.primary) {
       cls += isActive
@@ -64,6 +64,16 @@ export default function Header() {
 
     if (user) {
       return (
+        <div className="flex items-center gap-2">
+          {showCta && (
+            <Link
+              href={ctaHref}
+              onClick={() => track('header_cta_clicked', { source: 'desktop', product: 'kimi', subscribed })}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm whitespace-nowrap"
+            >
+              {ctaLabel}
+            </Link>
+          )}
         <div className="relative">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
@@ -99,6 +109,14 @@ export default function Header() {
                   )}
                 </div>
                 <Link
+                  href={subscribed ? '/kimi' : '/pricing'}
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {subscribed ? 'Open Kimi' : 'Get her texts'}
+                </Link>
+                <Link
                   href="/account"
                   onClick={() => setShowUserMenu(false)}
                   className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -127,6 +145,7 @@ export default function Header() {
             )}
           </AnimatePresence>
         </div>
+        </div>
       );
     }
 
@@ -138,13 +157,15 @@ export default function Header() {
         >
           Sign In
         </Link>
-        <Link
-          href={ctaHref}
-          onClick={() => track('header_cta_clicked', { source: 'desktop', product: isHome ? 'kimi' : 'kahf' })}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm whitespace-nowrap"
-        >
-          {ctaLabel}
-        </Link>
+        {showCta && (
+          <Link
+            href={ctaHref}
+            onClick={() => track('header_cta_clicked', { source: 'desktop', product: 'kimi', subscribed })}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm whitespace-nowrap"
+          >
+            {ctaLabel}
+          </Link>
+        )}
       </div>
     );
   };
@@ -156,15 +177,15 @@ export default function Header() {
           <Link href="/" className="flex items-center space-x-2.5">
             <img
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png"
-              alt={isHome ? 'Kimi by KAHF Capital' : 'KAHF Capital Logo'}
+              alt="Kimi by KAHF Capital"
               className="h-9 w-auto"
             />
             <div>
               <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-none whitespace-nowrap">
-                {isHome ? 'Kimi' : 'KAHF Capital'}
+                Kimi
               </h1>
-              <p className={`text-[10px] text-gray-500 uppercase tracking-wider mt-0.5 ${isHome ? 'block' : 'hidden sm:block'}`}>
-                {isHome ? 'by KAHF Capital' : 'Dark Pool Insights'}
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
+                by KAHF Capital
               </p>
             </div>
           </Link>
@@ -176,16 +197,26 @@ export default function Header() {
 
           <div className="lg:hidden flex items-center space-x-2">
             {!loading && user ? (
-              <button onClick={() => setShowUserMenu(!showUserMenu)} className="p-1">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
-                  ) : (
-                    <User className="h-4 w-4 text-green-600" />
-                  )}
-                </div>
-              </button>
-            ) : !loading ? (
+              <>
+                {showCta && (
+                  <Link
+                    href={ctaHref}
+                    className="text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-md whitespace-nowrap"
+                  >
+                    {ctaLabel}
+                  </Link>
+                )}
+                <button onClick={() => setShowUserMenu(!showUserMenu)} className="p-1">
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <User className="h-4 w-4 text-green-600" />
+                    )}
+                  </div>
+                </button>
+              </>
+            ) : !loading && showCta ? (
               <Link
                 href={ctaHref}
                 className="text-xs font-bold bg-green-600 text-white px-3 py-1.5 rounded-md whitespace-nowrap"
@@ -222,6 +253,14 @@ export default function Header() {
               )}
             </div>
             <Link
+              href={subscribed ? '/kimi' : '/pricing'}
+              onClick={() => setShowUserMenu(false)}
+              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {subscribed ? 'Open Kimi' : 'Get her texts'}
+            </Link>
+            <Link
               href="/account"
               onClick={() => setShowUserMenu(false)}
               className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -251,7 +290,7 @@ export default function Header() {
           >
             <nav className="flex flex-col p-3 space-y-1 bg-white">
               {navigationItems.map((item) => {
-                const isActive = isActiveRoute(item.href);
+                const isActive = item.active(router.pathname);
                 return (
                   <Link
                     key={item.href}
@@ -259,14 +298,14 @@ export default function Header() {
                     className={`w-full text-left px-3 py-3 rounded-md font-medium transition-colors flex items-center gap-2 ${
                       isActive ? 'text-green-600 bg-green-50' : 'text-gray-900 hover:text-green-600 hover:bg-gray-50'
                     }`}
-                    onClick={closeMenu}
+                    onClick={() => { track('nav_click', { href: item.href }); closeMenu(); }}
                   >
-                    {item.primary && <Bot className="h-4 w-4" />}
+                    {item.primary && <Sparkles className="h-4 w-4" />}
                     {item.label}
                   </Link>
                 );
               })}
-              {!user && !loading && (
+              {showCta && (
                 <Link
                   href={ctaHref}
                   className="w-full text-center py-3 bg-green-600 text-white rounded-md font-semibold mt-2"

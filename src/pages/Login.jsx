@@ -71,8 +71,8 @@ export default function Login() {
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to access your account</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back</h1>
+            <p className="text-gray-600">Sign in to open Kimi and connect your phone.</p>
           </div>
 
           {/* Error Message */}
@@ -169,10 +169,17 @@ export default function Login() {
 
           {/* Sign Up Link */}
           <p className="mt-6 text-center text-gray-600">
-            Don't have an account?{' '}
-            <Link href="/signup" className="text-green-600 hover:text-green-700 font-medium">
-              Sign up
+            New here?{' '}
+            <Link href="/pricing" className="text-green-600 hover:text-green-700 font-medium">
+              Start a free trial
             </Link>
+          </p>
+          <p className="mt-2 text-center text-sm text-gray-500">
+            Already paid?{' '}
+            <Link href="/signup" className="font-medium text-green-700 hover:text-green-800">
+              Create an account
+            </Link>
+            {' '}with that email.
           </p>
         </div>
       </div>
