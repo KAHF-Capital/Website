@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { Instagram, Mail, Twitter, MessageCircle } from 'lucide-react';
 import { siteConfig } from '../../lib/site-config';
 
@@ -12,12 +13,13 @@ function TikTokIcon({ className = 'h-5 w-5' }) {
 }
 
 export default function Footer() {
+  const isHome = useRouter().pathname === '/';
   const products = [
-    { href: '/', label: 'Kimi' },
-    { href: '/wins', label: 'Track Record' },
-    { href: '/pricing', label: 'Pricing' }
+    { href: '/kimi', label: 'Kimi' },
+    { href: '/wins', label: 'Track Record' }
   ];
   const company = [
+    { href: '/pricing', label: 'Pricing' },
     { href: '/account', label: 'Account' },
     { href: `mailto:${siteConfig.supportEmail}`, label: 'Contact' }
   ];
@@ -35,12 +37,14 @@ export default function Footer() {
                 className="h-9 w-auto"
               />
               <div>
-                <div className="text-white font-bold">Kimi</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">by KAHF Capital</div>
+                <div className="text-white font-bold">KAHF Capital</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">{isHome ? 'Kimmy · AI trading' : 'AI · Volatility'}</div>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5 max-w-md">
-              Kimi is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.
+              {isHome
+                ? 'Kimmy is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.'
+                : 'A platform for options traders. Dark pool prints, historical options moves, and an AI that walks through the setup.'}
             </p>
             <div className="flex items-center gap-3">
               {siteConfig.social.twitter && (

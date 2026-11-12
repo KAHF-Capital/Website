@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { TrendingUp, ArrowRight, Trophy } from 'lucide-react';
-import { track } from '../../lib/analytics';
 
 const MAX_WINNERS = 6;
 
@@ -42,7 +41,7 @@ function WinnerCard({ w, rank }) {
         <span className="text-3xl font-extrabold text-green-600">{fmtPct(w.estimated_return_pct)}</span>
       </div>
 
-      <p className="text-xs text-gray-500 mt-auto">Kimi scored {fmtDate(w.date)}</p>
+      <p className="text-xs text-gray-500 mt-auto">Kimmy scored {fmtDate(w.date)}</p>
     </div>
   );
 }
@@ -60,7 +59,7 @@ export default function HomeTopReads({ alerts = null, disclaimer = '', loading =
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <p className="text-xs font-semibold uppercase tracking-wider text-green-700 mb-2">Right now</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Kimi’s top trades</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Kimmy’s top trades</h2>
           <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
             The largest marked moves she has scored. Wins and losses both live on her track record.
           </p>
@@ -82,17 +81,13 @@ export default function HomeTopReads({ alerts = null, disclaimer = '', loading =
 
         <div className="text-center mt-8">
           <Link
-            href="/pricing"
-            onClick={() => track('home_cta_clicked', { source: 'top_trades', product: 'kimi' })}
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            href="/wins"
+            className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            Get these as texts <ArrowRight className="h-4 w-4" />
+            See Kimmy’s full track record <ArrowRight className="h-4 w-4" />
           </Link>
-          <p className="text-sm text-gray-600 mt-3">
-            <Link href="/wins" className="font-semibold text-green-700 hover:text-green-800">
-              See the full track record
-            </Link>
-            , including the losses.
+          <p className="text-xs text-gray-500 mt-3">
+            Win rate, average return, and open positions are all on the track record page.
           </p>
           {disclaimer && (
             <p className="text-[11px] text-gray-500 mt-5 max-w-3xl mx-auto leading-relaxed">
