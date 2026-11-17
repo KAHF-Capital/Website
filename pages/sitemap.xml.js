@@ -5,7 +5,10 @@ import { listDataFiles, getDataFile } from '../lib/blob-data';
 const STATIC_PAGES = [
   { loc: '', priority: '1.0', changefreq: 'daily' },
   { loc: 'wins', priority: '0.9', changefreq: 'daily' },
-  { loc: 'pricing', priority: '0.9', changefreq: 'weekly' }
+  { loc: 'pricing', priority: '0.9', changefreq: 'weekly' },
+  { loc: 'about', priority: '0.6', changefreq: 'monthly' },
+  { loc: 'terms', priority: '0.4', changefreq: 'monthly' },
+  { loc: 'privacy', priority: '0.4', changefreq: 'monthly' }
 ];
 
 const TICKER_RE = /^[A-Z]{1,6}$/;

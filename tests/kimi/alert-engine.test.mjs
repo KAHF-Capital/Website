@@ -18,7 +18,7 @@ test('a backend signal produces one alert per eligible user, exactly once', asyn
   assert.equal(first.status, 'active');
   assert.equal(first.sent, 2);
   assert.equal(provider.sent.length, 2);
-  assert.match(provider.sent[0].text, /^Kimi: \$CSX dark pool print/);
+  assert.match(provider.sent[0].text, /^Kaia: \$CSX dark pool print/);
   assert.match(provider.sent[0].text, /https:\/\/kimi\.test\/k\/[A-Za-z0-9]+$/);
 
   clock.advance(60000);
@@ -183,7 +183,7 @@ test('digest mode bundles alerts into one text when the window closes', async ()
   const out = await flushDigests();
   assert.equal(out.sent, 2);
   assert.equal(provider.sent.length, 1);
-  assert.match(provider.sent[0].text, /^Kimi digest: 2 dark pool signals\. \$CSX \$630M 3\.0x; \$GL \$297M 12\.1x\./);
+  assert.match(provider.sent[0].text, /^Kaia digest: 2 dark pool signals\. \$CSX \$630M 3\.0x; \$GL \$297M 12\.1x\./);
   assert.equal((await getDelivery('GL__2026-11-05', 'user_a')).digest, true);
 });
 

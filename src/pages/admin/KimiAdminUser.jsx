@@ -103,7 +103,7 @@ export default function KimiAdminUser() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Kimi user · Admin</title>
+        <title>Kaia user · Admin</title>
         <meta name="robots" content="noindex" />
       </Head>
       <Header />

@@ -27,7 +27,7 @@ test('phone verification records consent version, text, timestamp and IP, then s
   assert.equal((await findProfileByPhone('+14155550123')).user_id, 'alice');
 
   const welcome = provider.sent.at(-1).text;
-  for (const required of ['Kimi by KAHF Capital', 'Message frequency varies', 'Msg & data rates may apply', 'HELP', 'STOP', KIMI_CONFIG.disclaimers.welcome]) {
+  for (const required of ['Kaia by KAHF Capital', 'Message frequency varies', 'Msg & data rates may apply', 'HELP', 'STOP', KIMI_CONFIG.disclaimers.welcome]) {
     assert.ok(welcome.includes(required), `welcome text includes "${required}"`);
   }
   const otpLog = (await listUserMessages('alice')).find((m) => m.kind === 'otp');

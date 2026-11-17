@@ -72,7 +72,7 @@ export default function Login() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back</h1>
-            <p className="text-gray-600">Sign in to open Kimi and connect your phone.</p>
+            <p className="text-gray-600">Sign in to open Kaia and connect your phone.</p>
           </div>
 
           {/* Error Message */}

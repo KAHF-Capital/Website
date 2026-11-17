@@ -18,7 +18,7 @@ const INCLUDED = [
 const STEPS = [
   { n: '1', title: 'Start the trial', body: 'Checkout takes about a minute. A card starts the 7 days.' },
   { n: '2', title: 'Connect your phone', body: 'Sign in with the same email, then verify your number.' },
-  { n: '3', title: 'She texts you', body: 'Kimi writes when a tradeable read clears. Quiet days stay quiet.' }
+  { n: '3', title: 'She texts you', body: 'Kaia writes when a tradeable read clears. Quiet days stay quiet.' }
 ];
 
 export default function Pricing() {
@@ -46,10 +46,10 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>Pricing — Kimi by KAHF Capital</title>
+        <title>Pricing — Kaia by KAHF Capital</title>
         <meta
           name="description"
-          content="Start a 7-day free trial of Kimi. She texts you when a tradeable read clears. Cancel anytime. From $27/mo."
+          content="Start a 7-day free trial of Kaia. She texts you when a tradeable read clears. Cancel anytime. From $27/mo."
         />
       </Head>
       <Header />
@@ -61,7 +61,7 @@ export default function Pricing() {
             7-day free trial · Cancel anytime
           </div>
           <h1 className="text-4xl font-black tracking-tight text-gray-900 sm:text-5xl">
-            Get Kimi’s texts
+            Get Kaia’s texts
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-gray-600">
             One subscription. She texts you when a tradeable read clears, and the record stays public.
@@ -86,7 +86,7 @@ export default function Pricing() {
 
         <div className="relative mx-auto mt-8 max-w-md rounded-2xl bg-gray-900 p-7 text-white shadow-2xl shadow-green-600/10 ring-2 ring-green-500">
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-            Kimi
+            Kaia
           </div>
           <div className="mt-2 flex items-baseline justify-center gap-1">
             <span className="text-5xl font-black">${activePlan.price}</span>
@@ -120,6 +120,18 @@ export default function Pricing() {
               ? `Checkout is tied to ${user.email}. After payment you’ll connect your phone.`
               : 'No account needed to start. Use the same email afterward so Pro unlocks on your phone.'}
           </p>
+          <p className="mt-2 text-center text-xs leading-relaxed text-gray-400">
+            After the {siteConfig.trial.days}-day trial, this plan renews automatically at{' '}
+            {period === 'annual' ? `$${annual.annualTotal}/year` : `$${monthly.price}/month`} until you cancel.
+            Cancel in the{' '}
+            <a href={siteConfig.manageBillingUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+              billing portal
+            </a>{' '}
+            before the trial ends and the paid plan never starts.{' '}
+            <Link href="/about#billing" className="underline hover:text-white">Subscription terms</Link>
+            {' · '}
+            <Link href="/about#terms" className="underline hover:text-white">Terms</Link>
+          </p>
         </div>
 
         <ol className="mx-auto mt-12 grid max-w-3xl gap-4 sm:grid-cols-3">
@@ -138,13 +150,13 @@ export default function Pricing() {
       <section className="px-4 py-14">
         <div className="mx-auto grid max-w-3xl gap-8 text-center sm:grid-cols-3">
           <Aside icon={ShieldCheck} title="Cancel anytime" body="Stop in the billing portal before the trial ends and the paid plan never starts." />
-          <Aside icon={Phone} title="One number" body="Kimi texts the phone you verify. Reply STOP and the texts end." />
+          <Aside icon={Phone} title="One number" body="Kaia texts the phone you verify. Reply STOP and the texts end." />
           <Aside icon={MessageCircle} title="Plain language" body="Each text is a read, not a recommendation. The trade stays yours." />
         </div>
         <p className="mx-auto mt-10 max-w-xl text-center text-sm text-gray-600">
           Want the receipts first?{' '}
           <Link href="/wins" className="font-semibold text-green-700 hover:text-green-800">
-            Read Kimi’s track record
+            Read Kaia’s track record
           </Link>
           , including the losses.
         </p>
@@ -155,7 +167,7 @@ export default function Pricing() {
           <h2 className="mb-6 text-center text-2xl font-bold text-gray-900">Before you start</h2>
           <div className="space-y-3">
             <Faq q="When does the first text arrive?">
-              After you connect your phone. Kimi writes when a name clears every gate that day. If nothing clears, she stays quiet.
+              After you connect your phone. Kaia writes when a name clears every gate that day. If nothing clears, she stays quiet.
             </Faq>
             <Faq q="Do I need an account before checkout?">
               No. Pay first, then sign in with that email. Pro attaches to the account and you connect your phone from there.

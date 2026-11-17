@@ -41,7 +41,7 @@ function WinnerCard({ w, rank }) {
         <span className="text-3xl font-extrabold text-green-600">{fmtPct(w.estimated_return_pct)}</span>
       </div>
 
-      <p className="text-xs text-gray-500 mt-auto">Kimmy scored {fmtDate(w.date)}</p>
+      <p className="text-xs text-gray-500 mt-auto">Kaia scored {fmtDate(w.date)}</p>
     </div>
   );
 }
@@ -59,7 +59,7 @@ export default function HomeTopReads({ alerts = null, disclaimer = '', loading =
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <p className="text-xs font-semibold uppercase tracking-wider text-green-700 mb-2">Right now</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Kimmy’s top trades</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Kaia’s top trades</h2>
           <p className="text-gray-600 mt-3 max-w-2xl mx-auto">
             The largest marked moves she has scored. Wins and losses both live on her track record.
           </p>
@@ -84,7 +84,7 @@ export default function HomeTopReads({ alerts = null, disclaimer = '', loading =
             href="/wins"
             className="inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            See Kimmy’s full track record <ArrowRight className="h-4 w-4" />
+            See Kaia’s full track record <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="text-xs text-gray-500 mt-3">
             Win rate, average return, and open positions are all on the track record page.

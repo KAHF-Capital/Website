@@ -15,10 +15,11 @@ function TikTokIcon({ className = 'h-5 w-5' }) {
 export default function Footer() {
   const isHome = useRouter().pathname === '/';
   const products = [
-    { href: '/kimi', label: 'Kimi' },
+    { href: '/kimi', label: 'Kaia' },
     { href: '/wins', label: 'Track Record' }
   ];
   const company = [
+    { href: '/about', label: 'About' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/account', label: 'Account' },
     { href: `mailto:${siteConfig.supportEmail}`, label: 'Contact' }
@@ -38,12 +39,12 @@ export default function Footer() {
               />
               <div>
                 <div className="text-white font-bold">KAHF Capital</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">{isHome ? 'Kimmy · AI trading' : 'AI · Volatility'}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider">{isHome ? 'Kaia · AI trading' : 'AI · Volatility'}</div>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5 max-w-md">
               {isHome
-                ? 'Kimmy is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.'
+                ? 'Kaia is an AI trading assistant from KAHF Capital. She texts you when she finds a tradeable read, and her track record stays public.'
                 : 'A platform for options traders. Dark pool prints, historical options moves, and an AI that walks through the setup.'}
             </p>
             <div className="flex items-center gap-3">
@@ -102,7 +103,8 @@ export default function Footer() {
             <span className="text-gray-300 font-semibold">Risk:</span> Trading options and volatility strategies involves substantial risk of loss. You can lose more than your initial investment.
           </p>
           <p>
-            <span className="text-gray-300 font-semibold">Educational only:</span> Nothing on this site is financial advice or an investment recommendation. {siteConfig.legal.company} is not a registered investment adviser.
+            <span className="text-gray-300 font-semibold">Educational only:</span> Nothing on this site is financial advice or an investment recommendation. {siteConfig.legal.company} is not a registered investment adviser.{' '}
+            <Link href="/about" className="text-gray-300 underline decoration-gray-600 underline-offset-2 hover:text-white">Full disclosures</Link>
           </p>
           <p>
             <span className="text-gray-300 font-semibold">Past performance:</span> Historical and backtested data has limitations. Past performance is not indicative of future results.
@@ -111,7 +113,11 @@ export default function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-6 pt-5 border-t border-gray-800 text-xs text-gray-500">
           <span>© {siteConfig.legal.year} {siteConfig.legal.company}. All rights reserved.</span>
-          <span>Built with care for traders.</span>
+          <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <Link href="/about#terms" className="hover:text-white">Terms</Link>
+            <Link href="/about#privacy" className="hover:text-white">Privacy</Link>
+            <Link href="/about#sms" className="hover:text-white">Text messages</Link>
+          </span>
         </div>
       </div>
     </footer>

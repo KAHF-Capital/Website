@@ -63,7 +63,7 @@ function Notice({ tone = 'error', children }) {
 
 function StartTexting({ config }) {
   if (!config.kimiNumber) {
-    return <Notice tone="warn">Kimi&apos;s texting number isn&apos;t configured yet. Your alerts settings are saved and texts start once it&apos;s live.</Notice>;
+    return <Notice tone="warn">Kaia&apos;s texting number isn&apos;t configured yet. Your alerts settings are saved and texts start once it&apos;s live.</Notice>;
   }
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-green-200 bg-green-50/60 p-5 text-center md:flex-row md:text-left">
@@ -71,14 +71,14 @@ function StartTexting({ config }) {
         <QrCode value={`${config.smsHref}`} size={148} />
       </div>
       <div className="flex-1">
-        <h3 className="font-bold text-gray-900">Start texting Kimi</h3>
+        <h3 className="font-bold text-gray-900">Start texting Kaia</h3>
         <p className="mt-1 text-sm text-gray-600">
           <span className="hidden md:inline">Scan with your phone camera to open a text to </span>
           <span className="md:hidden">Tap to open a text to </span>
           <span className="font-mono font-semibold text-gray-900">{config.kimiNumber}</span>. Try &quot;$NVDA&quot; or &quot;BT $NVDA&quot;.
         </p>
-        <a href={`${config.smsHref}${config.smsHref.includes('?') ? '&' : '?'}body=${encodeURIComponent('Hi Kimi')}`} className={`${btnPrimary} mt-3 md:hidden`}>
-          <Smartphone className="h-4 w-4" /> Start texting Kimi
+        <a href={`${config.smsHref}${config.smsHref.includes('?') ? '&' : '?'}body=${encodeURIComponent('Hi Kaia')}`} className={`${btnPrimary} mt-3 md:hidden`}>
+          <Smartphone className="h-4 w-4" /> Start texting Kaia
         </a>
       </div>
     </div>
@@ -119,7 +119,7 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
       const res = await api('/api/kimi/onboarding', { method: 'POST', body: { action: 'verify', code, consent, consent_version: config.consent.version } });
       onVerified();
       onProfile(res.profile);
-      setDone(res.welcome_dry_run ? 'Verified. Dry run is on, so the welcome text was logged instead of sent.' : 'Verified. Kimi just texted you a welcome message.');
+      setDone(res.welcome_dry_run ? 'Verified. Dry run is on, so the welcome text was logged instead of sent.' : 'Verified. Kaia just texted you a welcome message.');
       setChanging(false);
       setSent(null);
       setCode('');
@@ -146,7 +146,7 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
   if (verified) {
   return (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <Card title="Your number" subtitle="Kimi texts this number and answers texts from it.">
+        <Card title="Your number" subtitle="Kaia texts this number and answers texts from it.">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-6 w-6 text-green-600" />
           <div>
@@ -168,7 +168,7 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
             </button>
         </div>
         </Card>
-        <Card title="Text Kimi">
+        <Card title="Text Kaia">
           <StartTexting config={config} />
           <p className="mt-4 text-xs leading-relaxed text-gray-500">
             Reply MORE to an alert for details, BT to backtest it, PAUSE to mute alerts for 24h, HELP for help, STOP to cancel.
@@ -180,7 +180,7 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-      <Card title="Connect your phone" subtitle="Verify your number, then opt in to Kimi's texts.">
+      <Card title="Connect your phone" subtitle="Verify your number, then opt in to Kaia's texts.">
         <form onSubmit={sendCode} className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600" htmlFor="kimi-phone">
             1. Mobile number
@@ -211,7 +211,10 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600" />
                         <span className="text-xs leading-relaxed text-gray-700">
               <span className="font-semibold text-gray-900">3. </span>
-              {config.consent.text}
+              {config.consent.text}{' '}
+              <Link href="/about#sms" onClick={(e) => e.stopPropagation()} className="font-semibold text-green-700 hover:text-green-800">Text terms</Link>
+              {' · '}
+              <Link href="/about#privacy" onClick={(e) => e.stopPropagation()} className="font-semibold text-green-700 hover:text-green-800">Privacy</Link>
                         </span>
                       </label>
           {error && <Notice>{error}</Notice>}
@@ -228,7 +231,7 @@ function SetupPanel({ api, profile, config, onProfile, onVerified }) {
             <Bell className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> A text when KAHF&apos;s dark pool backend flags an unusual print, filtered by your watchlist and limits.
           </li>
           <li className="flex gap-2.5">
-            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> Reply BT and Kimi backtests call, put and straddle structures on it, then texts you the ranking.
+            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> Reply BT and Kaia backtests call, put and straddle structures on it, then texts you the ranking.
           </li>
           <li className="flex gap-2.5">
             <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> Quiet hours, daily caps, digests and PAUSE whenever you want fewer texts.
@@ -300,7 +303,7 @@ function ChatPanel({ api }) {
   };
 
                         return (
-    <Card title="Chat with Kimi" subtitle="One conversation and memory across iMessage, SMS and the web.">
+    <Card title="Chat with Kaia" subtitle="One conversation and memory across iMessage, SMS and the web.">
       <div className="flex h-[520px] flex-col">
         <div className="flex-1 space-y-3 overflow-y-auto rounded-xl bg-gray-50 p-4">
           {!messages.length && <p className="py-16 text-center text-sm text-gray-500">Ask about a ticker ($NVDA), reply MORE to an alert, or type BT $CSX to compare structures.</p>}
@@ -338,7 +341,7 @@ function ChatPanel({ api }) {
           })}
           {busy && (
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Kimi is typing…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Kaia is typing…
             </div>
           )}
           {running.length > 0 && !busy && (
@@ -363,7 +366,7 @@ function ChatPanel({ api }) {
           }}
           className="mt-2 flex gap-2"
         >
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Text Kimi…" className={inputCls} maxLength={2000} />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Text Kaia…" className={inputCls} maxLength={2000} />
           <button type="submit" className={btnPrimary} disabled={busy || !text.trim()}>
             <Send className="h-4 w-4" /> Send
                     </button>
@@ -416,7 +419,7 @@ function AlertsPanel({ api }) {
       {!alerts ? (
         <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
       ) : !alerts.length ? (
-        <p className="py-10 text-center text-sm text-gray-500">No alerts yet. They&apos;ll show up here as Kimi texts them.</p>
+        <p className="py-10 text-center text-sm text-gray-500">No alerts yet. They&apos;ll show up here as Kaia texts them.</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
           {alerts.map((a) => (
@@ -466,7 +469,7 @@ function BacktestsPanel({ api }) {
       .catch((err) => setError(err.message));
   }, [api]);
   return (
-    <Card title="Your backtests" subtitle="Text BT $TICKER, reply BT to an alert, or ask Kimi to compare structures.">
+    <Card title="Your backtests" subtitle="Text BT $TICKER, reply BT to an alert, or ask Kaia to compare structures.">
       {error && <Notice>{error}</Notice>}
       {!rows ? (
         <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
@@ -632,7 +635,7 @@ function PreferencesPanel({ api, profile, config, onProfile }) {
         </div>
       </Card>
 
-      <Card title="When Kimi texts">
+      <Card title="When Kaia texts">
         <div className="grid gap-4 md:grid-cols-2">
                     <div>
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-600">Timezone</label>
@@ -734,15 +737,15 @@ export default function KimiHub() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Head>
-        <title>Kimi · KAHF Capital</title>
+        <title>Kaia · KAHF Capital</title>
         <meta name="robots" content="noindex" />
       </Head>
       <Header />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Kimi by KAHF Capital</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-gray-900">Your Kimi</h1>
+            <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Kaia by KAHF Capital</p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-gray-900">Your Kaia</h1>
           </div>
           {statusPill && <span className={`self-start rounded-full px-3 py-1 text-xs font-semibold sm:self-auto ${statusPill[1]}`}>{statusPill[0]}</span>}
                 </div>
@@ -757,7 +760,7 @@ export default function KimiHub() {
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
         ) : !signedIn ? (
           <Card className="mx-auto max-w-lg text-center">
-            <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Kimi</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Kaia</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-gray-900">She texts you when a read clears.</h2>
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Start a 7-day free trial. After checkout, sign in with that email and connect your phone. That’s the whole setup.

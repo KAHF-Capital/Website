@@ -7,8 +7,10 @@ import { useAuth } from '../context/AuthContext';
 import { track } from '../../lib/analytics';
 
 const navigationItems = [
-  { href: '/kimi', label: 'Kimi', primary: true },
-  { href: '/wins', label: 'Track Record' }
+  { href: '/kimi', label: 'Kaia', primary: true },
+  { href: '/wins', label: 'Track Record' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/about', label: 'About' }
 ];
 
 export default function Header() {
@@ -152,12 +154,12 @@ export default function Header() {
           <Link href="/" className="flex items-center space-x-2.5">
             <img
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/87af3bb58_image.png"
-              alt={isHome ? 'Kimmy by KAHF Capital' : 'KAHF Capital Logo'}
+              alt={isHome ? 'Kaia by KAHF Capital' : 'KAHF Capital Logo'}
               className="h-9 w-auto"
             />
             <div>
               <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-none whitespace-nowrap">
-                {isHome ? 'Kimmy' : 'KAHF Capital'}
+                {isHome ? 'Kaia' : 'KAHF Capital'}
               </h1>
               <p className={`text-[10px] text-gray-500 uppercase tracking-wider mt-0.5 ${isHome ? 'block' : 'hidden sm:block'}`}>
                 {isHome ? 'by KAHF Capital' : 'Dark Pool Insights'}

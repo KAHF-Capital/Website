@@ -60,7 +60,7 @@ export default function KimiBacktestResult() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Head>
-        <title>{job ? `$${job.ticker} backtest · Kimi` : 'Backtest · Kimi'}</title>
+        <title>{job ? `$${job.ticker} backtest · Kaia` : 'Backtest · Kaia'}</title>
         <meta name="robots" content="noindex" />
       </Head>
       <Header />
@@ -148,7 +148,7 @@ export default function KimiBacktestResult() {
                   <p className="mt-3 text-xs text-gray-500">Not evaluated: {job.errors.map((e) => `${e.structure} (${e.error})`).join('; ')}</p>
                 )}
                 <p className="mt-3 text-xs leading-relaxed text-gray-500">
-                  Trades and win rate come from KAHF&apos;s backtest API (runHistoricalAnalysis) using the live ATM premium. Average and median return, drawdown, Sharpe and P&amp;L are hold-to-expiry payoffs Kimi computed from the same historical windows; they are shown only when they reproduce the API&apos;s own trade and win counts.
+                  Trades and win rate come from KAHF&apos;s backtest API (runHistoricalAnalysis) using the live ATM premium. Average and median return, drawdown, Sharpe and P&amp;L are hold-to-expiry payoffs Kaia computed from the same historical windows; they are shown only when they reproduce the API&apos;s own trade and win counts.
                 </p>
               </section>
             )}

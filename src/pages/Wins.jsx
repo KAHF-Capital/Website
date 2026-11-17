@@ -42,8 +42,8 @@ export default function Wins() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>Kimi’s Track Record — KAHF Capital</title>
-        <meta name="description" content="Public track record of the reads Kimi texts. Each one is marked to the live options market, wins and losses included." />
+        <title>Kaia’s Track Record — KAHF Capital</title>
+        <meta name="description" content="Public track record of the reads Kaia texts. Each one is marked to the live options market, wins and losses included." />
       </Head>
       <Header />
 
@@ -55,7 +55,7 @@ export default function Wins() {
               Public · Marked to the live market
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-              Kimi’s track record
+              Kaia’s track record
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Every read she would text, marked to the live options market. Wins, losses, and open marks stay on the page.
@@ -176,7 +176,7 @@ export default function Wins() {
               )}
 
               <div className="mt-10 rounded-3xl bg-gray-900 px-6 py-10 text-center">
-                <p className="text-sm font-semibold uppercase tracking-wider text-green-300">Kimi by KAHF Capital</p>
+                <p className="text-sm font-semibold uppercase tracking-wider text-green-300">Kaia by KAHF Capital</p>
                 <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">These are the texts.</h2>
                 <p className="mx-auto mt-3 max-w-lg text-sm text-gray-300">
                   Start a 7-day free trial. After checkout, connect your phone and she texts you when a read clears the same gates.

@@ -70,7 +70,7 @@ export default function KimiAlert() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Head>
-        <title>{a ? `$${a.ticker} alert · Kimi` : 'Alert · Kimi'}</title>
+        <title>{a ? `$${a.ticker} alert · Kaia` : 'Alert · Kaia'}</title>
         <meta name="robots" content="noindex" />
       </Head>
       <Header />

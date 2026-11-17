@@ -114,8 +114,8 @@ export default function Account() {
                     </p>
                     <p className="text-sm text-green-700">
                       {userData?.subscription?.status === 'trialing'
-                        ? 'Your trial includes Kimi’s texts. Connect your phone if you haven’t yet.'
-                        : 'Kimi texts this account when a read clears.'}
+                        ? 'Your trial includes Kaia’s texts. Connect your phone if you haven’t yet.'
+                        : 'Kaia texts this account when a read clears.'}
                     </p>
                   </div>
                 </div>
@@ -126,7 +126,7 @@ export default function Account() {
                     className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                   >
                     <Zap className="h-4 w-4 mr-2" />
-                    Open Kimi
+                    Open Kaia
                   </Link>
                 <a
                   href={siteConfig.manageBillingUrl}
@@ -141,7 +141,7 @@ export default function Account() {
             ) : (
               <div className="space-y-4">
                 <p className="text-gray-600">
-                  Kimi’s texts start with a 7-day free trial. After checkout, connect your phone and she can text you.
+                  Kaia’s texts start with a 7-day free trial. After checkout, connect your phone and she can text you.
                 </p>
                 <Link
                   href="/pricing"
@@ -180,7 +180,7 @@ export default function Account() {
             </div>
             <div className="flex gap-2 mt-3 text-sm">
               <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Kimi texts me when she finds a tradeable read. Her track record is public.')}&url=${encodeURIComponent(refLink)}`}
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Kaia texts me when she finds a tradeable read. Her track record is public.')}&url=${encodeURIComponent(refLink)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => track('referral_share_clicked', { channel: 'twitter' })}

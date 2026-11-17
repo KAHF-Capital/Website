@@ -694,7 +694,7 @@ function Switches({ api }) {
       <button
         type="button"
         disabled={busy || state.env.dry_run}
-        onClick={() => change({ dry_run: !state.dry_run }, state.dry_run ? 'Turn dry run off? Kimi will send real texts.' : 'Turn dry run on? Kimi will stop texting.')}
+        onClick={() => change({ dry_run: !state.dry_run }, state.dry_run ? 'Turn dry run off? Kaia will send real texts.' : 'Turn dry run on? Kaia will stop texting.')}
         className={`rounded-lg px-3 py-1.5 text-xs font-bold ${state.dry_run ? 'bg-amber-100 text-amber-800' : 'bg-gray-900 text-white'} disabled:cursor-not-allowed`}
         title={state.env.dry_run ? 'KIMI_DRY_RUN=true in the environment; it cannot be turned off from here.' : 'Toggle dry run'}
       >
@@ -814,7 +814,7 @@ export default function KimiAdmin() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Kimi admin · KAHF Capital</title>
+        <title>Kaia admin · KAHF Capital</title>
         <meta name="robots" content="noindex" />
       </Head>
       <Header />
@@ -822,7 +822,7 @@ export default function KimiAdmin() {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Admin</p>
-            <h1 className="text-3xl font-black tracking-tight text-gray-900">Kimi usage</h1>
+            <h1 className="text-3xl font-black tracking-tight text-gray-900">Kaia usage</h1>
             {result?.admin?.email && <p className="mt-0.5 text-xs text-gray-500">Signed in as {result.admin.email}</p>}
           </div>
           {signedIn && <Switches api={api} />}

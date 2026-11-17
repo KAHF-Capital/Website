@@ -13,7 +13,7 @@ const STEPS = [
   {
     icon: Sparkles,
     title: 'She reads the tape',
-    body: 'Kimmy watches off-exchange prints. She looks at notional size, the average price, and whether today’s volume is unusual versus the recent average.'
+    body: 'Kaia watches off-exchange prints. She looks at notional size, the average price, and whether today’s volume is unusual versus the recent average.'
   },
   {
     icon: ShieldCheck,
@@ -52,8 +52,8 @@ const GATES = [
 
 const FAQ = [
   {
-    q: 'Who is Kimmy?',
-    a: 'Kimmy is an AI trading assistant from KAHF Capital. She watches unusual dark pool flow, scores a tradeable read, and texts you when one clears. You place the trade. She keeps the record public.'
+    q: 'Who is Kaia?',
+    a: 'Kaia is an AI trading assistant from KAHF Capital. She watches unusual dark pool flow, scores a tradeable read, and texts you when one clears. You place the trade. She keeps the record public.'
   },
   {
     q: 'When does she text?',
@@ -103,11 +103,11 @@ function Incoming({ children }) {
   );
 }
 
-function KimmyText({ alert, loading }) {
+function KaiaText({ alert, loading }) {
   return (
     <div className="relative mx-auto w-full max-w-[340px]">
       <div className="absolute -inset-8 rounded-full bg-green-300/30 blur-3xl pointer-events-none" aria-hidden="true" />
-      <div className="relative rounded-[2.4rem] bg-gray-900 p-2.5 shadow-2xl shadow-gray-900/20" aria-label="A text from Kimmy">
+      <div className="relative rounded-[2.4rem] bg-gray-900 p-2.5 shadow-2xl shadow-gray-900/20" aria-label="A text from Kaia">
         <div className="overflow-hidden rounded-[1.9rem] bg-[#f6f7f4]">
           <div className="flex h-6 items-end justify-center">
             <div className="h-4 w-24 rounded-b-2xl bg-gray-900" />
@@ -118,7 +118,7 @@ function KimmyText({ alert, loading }) {
               <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-[#f6f7f4]" />
             </div>
             <div>
-              <div className="text-sm font-semibold leading-none text-gray-900">Kimmy</div>
+              <div className="text-sm font-semibold leading-none text-gray-900">Kaia</div>
               <div className="mt-1 text-[11px] text-green-700">KAHF Capital</div>
             </div>
           </div>
@@ -171,7 +171,7 @@ function KimmyText({ alert, loading }) {
         {loading
           ? 'Loading her latest read.'
           : alert
-            ? `A real read Kimmy scored on ${fmtDate(alert.date)}.`
+            ? `A real read Kaia scored on ${fmtDate(alert.date)}.`
             : 'Sample of the text she sends.'}
       </p>
     </div>
@@ -213,13 +213,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <Head>
-        <title>Kimmy by KAHF Capital — She texts you when she finds a trade</title>
+        <title>Kaia by KAHF Capital — She texts you when she finds a trade</title>
         <meta
           name="description"
-          content="Kimmy is an AI trading assistant from KAHF Capital. She texts you every time she finds a tradeable read. See her public track record and top trades."
+          content="Kaia is an AI trading assistant from KAHF Capital. She texts you every time she finds a tradeable read. See her public track record and top trades."
         />
-        <meta property="og:title" content="Kimmy by KAHF Capital — She texts you when she finds a trade" />
-        <meta property="og:description" content="Kimmy texts you every time she finds a tradeable read. Her track record and top trades are public." />
+        <meta property="og:title" content="Kaia by KAHF Capital — She texts you when she finds a trade" />
+        <meta property="og:description" content="Kaia texts you every time she finds a tradeable read. Her track record and top trades are public." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={siteConfig.url} />
         <meta name="twitter:card" content="summary_large_image" />
@@ -234,10 +234,10 @@ export default function Home() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              Kimmy by KAHF Capital
+              Kaia by KAHF Capital
             </div>
             <h1 className="text-4xl font-black leading-[1.05] tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-              Meet Kimmy.
+              Meet Kaia.
               <span className="mt-2 block text-green-600">She texts you when she finds a trade.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600">
@@ -249,7 +249,7 @@ export default function Home() {
                 onClick={() => track('home_cta_clicked', { source: 'hero', product: 'kimmy' })}
                 className="inline-flex items-center justify-center rounded-xl bg-green-600 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-green-600/20 transition-colors hover:bg-green-700"
               >
-                Get Kimmy’s texts
+                Get Kaia’s texts
               </Link>
               <a
                 href="#track-record"
@@ -260,7 +260,7 @@ export default function Home() {
             </div>
             <p className="mt-4 text-sm text-gray-500">7-day free trial. Cancel anytime.</p>
           </div>
-          <KimmyText alert={featured} loading={loading} />
+          <KaiaText alert={featured} loading={loading} />
         </div>
       </section>
 
@@ -269,7 +269,7 @@ export default function Home() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-green-700">Public record</p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Kimmy’s track record</h2>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Kaia’s track record</h2>
               <p className="mt-3 max-w-2xl leading-relaxed text-gray-600">
                 Every scored read, marked to the live options market. The chart is a hypothetical $100,000 account putting $5,000 on each text. Wins and losses both stay on the page.
               </p>
@@ -317,16 +317,16 @@ export default function Home() {
           <blockquote className="text-2xl font-semibold leading-snug tracking-tight text-gray-900 sm:text-3xl">
             “I text when a read clears every gate.”
           </blockquote>
-          <p className="mt-4 text-sm text-gray-500">Kimmy · AI trading assistant</p>
+          <p className="mt-4 text-sm text-gray-500">Kaia · AI trading assistant</p>
         </div>
       </section>
 
       <section className="bg-gray-50 px-4 py-16">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto mb-10 max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">How Kimmy works</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">How Kaia works</h2>
             <p className="mt-3 leading-relaxed text-gray-600">
-              A dark pool is where large orders trade away from the public exchange. The size and the price hit the tape after the print. Kimmy reads that tape, then texts you.
+              A dark pool is where large orders trade away from the public exchange. The size and the price hit the tape after the print. Kaia reads that tape, then texts you.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -355,7 +355,7 @@ export default function Home() {
             <p className="text-xs font-semibold uppercase tracking-wider text-green-700">The standard</p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">What counts as a tradeable read</h2>
             <p className="mt-4 leading-relaxed text-gray-600">
-              Kimmy texts when a name clears every gate on the day of the print. One miss and it stays off your phone.
+              Kaia texts when a name clears every gate on the day of the print. One miss and it stays off your phone.
             </p>
           </div>
           <ul className="space-y-3">
@@ -395,12 +395,12 @@ export default function Home() {
         <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gray-900 px-6 py-14 text-center sm:px-12">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(22,163,74,0.28),transparent_55%)]" aria-hidden="true" />
           <div className="relative">
-            <p className="text-sm font-semibold uppercase tracking-wider text-green-300">Kimmy by KAHF Capital</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-green-300">Kaia by KAHF Capital</p>
             <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-4xl">
               She’ll text you when a tradeable read clears.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-gray-300">
-              Start a 7-day free trial. Kimmy watches the tape. You get the text, and the record stays public.
+              Start a 7-day free trial. Kaia watches the tape. You get the text, and the record stays public.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link

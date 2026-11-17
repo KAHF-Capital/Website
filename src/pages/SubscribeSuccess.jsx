@@ -60,8 +60,8 @@ export default function SubscribeSuccess() {
         setStatus('success');
         setMessage(
           data.emailMismatch
-            ? `Pro is unlocked on this account. Checkout used ${data.sessionEmail}. Connect your phone and Kimi can text you.`
-            : 'Pro is unlocked. Connect your phone and Kimi will text you when a read clears.'
+            ? `Pro is unlocked on this account. Checkout used ${data.sessionEmail}. Connect your phone and Kaia can text you.`
+            : 'Pro is unlocked. Connect your phone and Kaia will text you when a read clears.'
         );
         track('subscribe_claimed', { source: data.source, status: data.status });
       } catch (err) {
@@ -141,7 +141,7 @@ export default function SubscribeSuccess() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">One quick step</h1>
               <p className="text-gray-600 text-sm mb-8">
-                Payment received. Sign in or create an account with the <strong>same email</strong> you used at checkout. Then connect your phone so Kimi can text you.
+                Payment received. Sign in or create an account with the <strong>same email</strong> you used at checkout. Then connect your phone so Kaia can text you.
               </p>
               <div className="flex flex-col gap-3">
                 <Link

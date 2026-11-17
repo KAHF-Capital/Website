@@ -50,7 +50,7 @@ test('STOP opts out instantly with one confirmation; nothing more until START', 
   assert.equal((await getProfile('user_a')).opted_out_at, null);
   clock.advance(60000);
   await consumeSignal(makeSignal({ ticker: 'GL', found_at: new Date(clock.now).toISOString() }));
-  assert.match(provider.sent.at(-1).text, /^Kimi: \$GL/);
+  assert.match(provider.sent.at(-1).text, /^Kaia: \$GL/);
 });
 
 test('PAUSE mutes alerts for 24h and RESUME turns them back on', async () => {
@@ -69,7 +69,7 @@ test('PAUSE mutes alerts for 24h and RESUME turns them back on', async () => {
   assert.equal((await getProfile('user_a')).paused_until, null);
   clock.advance(60000);
   await consumeSignal(makeSignal({ ticker: 'GL', found_at: new Date(clock.now).toISOString() }));
-  assert.match(provider.sent.at(-1).text, /^Kimi: \$GL/);
+  assert.match(provider.sent.at(-1).text, /^Kaia: \$GL/);
 });
 
 test('STOP from an unknown number is honored at the phone level', async () => {
