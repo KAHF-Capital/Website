@@ -230,14 +230,13 @@ async function saveProcessedData(dateMap, sourceFile) {
 // processed data and push them to Blob. Incremental + non-fatal — a failure here
 // never blocks the dark-pool upload above.
 //
-// `ingestedDay` is the newest flat-file session this run wrote. The refresh
-// scores that session with the same walk-forward rules as the backtest, and
-// only when it is also the latest day on disk. A backlog of older files does
-// not create signals.
-function refreshTrackRecord(ingestedDay) {
-  console.log(`\n🔁 Refreshing track record + homepage reads (ingested through ${ingestedDay})...`);
+// Every flat file this run wrote is scored on that session's own day.
+function refreshTrackRecord(ingestedDays) {
+  console.log(`\n🔁 Refreshing track record for ${ingestedDays.join(', ')}...`);
   const script = path.join(__dirname, 'scripts', 'refresh-track-record.js');
-  const res = spawnSync(process.execPath, [script, '--signal-day', ingestedDay], { stdio: 'inherit', env: process.env });
+  const args = [script];
+  for (const day of ingestedDays) args.push('--signal-day', day);
+  const res = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
   if (res.error) {
     console.error(`⚠️  Track record refresh could not start: ${res.error.message}`);
   } else if (res.status !== 0) {
@@ -412,7 +411,7 @@ async function processAllCSV(forceReprocess = false) {
       .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
       .sort();
     if (ingestedDays.length > 0) {
-      refreshTrackRecord(ingestedDays[ingestedDays.length - 1]);
+      refreshTrackRecord(ingestedDays);
       refreshHistoryIndex(ingestedDays);
     }
 
