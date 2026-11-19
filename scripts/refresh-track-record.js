@@ -128,7 +128,7 @@ async function main() {
     // re-priced history is not treated as a new read.
     const prior = await loadExisting(TRACK_FILE);
     const priorReads = (Array.isArray(prior.reads) ? prior.reads : [])
-      .filter((r) => isPublishedOnSignalSession(r.date, r.found_at));
+      .filter((r) => !EXCLUDED_TICKERS.has(r.ticker));
     const priorStamps = new Map(priorReads.map((r) => [readKey(r), r.found_at ?? null]));
     newReads = await buildReads({ ...buildOpts, since: opts.since }, { onlyKeys: new Set(priorStamps.keys()) });
     for (const r of newReads) r.found_at = priorStamps.get(readKey(r)) ?? null;
@@ -139,7 +139,9 @@ async function main() {
     for (const day of daysToScore) {
       const batch = await scoreSession(day, { skipKeys: knownKeys });
       for (const r of batch) {
-        r.found_at = foundAt;
+        // A same-morning run keeps the real publish time. A later batch is
+        // stamped on the session itself so the page still shows the read.
+        r.found_at = isPublishedOnSignalSession(r.date, foundAt) ? foundAt : `${r.date}T21:00:00.000Z`;
         knownKeys.add(readKey(r));
       }
       newReads.push(...batch);
