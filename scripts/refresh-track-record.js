@@ -121,6 +121,30 @@ async function main() {
   const daysToScore = requestedDays.length ? requestedDays : (liveDay ? [liveDay] : []);
   const buildOpts = { days: 9999, max: 100000, out: TRACK_FILE.replace('.json', '') };
 
+  const publish = async (added) => {
+    const byKey = new Map();
+    for (const r of [...existingReads, ...added]) {
+      if (!byKey.has(readKey(r))) byKey.set(readKey(r), r);
+    }
+    const merged = [...byKey.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+    const homepageDay = daysToScore.at(-1) || liveDay;
+    const topReads = merged
+      .filter((r) => r.date === homepageDay && !EXCLUDED_TICKERS.has(r.ticker))
+      .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0))
+      .slice(0, opts.top);
+    await writeBoth(TRACK_FILE, {
+      generated_at: new Date().toISOString(),
+      since: opts.since,
+      reads: merged
+    });
+    await writeBoth(TOP_FILE, {
+      generated_at: new Date().toISOString(),
+      signal_date: homepageDay,
+      reads: topReads
+    });
+    return merged.length;
+  };
+
   let newReads = [];
   if (opts.rebuild) {
     // --rebuild re-prices reads that were already published on their day; it
@@ -137,59 +161,27 @@ async function main() {
   } else {
     const foundAt = new Date().toISOString();
     for (const day of daysToScore) {
-      const batch = await scoreSession(day, { skipKeys: knownKeys });
-      for (const r of batch) {
-        // A same-morning run keeps the real publish time. A later batch is
-        // stamped on the session itself so the page still shows the read.
-        r.found_at = isPublishedOnSignalSession(r.date, foundAt) ? foundAt : `${r.date}T21:00:00.000Z`;
-        knownKeys.add(readKey(r));
+      try {
+        const batch = await scoreSession(day, { skipKeys: knownKeys });
+        for (const r of batch) {
+          // A same-morning run keeps the real publish time. A later batch is
+          // stamped on the session itself so the page still shows the read.
+          r.found_at = isPublishedOnSignalSession(r.date, foundAt) ? foundAt : `${r.date}T21:00:00.000Z`;
+          knownKeys.add(readKey(r));
+        }
+        newReads.push(...batch);
+        const total = await publish(newReads);
+        const names = batch.map((r) => r.ticker).join(', ') || 'none qualified';
+        console.error(`Saved ${day}: ${batch.length} tradeable read(s) (${names}). Track record now ${total}.`);
+      } catch (err) {
+        console.error(`Day ${day} failed. Earlier days in this batch are already saved. ${err.message}`);
       }
-      newReads.push(...batch);
     }
   }
-  console.error(`\nAdded ${newReads.length} new read(s).`);
-
-  // Merge (existing wins on any (ticker, day) collision).
-  const byKey = new Map();
-  for (const r of [...existingReads, ...newReads]) {
-    if (!byKey.has(readKey(r))) byKey.set(readKey(r), r);
+  if (opts.rebuild) {
+    await publish(newReads);
   }
-
-  // Every qualifying (ticker, day) stays. A later day does not replace an
-  // earlier one, and a higher hit rate does not erase a different session.
-  const liveReads = [];
-  const merged = [...byKey.values()]
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
-  for (const r of merged) {
-    if (liveDay && r.date === liveDay) liveReads.push(r);
-  }
-
-  await writeBoth(TRACK_FILE, {
-    generated_at: new Date().toISOString(),
-    since: opts.since,
-    reads: merged
-  });
-
-  // Homepage strip: ONLY signals from the latest ingested day, best edge first.
-  // 3x+ names from earlier days are not carried forward — a signal is live on
-  // its day or not at all. Empty when there's no fresh day (or nothing fired).
-  const topReads = liveReads
-    .filter((r) => !EXCLUDED_TICKERS.has(r.ticker))
-    .sort((a, b) => (b.asof_hit_rate || 0) - (a.asof_hit_rate || 0))
-    .slice(0, opts.top);
-
-  await writeBoth(TOP_FILE, {
-    generated_at: new Date().toISOString(),
-    signal_date: liveDay,
-    reads: topReads
-  });
-
-  console.error(`\n✅ Track record: ${merged.length} reads · Homepage: ${topReads.length} reads (signal day ${liveDay ?? 'none'}).`);
-
-  const publishedNew = merged.filter((r) => !knownKeys.has(readKey(r)));
-  if (publishedNew.length > 0 && !opts.rebuild) {
-    console.error(`📣 ${publishedNew.length} new read(s): ${publishedNew.map((r) => r.ticker).join(', ')}`);
-  }
+  console.error(`\nAdded ${newReads.length} new read(s) across ${daysToScore.length} session(s).`);
 }
 
 main().catch((e) => { console.error('Fatal:', e); process.exit(1); });

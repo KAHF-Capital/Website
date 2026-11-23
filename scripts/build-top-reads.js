@@ -97,17 +97,21 @@ function parseArgs() {
   return o;
 }
 
-async function fetchJson(url, tries = 3) {
+async function fetchJson(url, tries = 6) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
       const r = await fetch(url);
-      if (r.status === 429) { await new Promise((s) => setTimeout(s, 1500 * (i + 1))); continue; }
+      if (r.status === 429 || r.status >= 500) {
+        lastErr = new Error(`HTTP ${r.status}`);
+        await new Promise((s) => setTimeout(s, 2000 * (i + 1)));
+        continue;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.json();
     } catch (e) { lastErr = e; }
   }
-  throw lastErr;
+  throw lastErr || new Error('request failed');
 }
 
 const dayStr = (d) => d.toISOString().slice(0, 10);
@@ -141,7 +145,7 @@ async function isStock(ticker) {
   return result;
 }
 
-async function listContractsInRange(ticker, fromDate, toDate, asOf) {
+async function listContractsInRange(ticker, fromDate, toDate, asOf, spot) {
   const params = new URLSearchParams({
     underlying_ticker: ticker,
     'expiration_date.gte': fromDate,
@@ -150,19 +154,30 @@ async function listContractsInRange(ticker, fromDate, toDate, asOf) {
     apiKey: KEY
   });
   if (asOf) params.set('as_of', asOf);
-  const data = await fetchJson(`${API_BASE}/v3/reference/options/contracts?${params}`);
-  return data.results || [];
+  // A 1,000-row page is not the whole chain. Without a strike band the ATM
+  // put on a high-priced name never arrives, and the read is dropped.
+  if (spot > 0) {
+    params.set('strike_price.gte', String(Math.floor(spot * 0.8)));
+    params.set('strike_price.lte', String(Math.ceil(spot * 1.2)));
+  }
+  const out = [];
+  let url = `${API_BASE}/v3/reference/options/contracts?${params}`;
+  for (let page = 0; page < 5 && url; page++) {
+    const data = await fetchJson(url);
+    out.push(...(data.results || []));
+    if (!data.next_url) break;
+    url = data.next_url.includes('apiKey=') ? data.next_url : `${data.next_url}&apiKey=${KEY}`;
+  }
+  return out;
 }
 
 async function getOptionAggWithFallback(optionsTicker, date, maxLookback = 5) {
   let cursor = new Date(`${date}T12:00:00Z`);
   for (let i = 0; i <= maxLookback; i++) {
     const stamp = dayStr(cursor);
-    try {
-      const data = await fetchJson(`${API_BASE}/v2/aggs/ticker/${optionsTicker}/range/1/day/${stamp}/${stamp}?adjusted=true&apiKey=${KEY}`);
-      const bar = data.results?.[0];
-      if (bar && (bar.vw ?? bar.c ?? 0) > 0) return { price: bar.vw ?? bar.c };
-    } catch {}
+    const data = await fetchJson(`${API_BASE}/v2/aggs/ticker/${encodeURIComponent(optionsTicker)}/range/1/day/${stamp}/${stamp}?adjusted=true&apiKey=${KEY}`);
+    const bar = data.results?.[0];
+    if (bar && (bar.vw ?? bar.c ?? 0) > 0) return { price: bar.vw ?? bar.c };
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return null;
@@ -264,7 +279,7 @@ async function priceEntry(ticker, signalDate, targetDte) {
   const winFrom = minusDays(dayStr(target), 20);
   const winTo = (() => { const d = new Date(target); d.setUTCDate(d.getUTCDate() + 20); return dayStr(d); })();
 
-  const contracts = await listContractsInRange(ticker, winFrom, winTo, signalDate);
+  const contracts = await listContractsInRange(ticker, winFrom, winTo, signalDate, signalClose);
   if (contracts.length === 0) throw new Error('no contracts');
 
   const byExp = {};
@@ -470,17 +485,29 @@ export async function scoreSession(day, { skipKeys = null } = {}) {
   for (const s of signals) {
     const key = `${s.ticker}__${s.date}`;
     if (skipKeys && skipKeys.has(key)) continue;
-    try {
-      const scored = await scoreSignal(s, opts);
-      if (scored.skip) {
-        console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} ${scored.reason}`);
-        continue;
+    let scored = null;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        scored = await scoreSignal(s, opts);
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        if (!/429|HTTP 5|fetch|network|ECONN|ETIMEDOUT/i.test(e.message || '')) break;
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
-      reads.push(scored);
-      console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${scored.structure.padEnd(8)} [${scored.direction}] edge ${scored.asof_hit_rate}%  entry $${scored.entry_premium.toFixed(2)}  exp ${scored.expiration}`);
-    } catch (e) {
-      console.error(`  ✗  ${s.date} ${s.ticker.padEnd(6)} ${e.message}`);
     }
+    if (lastErr) {
+      console.error(`  ✗  ${s.date} ${s.ticker.padEnd(6)} ${lastErr.message}`);
+      continue;
+    }
+    if (scored.skip) {
+      console.error(`  ·  ${s.date} ${s.ticker.padEnd(6)} ${scored.reason}`);
+      continue;
+    }
+    reads.push(scored);
+    console.error(`  ✓  ${s.date} ${s.ticker.padEnd(6)} ${scored.structure.padEnd(8)} [${scored.direction}] edge ${scored.asof_hit_rate}%  entry $${scored.entry_premium.toFixed(2)}  exp ${scored.expiration}`);
   }
   return reads;
 }
